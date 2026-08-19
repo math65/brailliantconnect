@@ -34,6 +34,12 @@ final class DisplayAccess {
     private var index: [UInt32: Entry] = [:]
     /// Contents of the folders already enumerated, with the date they were read.
     private var contents: [UInt32: (entries: [Entry], read: Date)] = [:]
+    /// Top level of each storage, kept apart: a storage identifier and an
+    /// object identifier are both plain numbers and would collide in one
+    /// dictionary.
+    private var storageContents: [UInt32: (entries: [Entry], read: Date)] = [:]
+    /// The list of storages, which changes the moment a stick is plugged in.
+    private var storageList: (storages: [Storage], read: Date)?
 
     /// Conventional MTP identifier of the root.
     private static let root: UInt32 = 0xFFFF_FFFF
@@ -57,6 +63,8 @@ final class DisplayAccess {
             display = nil
             index.removeAll()
             contents.removeAll()
+            storageContents.removeAll()
+            storageList = nil
         }
     }
 
@@ -69,6 +77,8 @@ final class DisplayAccess {
         display = nil
         index.removeAll()
         contents.removeAll()
+        storageContents.removeAll()
+        storageList = nil
     }
 
     // MARK: - Reading
@@ -77,33 +87,96 @@ final class DisplayAccess {
         identifier == .rootContainer ? Self.root : UInt32(identifier.rawValue) ?? Self.root
     }
 
-    /// Remote path of a folder, rebuilt from the index.
-    private func path(of itemID: UInt32) -> String {
-        itemID == Self.root ? "/" : (index[itemID]?.path ?? "/")
+    /// What an identifier designates.
+    ///
+    /// Three kinds of container exist, and conflating them is what previously
+    /// left everything but the internal memory unreachable.
+    private enum Container {
+        /// The root, which holds one folder per storage and nothing else.
+        case root
+        /// The top level of a storage.
+        case storage(UInt32)
+        /// A folder inside a storage.
+        case folder(Entry)
+    }
+
+    /// Callers must already hold `queue`.
+    private func container(for identifier: NSFileProviderItemIdentifier) throws -> Container {
+        if identifier == .rootContainer { return .root }
+        if let storageID = StorageIdentifier.parse(identifier) { return .storage(storageID) }
+        let itemID = mtpIdentifier(identifier)
+        if itemID == Self.root { return .root }
+        return .folder(try entry(withID: itemID, identifier: identifier.rawValue))
+    }
+
+    /// Points the connection at a storage before acting on it.
+    ///
+    /// Every path is relative to its own storage, so the same "/documents"
+    /// exists on the internal memory and on a stick. Without this the second
+    /// one would silently resolve against the first.
+    ///
+    /// Callers must already hold `queue`.
+    private func target(_ storageID: UInt32?) throws -> Brailliant {
+        let display = try connection()
+        display.useStorage(storageID)
+        return display
+    }
+
+    /// The storages, cached as briefly as a folder listing: plugging a stick in
+    /// changes this list and nothing signals it.
+    ///
+    /// Callers must already hold `queue`.
+    private func storages() throws -> [Storage] {
+        if let cache = storageList, Date().timeIntervalSince(cache.read) < Self.freshness {
+            return cache.storages
+        }
+        let found = try target(nil).storages(refresh: true)
+        storageList = (found, Date())
+        return found
     }
 
     func contents(ofFolder identifier: NSFileProviderItemIdentifier) throws -> [NSFileProviderItem]
     {
         try queue.sync {
-            let itemID = mtpIdentifier(identifier)
-            if let cache = contents[itemID],
-                Date().timeIntervalSince(cache.read) < Self.freshness
-            {
-                return cache.entries.map { DisplayItem(entry: $0) }
-            }
             do {
-                let display = try connection()
-                let entries = try display.listDirectory(path(of: itemID))
-                    .filter { !MacJunk.matches($0.name) }
-                for entry in entries { index[entry.itemID] = entry }
-                contents[itemID] = (entries, Date())
-                return entries.map { DisplayItem(entry: $0) }
+                switch try container(for: identifier) {
+                case .root:
+                    return try storages().map { DisplayItem(storage: $0) }
+                case .storage(let storageID):
+                    return try list(
+                        "/", on: storageID,
+                        cached: storageContents[storageID],
+                        store: { self.storageContents[storageID] = $0 })
+                case .folder(let entry):
+                    return try list(
+                        entry.path, on: entry.storageID,
+                        cached: contents[entry.itemID],
+                        store: { self.contents[entry.itemID] = $0 })
+                }
             } catch {
                 Self.log.error("enumeration failed: \(String(describing: error))")
                 reset()
                 throw error
             }
         }
+    }
+
+    /// Lists one folder of one storage, through its cache.
+    ///
+    /// Callers must already hold `queue`.
+    private func list(
+        _ path: String, on storageID: UInt32,
+        cached: (entries: [Entry], read: Date)?,
+        store: ((entries: [Entry], read: Date)) -> Void
+    ) throws -> [NSFileProviderItem] {
+        if let cached, Date().timeIntervalSince(cached.read) < Self.freshness {
+            return cached.entries.map { DisplayItem(entry: $0) }
+        }
+        let entries = try target(storageID).listDirectory(path)
+            .filter { !MacJunk.matches($0.name) }
+        for entry in entries { index[entry.itemID] = entry }
+        store((entries, Date()))
+        return entries.map { DisplayItem(entry: $0) }
     }
 
     /// Looks up an entry, re-reading the tree if the index does not know it.
@@ -117,18 +190,28 @@ final class DisplayAccess {
     /// Callers must already hold `queue`.
     private func entry(withID itemID: UInt32, identifier: String) throws -> Entry {
         if let entry = index[itemID] { return entry }
-        let display = try connection()
-        for entry in try display.walk("/") { index[entry.itemID] = entry }
-        guard let entry = index[itemID] else {
-            throw MTPError.notFound(path: identifier)
+        // Every storage, not just the default one: an item on a plugged-in
+        // stick would otherwise be unreachable for no reason other than the
+        // process having been recycled since it was listed.
+        for storage in try storages() {
+            for entry in try target(storage.id).walk("/") { index[entry.itemID] = entry }
+            if let entry = index[itemID] { return entry }
         }
-        return entry
+        throw MTPError.notFound(path: identifier)
     }
 
     func item(for identifier: NSFileProviderItemIdentifier) throws -> NSFileProviderItem {
         if identifier == .rootContainer { return DisplayItem(root: true) }
         return try queue.sync {
-            DisplayItem(
+            if let storageID = StorageIdentifier.parse(identifier) {
+                guard let storage = try storages().first(where: { $0.id == storageID }) else {
+                    // The stick was pulled out: saying so is what makes the
+                    // folder disappear rather than hang.
+                    throw MTPError.notFound(path: identifier.rawValue)
+                }
+                return DisplayItem(storage: storage)
+            }
+            return DisplayItem(
                 entry: try entry(
                     withID: mtpIdentifier(identifier), identifier: identifier.rawValue))
         }
@@ -147,7 +230,7 @@ final class DisplayAccess {
             let destination = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
             do {
-                let display = try connection()
+                let display = try target(entry.storageID)
                 _ = try display.download(entry.path, to: destination.path, progress: progress)
                 return (destination, DisplayItem(entry: entry))
             } catch {
@@ -159,13 +242,29 @@ final class DisplayAccess {
 
     // MARK: - Writing
 
-    /// Remote path of the folder designated by an identifier.
+    /// Remote path of the folder designated by an identifier, and the storage
+    /// it belongs to.
     ///
     /// Callers must already hold `queue`.
-    private func folderPath(for identifier: NSFileProviderItemIdentifier) throws -> String {
-        let itemID = mtpIdentifier(identifier)
-        if itemID == Self.root { return "/" }
-        return try entry(withID: itemID, identifier: identifier.rawValue).path
+    private func folder(
+        for identifier: NSFileProviderItemIdentifier
+    ) throws -> (
+        path: String, storageID: UInt32
+    ) {
+        switch try container(for: identifier) {
+        case .root:
+            // The root names no storage, so a file dropped there has nowhere
+            // obvious to go. Refusing was tried and is worse: the system keeps
+            // the local copy, shows it, and never says it did not arrive. It
+            // goes to the first storage instead — the internal memory — which
+            // is where someone dropping a file on "the display" means it.
+            guard let first = try storages().first else { throw MTPError.noStorage }
+            return ("/", first.id)
+        case .storage(let storageID):
+            return ("/", storageID)
+        case .folder(let entry):
+            return (entry.path, entry.storageID)
+        }
     }
 
     /// Forgets what was cached about a folder, so the next listing is read again.
@@ -173,6 +272,19 @@ final class DisplayAccess {
     /// Callers must already hold `queue`.
     private func invalidate(folder itemID: UInt32) {
         contents.removeValue(forKey: itemID)
+    }
+
+    /// Same, for a container named by its identifier — which may be a storage.
+    ///
+    /// Callers must already hold `queue`.
+    private func invalidate(container identifier: NSFileProviderItemIdentifier) {
+        if let storageID = StorageIdentifier.parse(identifier) {
+            storageContents.removeValue(forKey: storageID)
+            // Free space changed, and that is part of what the root shows.
+            storageList = nil
+            return
+        }
+        invalidate(folder: mtpIdentifier(identifier))
     }
 
     /// Creates a file or a folder.
@@ -187,8 +299,9 @@ final class DisplayAccess {
             guard RemotePath.isSafeComponent(name) else {
                 throw MTPError.unsafeRemoteName(name)
             }
-            let destination = RemotePath.join(try folderPath(for: parent), name)
-            let display = try connection()
+            let (parentPath, storageID) = try folder(for: parent)
+            let destination = RemotePath.join(parentPath, name)
+            let display = try target(storageID)
 
             let created: Entry
             if isFolder {
@@ -201,7 +314,7 @@ final class DisplayAccess {
                     localContents.path, to: destination, progress: progress)
             }
             index[created.itemID] = created
-            invalidate(folder: mtpIdentifier(parent))
+            invalidate(container: parent)
             return DisplayItem(entry: created)
         }
     }
@@ -217,8 +330,9 @@ final class DisplayAccess {
         try queue.sync {
             let itemID = mtpIdentifier(identifier)
             var current = try entry(withID: itemID, identifier: identifier.rawValue)
-            let display = try connection()
             let originalParent = current.parentID
+            let originalStorage = current.storageID
+            let display = try target(originalStorage)
 
             // Contents first: replacing them goes through a temporary name, so
             // doing it after a rename would undo that rename.
@@ -227,29 +341,74 @@ final class DisplayAccess {
                     localContents.path, to: current.path, progress: progress)
             }
             if let newParent {
-                current = try display.move(current.path, toFolder: try folderPath(for: newParent))
+                let (parentPath, destinationStorage) = try folder(for: newParent)
+                if destinationStorage == current.storageID {
+                    current = try display.move(current.path, toFolder: parentPath)
+                } else {
+                    // MTP cannot move across storages: dragging from the stick
+                    // to the internal memory has to go through the Mac.
+                    current = try relocate(
+                        current, toFolder: parentPath, onStorage: destinationStorage,
+                        progress: progress)
+                }
             }
             if let newName, newName != current.name {
-                current = try display.rename(current.path, to: newName)
+                current = try target(current.storageID).rename(current.path, to: newName)
             }
 
             index[current.itemID] = current
-            invalidate(folder: originalParent)
-            invalidate(folder: current.parentID)
+            invalidate(parent: originalParent, on: originalStorage)
+            invalidate(parent: current.parentID, on: current.storageID)
             return DisplayItem(entry: current)
         }
     }
 
     /// Deletes an item, folders included.
+    /// Moves an item to another storage, by way of the Mac.
+    ///
+    /// The original is removed only once the copy has landed, so an interrupted
+    /// move loses nothing: at worst the file exists twice.
+    ///
+    /// Callers must already hold `queue`.
+    private func relocate(
+        _ entry: Entry, toFolder folder: String, onStorage storageID: UInt32,
+        progress: @escaping (UInt64, UInt64) -> Void
+    ) throws -> Entry {
+        let scratch = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: scratch) }
+
+        _ = try target(entry.storageID).download(
+            entry.path, to: scratch.path, progress: progress)
+        let copied = try target(storageID).upload(
+            scratch.path, to: RemotePath.join(folder, entry.name), progress: progress)
+        try target(entry.storageID).remove(entry.path)
+        index.removeValue(forKey: entry.itemID)
+        return copied
+    }
+
+    /// Forgets the cached listing of a parent, whether it is a folder or the
+    /// top level of a storage.
+    ///
+    /// Callers must already hold `queue`.
+    private func invalidate(parent parentID: UInt32, on storageID: UInt32) {
+        if parentID == 0 || parentID == Self.root {
+            storageContents.removeValue(forKey: storageID)
+            storageList = nil
+        } else {
+            contents.removeValue(forKey: parentID)
+        }
+    }
+
     func delete(_ identifier: NSFileProviderItemIdentifier) throws {
         try queue.sync {
             let itemID = mtpIdentifier(identifier)
-            let target = try entry(withID: itemID, identifier: identifier.rawValue)
+            let doomed = try entry(withID: itemID, identifier: identifier.rawValue)
             // The display has no trash: the Finder asking for a deletion means
             // the item goes for good.
-            try connection().remove(target.path, recursive: true)
+            try target(doomed.storageID).remove(doomed.path, recursive: true)
             index.removeValue(forKey: itemID)
-            invalidate(folder: target.parentID)
+            invalidate(parent: doomed.parentID, on: doomed.storageID)
             invalidate(folder: itemID)
         }
     }

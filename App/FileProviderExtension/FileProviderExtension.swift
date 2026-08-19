@@ -243,35 +243,50 @@ private final class Enumerator: NSObject, NSFileProviderEnumerator {
 final class DisplayItem: NSObject, NSFileProviderItem {
 
     private let entry: Entry?
-    private let isRoot: Bool
+    private let storage: Storage?
 
     init(entry: Entry) {
         self.entry = entry
-        self.isRoot = false
+        self.storage = nil
         super.init()
     }
 
     init(root: Bool) {
         self.entry = nil
-        self.isRoot = true
+        self.storage = nil
+        super.init()
+    }
+
+    /// A storage shown as a folder at the root.
+    ///
+    /// The display exposes its internal memory, and whatever is plugged into
+    /// it, as separate storages; a single-storage view would leave a USB stick
+    /// invisible with no way to reach it.
+    init(storage: Storage) {
+        self.entry = nil
+        self.storage = storage
         super.init()
     }
 
     var itemIdentifier: NSFileProviderItemIdentifier {
+        if let storage { return StorageIdentifier.make(storage.id) }
         guard let entry else { return .rootContainer }
         return NSFileProviderItemIdentifier(String(entry.itemID))
     }
 
     var parentItemIdentifier: NSFileProviderItemIdentifier {
+        if storage != nil { return .rootContainer }
         guard let entry else { return .rootContainer }
-        // The MTP root carries a sentinel identifier; the Finder expects its
-        // own root container instead.
-        return entry.parentID == 0xFFFF_FFFF || entry.parentID == 0
-            ? .rootContainer
-            : NSFileProviderItemIdentifier(String(entry.parentID))
+        // At the top of a storage the parent is that storage's folder, not the
+        // root: the root holds storages and nothing else.
+        if entry.parentID == 0xFFFF_FFFF || entry.parentID == 0 {
+            return StorageIdentifier.make(entry.storageID)
+        }
+        return NSFileProviderItemIdentifier(String(entry.parentID))
     }
 
     var filename: String {
+        if let storage { return StorageIdentifier.folderName(for: storage) }
         guard let entry else { return "Brailliant" }
         // A name unusable as a path component is neutralized rather than
         // handed to the file system as is.
@@ -279,6 +294,7 @@ final class DisplayItem: NSObject, NSFileProviderItem {
     }
 
     var contentType: UTType {
+        if storage != nil { return .folder }
         guard let entry else { return .folder }
         if entry.isDirectory { return .folder }
         let fileExtension = (entry.name as NSString).pathExtension
@@ -286,8 +302,14 @@ final class DisplayItem: NSObject, NSFileProviderItem {
     }
 
     var capabilities: NSFileProviderItemCapabilities {
-        // The root accepts new items but cannot itself be renamed, moved or
-        // deleted — it is the storage, not a folder on it.
+        // A storage folder takes new items but is not itself a real folder:
+        // renaming, moving or deleting it has no meaning on the display.
+        if storage != nil {
+            return [.allowsContentEnumerating, .allowsReading, .allowsAddingSubItems]
+        }
+        // The root holds storages, and accepts items: they land on the first
+        // storage. Refusing them here does not prevent the copy, it only stops
+        // it from ever reaching the display.
         guard let entry else {
             return [.allowsContentEnumerating, .allowsReading, .allowsAddingSubItems]
         }
@@ -325,5 +347,41 @@ final class DisplayItem: NSObject, NSFileProviderItem {
         return NSFileProviderItemVersion(
             contentVersion: Data(fingerprint.utf8),
             metadataVersion: Data(fingerprint.utf8))
+    }
+}
+
+// MARK: - Storage identifiers
+
+/// Identifiers for the storage folders shown at the root.
+///
+/// They must not be mistaken for an MTP object: those are plain numbers, so a
+/// prefix that cannot parse as one keeps the two apart with no ambiguity.
+enum StorageIdentifier {
+
+    private static let prefix = "storage:"
+
+    static func make(_ id: UInt32) -> NSFileProviderItemIdentifier {
+        NSFileProviderItemIdentifier(prefix + String(id))
+    }
+
+    /// The storage an identifier designates, or nil if it designates an object.
+    static func parse(_ identifier: NSFileProviderItemIdentifier) -> UInt32? {
+        guard identifier.rawValue.hasPrefix(prefix) else { return nil }
+        return UInt32(identifier.rawValue.dropFirst(prefix.count))
+    }
+
+    /// Name of the folder standing for a storage.
+    ///
+    /// The display names its storages "1- mémoire interne" and "3- usb": the
+    /// leading number is an internal index that means nothing to the person
+    /// reading it, and a slash would break the path outright.
+    static func folderName(for storage: Storage) -> String {
+        var name = storage.description.sanitizedForDisplay
+        if let range = name.range(of: #"^\s*\d+\s*-\s*"#, options: .regularExpression) {
+            name.removeSubrange(range)
+        }
+        name = name.replacingOccurrences(of: "/", with: "-")
+            .trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? "storage \(storage.id)" : name
     }
 }

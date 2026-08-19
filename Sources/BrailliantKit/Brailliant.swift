@@ -174,6 +174,15 @@ public final class Brailliant {
         return available[0]
     }
 
+    /// Directs subsequent operations at a storage, by identifier.
+    ///
+    /// The Finder extension needs this: it shows one folder per storage, so it
+    /// already knows which one every request concerns and has nothing to match
+    /// on. Passing nil goes back to the first storage.
+    public func useStorage(_ id: UInt32?) {
+        preferredStorageID = id
+    }
+
     /// Chooses the target storage from a number ("2") or from a fragment of its
     /// name ("usb", "interne", "sd").
     ///

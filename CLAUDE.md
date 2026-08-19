@@ -130,6 +130,26 @@ Each of these produces an error that points somewhere other than its cause.
 - **MTP emits no change notifications.** Anything edited on the display itself
   goes unnoticed until re-enumeration.
 
+## Storages
+
+The root of the domain holds **one folder per storage**, never files: the
+extension used to call `defaultStorage()` everywhere, which left a USB stick
+plugged into the display invisible with no way to reach it. Consequences:
+
+- storage folders carry a `storage:<id>` identifier. MTP object identifiers are
+  plain numbers, so the prefix is what keeps the two from being confused.
+- every path is relative to its own storage — `/documents` exists on both — so
+  `DisplayAccess.target(_:)` points the connection at the right one before each
+  operation. Nothing calls `connection()` directly any more.
+- rebuilding the index after the extension is recycled walks **every** storage,
+  or an item on the stick becomes unreachable for having been listed by a
+  previous process.
+- MTP cannot move across storages: that case downloads and re-uploads, and only
+  deletes the original once the copy has landed.
+- a file dropped at the root goes to the first storage. Refusing it was tried
+  and is worse — the system keeps the local copy, displays it, and never says
+  it did not arrive.
+
 ## Transfers
 
 Writing is asynchronous and the Finder hides it: `cp` into the location returns

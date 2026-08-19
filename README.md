@@ -42,6 +42,16 @@ with every session, and the display shows up in `~/Brailliant` whenever it is
 connected. An item in the menu bar says whether the display is there, opens it
 in the Finder, and can uninstall everything.
 
+### One folder per storage
+
+`~/Brailliant` lists what the display exposes, one folder each: **mémoire
+interne**, and **usb** when a stick is plugged into the display. Files live one
+level down — `~/Brailliant/mémoire interne/documents`.
+
+Dropping a file at the root, which names no storage, sends it to the internal
+memory. Dragging between two storages works and goes through the Mac, since MTP
+cannot move an object across storages by itself.
+
 ### Copying takes longer than the Finder lets on
 
 Dropping a file into `~/Brailliant` returns instantly: macOS writes a local copy
