@@ -162,6 +162,12 @@ public enum L {
         // MARK: The agent's own messages
 
         "agent started": "agent démarré",
+        "display connected — location published, in the Finder sidebar":
+            "plage branchée — emplacement publié, dans la barre latérale du Finder",
+        "~/%@ is a link to something else — shortcut not created":
+            "~/%@ est un lien vers autre chose — raccourci non créé",
+        "~/%@ already exists — shortcut not created":
+            "~/%@ existe déjà — raccourci non créé",
         "display connected — location published in ~/%@":
             "plage branchée — emplacement publié dans ~/%@",
         "display connected but publishing failed: %@":

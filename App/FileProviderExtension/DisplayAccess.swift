@@ -383,6 +383,12 @@ final class DisplayAccess {
         _ entry: Entry, toFolder folder: String, onStorage storageID: UInt32,
         progress: @escaping (UInt64, UInt64) -> Void
     ) throws -> Entry {
+        // Refused rather than repaired: renaming someone's file behind their
+        // back during a move is worse than declining the move. The name is the
+        // display's, and nothing guarantees it is usable.
+        guard RemotePath.isSafeComponent(entry.name) else {
+            throw MTPError.unsafeRemoteName(entry.name)
+        }
         let scratch = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: scratch) }

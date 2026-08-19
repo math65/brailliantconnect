@@ -295,9 +295,13 @@ final class DisplayItem: NSObject, NSFileProviderItem {
     var filename: String {
         if let storage { return StorageIdentifier.folderName(for: storage) }
         guard let entry else { return "Brailliant" }
-        // A name unusable as a path component is neutralized rather than
-        // handed to the file system as is.
-        return entry.hasSafeName ? entry.name : entry.displayName
+        // A name unusable as a path component is neutralized rather than handed
+        // to the file system as is. `displayName` was doing this job and does
+        // not do it: it strips control characters and leaves "..", "." and
+        // "a/b" exactly as the display sent them.
+        return entry.hasSafeName
+            ? entry.name
+            : RemotePath.safeComponent(entry.name, fallback: "item-\(entry.itemID)")
     }
 
     var contentType: UTType {
@@ -383,12 +387,13 @@ enum StorageIdentifier {
     /// leading number is an internal index that means nothing to the person
     /// reading it, and a slash would break the path outright.
     static func folderName(for storage: Storage) -> String {
-        var name = storage.description.sanitizedForDisplay
+        var name = storage.description
         if let range = name.range(of: #"^\s*\d+\s*-\s*"#, options: .regularExpression) {
             name.removeSubrange(range)
         }
-        name = name.replacingOccurrences(of: "/", with: "-")
-            .trimmingCharacters(in: .whitespaces)
-        return name.isEmpty ? "storage \(storage.id)" : name
+        // The name comes from the device, so it is not trusted: a storage
+        // announcing itself as ".." would otherwise become a folder called ".."
+        // in the user's home.
+        return RemotePath.safeComponent(name, fallback: "storage \(storage.id)")
     }
 }

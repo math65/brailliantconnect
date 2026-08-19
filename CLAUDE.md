@@ -182,6 +182,27 @@ cannot have. Two traps in it:
 - it emits no reliable final change when the last file lands, so a one-second
   timer is armed **only while a transfer runs** to catch the end.
 
+## Security properties
+
+Worth preserving deliberately, since a change elsewhere can quietly undo them:
+
+- **The code that parses device data is the code that is confined.** libmtp is
+  C, fed by whatever the USB device sends. The extension links it and **is
+  sandboxed**; the agent is *not* sandboxed and **does not link libmtp** at
+  all. `brailliant` links it outside any sandbox — that is the exposed surface,
+  and one more reason it is an instrument rather than the product.
+- **Names from the device are not path components.** `sanitizedForDisplay`
+  removes control characters and leaves `..`, `.`, `a/b` intact; only
+  `RemotePath.safeComponent` yields something a file system may be handed.
+  Storage names go through it too — a storage calling itself `..` would
+  otherwise become a folder of that name in the user's home.
+- **Never delete what was not created here.** `createShortcut` overwrote
+  `~/Brailliant` unconditionally, which would have destroyed a real folder of
+  that name, recursively and without a Trash. Both the creation and the removal
+  now check the symlink target.
+- `make-dist.sh` refuses to package a bundle carrying `get-task-allow`: a debug
+  build would ship an agent any process could attach to.
+
 ## Accessibility
 
 The author uses a braille display with a screen reader, and so do the intended

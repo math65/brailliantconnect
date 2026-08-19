@@ -48,6 +48,29 @@ public enum RemotePath {
     /// neither "..", nor "/", nor control characters. Such a name, concatenated
     /// onto a destination folder, would make it possible to write outside that
     /// folder.
+    /// Turns any name into one usable as a single path component.
+    ///
+    /// `sanitizedForDisplay` neutralizes control characters, which is enough to
+    /// print a name and not enough to hand it to a file system: it leaves "..",
+    /// ".", "a/b" and "a\\b" untouched. Anything shown to the system as a file
+    /// or folder name must go through here instead.
+    ///
+    /// Separators are replaced rather than rejected, so a name stays
+    /// recognisable; only names that are entirely unusable fall back.
+    public static func safeComponent(
+        _ name: String, fallback: @autoclosure () -> String
+    )
+        -> String
+    {
+        var result = name.sanitizedForDisplay
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: "\\", with: "-")
+        result = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        // "." and ".." name a directory rather than an entry in one.
+        if result.isEmpty || result == "." || result == ".." { return fallback() }
+        return result
+    }
+
     public static func isSafeComponent(_ name: String) -> Bool {
         guard !name.isEmpty, name != ".", name != ".." else { return false }
         guard !name.contains("/"), !name.contains("\\") else { return false }

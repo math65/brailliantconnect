@@ -163,7 +163,10 @@ final class USBWatcher {
         if interfaceClass == stillImageInterfaceClass { return true }
         guard interfaceClass == vendorSpecificInterfaceClass else { return false }
 
-        var name = [CChar](repeating: 0, count: Int(128))
+        // io_name_t is 128 bytes; one more guarantees a terminator even if
+        // IOKit ever fills the buffer exactly, which String(cString:) would
+        // otherwise read straight past.
+        var name = [CChar](repeating: 0, count: 129)
         guard IORegistryEntryGetName(interface, &name) == KERN_SUCCESS else { return false }
         return String(cString: name).uppercased().contains("MTP")
     }

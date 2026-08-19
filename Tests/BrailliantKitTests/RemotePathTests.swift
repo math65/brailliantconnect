@@ -82,3 +82,45 @@ final class FormattingTests: XCTestCase {
         XCTAssertEqual(stockage.used, 0)
     }
 }
+
+// MARK: - Names coming from the device
+
+/// The display supplies these names, so none of them is trusted. Each one
+/// reached the file system unchanged before `safeComponent` existed.
+final class SafeComponentTests: XCTestCase {
+
+    func testDirectoryNamesFallBack() {
+        XCTAssertEqual(RemotePath.safeComponent("..", fallback: "x"), "x")
+        XCTAssertEqual(RemotePath.safeComponent(".", fallback: "x"), "x")
+        XCTAssertEqual(RemotePath.safeComponent("  ..  ", fallback: "x"), "x")
+        XCTAssertEqual(RemotePath.safeComponent("", fallback: "x"), "x")
+        XCTAssertEqual(RemotePath.safeComponent("   ", fallback: "x"), "x")
+    }
+
+    func testSeparatorsCannotSurvive() {
+        XCTAssertEqual(RemotePath.safeComponent("a/b", fallback: "x"), "a-b")
+        XCTAssertEqual(RemotePath.safeComponent("a\\b", fallback: "x"), "a-b")
+        XCTAssertEqual(RemotePath.safeComponent("../../etc", fallback: "x"), "..-..-etc")
+    }
+
+    func testControlCharactersAreNeutralized() {
+        XCTAssertFalse(RemotePath.safeComponent("a\u{0}b", fallback: "x").contains("\u{0}"))
+        XCTAssertFalse(RemotePath.safeComponent("a\u{1B}[31m", fallback: "x").contains("\u{1B}"))
+    }
+
+    func testOrdinaryNamesPassThrough() {
+        XCTAssertEqual(RemotePath.safeComponent("Interview Alicia.odt", fallback: "x"),
+                       "Interview Alicia.odt")
+        XCTAssertEqual(RemotePath.safeComponent("mémoire interne", fallback: "x"),
+                       "mémoire interne")
+    }
+
+    /// Whatever comes out must itself be usable, or the guarantee is worthless.
+    func testResultIsAlwaysUsable() {
+        for hostile in ["..", ".", "a/b", "a\\b", "", "   ", "\u{0}", "../..", "/"] {
+            let safe = RemotePath.safeComponent(hostile, fallback: "fallback")
+            XCTAssertTrue(RemotePath.isSafeComponent(safe),
+                          "\(hostile.debugDescription) produced \(safe.debugDescription)")
+        }
+    }
+}

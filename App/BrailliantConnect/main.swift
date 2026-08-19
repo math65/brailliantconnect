@@ -40,15 +40,32 @@ var shortcut: URL {
     FinderLocation.shortcut(home: FileManager.default.homeDirectoryForCurrentUser)
 }
 
-func createShortcut() {
+@discardableResult
+func createShortcut() -> Bool {
     let fm = FileManager.default
     for _ in 0..<20 {
         if fm.fileExists(atPath: domainLocation.path) { break }
         Thread.sleep(forTimeInterval: 0.25)
     }
-    guard fm.fileExists(atPath: domainLocation.path) else { return }
-    try? fm.removeItem(at: shortcut)
-    try? fm.createSymbolicLink(at: shortcut, withDestinationURL: domainLocation)
+    guard fm.fileExists(atPath: domainLocation.path) else { return false }
+
+    // Never overwrite what is already there unless it is our own link. Somebody
+    // who owns a braille display may well keep a folder called "Brailliant" in
+    // their home directory, and removing it here would delete it outright —
+    // recursively, with no trip through the Trash. The location stays reachable
+    // from the Finder sidebar; the shortcut is a convenience, not worth data.
+    let existing = URL(fileURLWithPath: shortcut.path)
+    if let target = try? fm.destinationOfSymbolicLink(atPath: existing.path) {
+        guard FinderLocation.isOurShortcut(pointingAt: target) else {
+            log(L.t("~/%@ is a link to something else — shortcut not created", displayName))
+            return false
+        }
+        try? fm.removeItem(at: shortcut)
+    } else if fm.fileExists(atPath: shortcut.path) {
+        log(L.t("~/%@ already exists — shortcut not created", displayName))
+        return false
+    }
+    return (try? fm.createSymbolicLink(at: shortcut, withDestinationURL: domainLocation)) != nil
 }
 
 func removeShortcut() {
@@ -73,11 +90,15 @@ func log(_ message: String) {
 /// Reads how much is still on its way to the display, for the menu bar.
 let transfers = TransferMonitor()
 
+/// Whether the home-folder shortcut is in place. It is not, when something else
+/// already occupies that name — and the log must not then claim otherwise.
+var shortcutExists = false
+
 func publish(_ completion: @escaping (Error?) -> Void) {
     let domain = NSFileProviderDomain(identifier: domainIdentifier, displayName: displayName)
     NSFileProviderManager.add(domain) { error in
         if error == nil {
-            createShortcut()
+            shortcutExists = createShortcut()
             // A domain removed and re-added is a new one, so its progress has
             // to be picked up again rather than kept from last time.
             transfers.follow(domain: domainIdentifier)
@@ -137,7 +158,10 @@ func syncWithHardware() {
                 guard worthLogging || error != nil else { return }
                 log(
                     error == nil
-                        ? L.t("display connected — location published in ~/%@", displayName)
+                        ? (shortcutExists
+                            ? L.t("display connected — location published in ~/%@", displayName)
+                            : L.t(
+                                "display connected — location published, in the Finder sidebar"))
                         : L.t(
                             "display connected but publishing failed: %@",
                             error!.localizedDescription)
@@ -198,8 +222,12 @@ enum SingleInstance {
     static func claim() -> Bool {
         try? FileManager.default.createDirectory(
             at: lockFolder, withIntermediateDirectories: true)
+        // O_NOFOLLOW: the path is predictable, so a symlink planted there must
+        // not redirect this open elsewhere. Nothing is ever written to the file
+        // — only locked — but following a link is worth refusing regardless.
         descriptor = open(
-            lockFolder.appendingPathComponent("agent.lock").path, O_CREAT | O_WRONLY, 0o644)
+            lockFolder.appendingPathComponent("agent.lock").path,
+            O_CREAT | O_WRONLY | O_NOFOLLOW, 0o600)
         // Unable to take a lock at all: better a possible duplicate than no
         // agent, since a duplicate is visible and an absence is not.
         guard descriptor >= 0 else { return true }

@@ -169,6 +169,16 @@ if ! codesign -d --entitlements - "$APP/Contents/PlugIns/FileProviderExtension.a
   exit 1
 fi
 echo "    extension: sandbox entitlement present"
+# get-task-allow lets any process attach to ours. Xcode adds it to debug builds,
+# and a debug build reaching this script would ship a debuggable agent holding a
+# live MTP session over the user's files.
+for target in "$APP" "$APP/Contents/PlugIns/FileProviderExtension.appex"; do
+  if codesign -d --entitlements :- "$target" 2>/dev/null | grep -q "get-task-allow"; then
+    echo "ERROR: $(basename "$target") carries get-task-allow — debug build, not distributable." >&2
+    exit 1
+  fi
+done
+echo "    no get-task-allow: not debuggable"
 lipo -info "$APP/Contents/MacOS/brailliant" | sed 's/^/    /'
 
 # --- Notarization -------------------------------------------------------------
