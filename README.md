@@ -48,9 +48,11 @@ in the Finder, and can uninstall everything.
 interne**, and **usb** when a stick is plugged into the display. Files live one
 level down — `~/Brailliant/mémoire interne/documents`.
 
-Dropping a file at the root, which names no storage, sends it to the internal
-memory. Dragging between two storages works and goes through the Mac, since MTP
-cannot move an object across storages by itself.
+The root itself takes nothing: a file put there names no storage to go to, so
+it is refused and removed rather than left as a copy the display never got.
+Drop into `mémoire interne` or `usb` instead. Dragging between two storages
+works and goes through the Mac, since MTP cannot move an object across storages
+by itself.
 
 ### Copying takes longer than the Finder lets on
 

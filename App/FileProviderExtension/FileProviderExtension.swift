@@ -90,6 +90,11 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             // No field is left pending and nothing remains to upload: the
             // display holds the definitive copy already.
             completionHandler(item, [], false, nil)
+        } catch is RootNotWritable {
+            // No item and no error: Apple's documented way of refusing an
+            // import. The system then deletes what it wrote locally, instead of
+            // keeping a file it will never manage to send.
+            completionHandler(nil, [], false, nil)
         } catch {
             completionHandler(nil, [], false, translate(error))
         }
@@ -307,11 +312,11 @@ final class DisplayItem: NSObject, NSFileProviderItem {
         if storage != nil {
             return [.allowsContentEnumerating, .allowsReading, .allowsAddingSubItems]
         }
-        // The root holds storages, and accepts items: they land on the first
-        // storage. Refusing them here does not prevent the copy, it only stops
-        // it from ever reaching the display.
+        // The root holds storages and nothing else, so it takes no new items.
+        // This is what greys out Paste in the Finder; `createItem` refusing the
+        // import is the second barrier, for whatever reaches it anyway.
         guard let entry else {
-            return [.allowsContentEnumerating, .allowsReading, .allowsAddingSubItems]
+            return [.allowsContentEnumerating, .allowsReading]
         }
         var capabilities: NSFileProviderItemCapabilities = [
             .allowsReading, .allowsRenaming, .allowsReparenting, .allowsDeleting,

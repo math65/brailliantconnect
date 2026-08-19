@@ -146,9 +146,13 @@ plugged into the display invisible with no way to reach it. Consequences:
   previous process.
 - MTP cannot move across storages: that case downloads and re-uploads, and only
   deletes the original once the copy has landed.
-- a file dropped at the root goes to the first storage. Refusing it was tried
-  and is worse — the system keeps the local copy, displays it, and never says
-  it did not arrive.
+- **nothing is created at the root.** Refusing an import means calling the
+  completion handler with **no item and no error** — the system then deletes
+  what it wrote locally. Passing an error instead leaves a file the Finder
+  shows and the display never received, which is the trap here: the refusal
+  looks handled and silently is not. `allowsAddingSubItems` alone does not
+  stop it; the Finder still copies into the root, and the Terminal always
+  did. Both barriers are needed.
 
 ## Transfers
 

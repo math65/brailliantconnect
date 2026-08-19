@@ -12,6 +12,14 @@ import os.log
 ///   over the device and both would fail.
 /// - The protocol emits **no change notification**. The cache is therefore
 ///   timestamped: past a short delay, the tree is read again.
+/// Raised when something would be written at the root of the domain.
+///
+/// Its own type because the extension has to answer this case differently from
+/// a failure: refusing an import means returning no item **and no error**, so
+/// that the system removes its local copy. Reporting an error instead leaves a
+/// file the Finder shows and the display never received.
+struct RootNotWritable: Error {}
+
 final class DisplayAccess {
 
     /// Log readable with:
@@ -253,13 +261,9 @@ final class DisplayAccess {
     ) {
         switch try container(for: identifier) {
         case .root:
-            // The root names no storage, so a file dropped there has nowhere
-            // obvious to go. Refusing was tried and is worse: the system keeps
-            // the local copy, shows it, and never says it did not arrive. It
-            // goes to the first storage instead — the internal memory — which
-            // is where someone dropping a file on "the display" means it.
-            guard let first = try storages().first else { throw MTPError.noStorage }
-            return ("/", first.id)
+            // The root lists storages and holds nothing of its own: a file put
+            // there names no storage to go to.
+            throw RootNotWritable()
         case .storage(let storageID):
             return ("/", storageID)
         case .folder(let entry):
