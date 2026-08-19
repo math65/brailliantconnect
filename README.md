@@ -194,7 +194,15 @@ de construction.
 - `LIBMTP_destroy_file_t` ne libère **qu'un maillon** de la liste chaînée
   renvoyée par `LIBMTP_Get_Files_And_Folders` : il faut mémoriser le suivant
   avant de libérer l'actuel.
-- Débit mesuré : **~16 Mo/s** en lecture (29,5 Mo en 1,8 s).
+- Débit mesuré : **~17,5 Mo/s** en lecture (29,5 Mo en 1,7 s).
+- Latences mesurées sur BI 40X (`brailliant bench`), déterminantes pour une
+  future intégration au Finder :
+  - énumération d'un dossier : **~0,2 ms par élément**, coût **linéaire**
+    jusqu'à 400 fichiers (200 fichiers en 34 ms) ;
+  - cycle complet connexion, listage, déconnexion : **~130 ms** ;
+  - premier octet d'un fichier : **2 à 5 ms**.
+  Autrement dit MTP n'est pas le goulot d'étranglement : une énumération à la
+  demande reste fluide, sans cache élaboré.
 
 ## Bibliothèques embarquées
 

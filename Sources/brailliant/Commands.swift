@@ -13,6 +13,7 @@ struct Options {
     var force = false    // saute les confirmations
     var anyDevice = false    // accepte un appareil MTP non-HumanWare
     var storage: String?     // stockage ciblé (numéro ou nom)
+    var scale = 0            // taille maximale pour bench --scale
     var depth = 0
 }
 

@@ -20,6 +20,9 @@ COMMANDES
   mkdir <chemin>...        crée un dossier sur la plage
   clean                    retire les fichiers parasites macOS de la plage
   doctor                   vérifie que tout fonctionne
+  bench [chemin]           mesure les latences du protocole (diagnostic)
+  bench --scale [n]        mesure la montée en charge (crée puis supprime
+                           des fichiers de test sur la plage)
 
 OPTIONS
   -l, --long               affiche les tailles (ls)
@@ -67,6 +70,14 @@ func run() -> Int32 {
         case "-n", "--dry-run":   options.dryRun = true
         case "-f", "--force":     options.force = true
         case "--any-device":      options.anyDevice = true
+        case "--scale":
+            // Valeur facultative : « --scale » seul monte jusqu'à 200.
+            if index + 1 < arguments.count, let n = Int(arguments[index + 1]) {
+                index += 1
+                options.scale = n
+            } else {
+                options.scale = 200
+            }
         case "--no-overwrite":    options.noOverwrite = true
         case "-s", "--storage":
             index += 1
@@ -101,7 +112,8 @@ func run() -> Int32 {
 
     // Vérifie la commande avant d'ouvrir la connexion : inutile de réveiller
     // la plage pour une faute de frappe.
-    let known = ["info", "ls", "tree", "get", "put", "rm", "mkdir", "clean", "doctor"]
+    let known = ["info", "ls", "tree", "get", "put", "rm", "mkdir", "clean",
+             "doctor", "bench"]
     guard known.contains(command) else {
         FileHandle.standardError.write(
             Data("Erreur : commande inconnue « \(command) ».\nUtilisez « brailliant --help ».\n".utf8))
@@ -142,6 +154,12 @@ func run() -> Int32 {
         case "mkdir":  try Commands.makeDirectory(plage, options, paths: rest)
         case "clean":  try Commands.clean(plage, options)
         case "doctor": try Commands.doctor(plage, options)
+        case "bench":
+            if options.scale > 0 {
+                try Benchmark.scale(plage, options, maximum: options.scale)
+            } else {
+                try Benchmark.run(plage, options, path: rest.first ?? "/")
+            }
         default:       break
         }
         return 0
