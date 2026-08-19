@@ -1,0 +1,14 @@
+# Artefacts de compilation Swift
+.build/
+dist/
+*.dSYM/
+
+# macOS
+.DS_Store
+
+# Python (prototype archivé)
+__pycache__/
+*.pyc
+
+# Les bibliothèques de Vendor/ SONT versionnées : elles constituent le cœur
+# de la distribution (l'utilisateur final n'installe rien).

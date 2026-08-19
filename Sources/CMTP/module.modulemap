@@ -1,0 +1,8 @@
+// Expose l'en-tête C de libmtp à Swift. Pas de directive « link » ici :
+// la bibliothèque est fournie au linker par son chemin complet dans
+// Package.swift, car son nom de fichier (libmtp.9.dylib) ne correspond
+// pas à la convention -lmtp attendue par le linker.
+module CMTP {
+    header "include/libmtp.h"
+    export *
+}
