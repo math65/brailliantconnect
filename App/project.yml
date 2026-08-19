@@ -45,7 +45,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mathieumartin.BrailliantConnect
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
-        INFOPLIST_KEY_LSUIElement: NO
+        INFOPLIST_KEY_LSUIElement: YES
         CODE_SIGN_ENTITLEMENTS: BrailliantConnect/BrailliantConnect.entitlements
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: YES

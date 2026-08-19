@@ -20,6 +20,7 @@ COMMANDES
   mkdir <chemin>...        crée un dossier sur la plage
   clean                    retire les fichiers parasites macOS de la plage
   doctor                   vérifie que tout fonctionne
+  finder on|off|status     surveille la plage et l'affiche dans le Finder
   bench [chemin]           mesure les latences du protocole (diagnostic)
   bench --scale [n]        mesure la montée en charge (crée puis supprime
                            des fichiers de test sur la plage)
@@ -44,6 +45,7 @@ EXEMPLES
   brailliant get /notes ~/Desktop
   brailliant clean --dry-run
   brailliant -s usb ls /
+  brailliant finder on
 
 Le dossier distant par défaut pour « put » est /documents. Les dossiers
 manquants sont créés automatiquement.
@@ -113,7 +115,7 @@ func run() -> Int32 {
     // Vérifie la commande avant d'ouvrir la connexion : inutile de réveiller
     // la plage pour une faute de frappe.
     let known = ["info", "ls", "tree", "get", "put", "rm", "mkdir", "clean",
-             "doctor", "bench"]
+             "doctor", "bench", "finder"]
     guard known.contains(command) else {
         FileHandle.standardError.write(
             Data("Erreur : commande inconnue « \(command) ».\nUtilisez « brailliant --help ».\n".utf8))
@@ -130,6 +132,28 @@ func run() -> Int32 {
 
     Console.shared.begin(debug: options.debug)
     defer { Console.shared.end() }
+
+    // Cette commande agit sur le système, pas sur la plage : inutile d'exiger
+    // qu'elle soit branchée.
+    if command == "finder" {
+        do {
+            switch rest.first ?? "status" {
+            case "on":     try Finder.activer()
+            case "off":    try Finder.désactiver()
+            case "status": try Finder.état()
+            default:
+                complain("Usage : brailliant finder on|off|status")
+                return 2
+            }
+            return 0
+        } catch let error as MTPError {
+            complain("Erreur : \(error.description)")
+            return 1
+        } catch {
+            complain("Erreur : \(error.localizedDescription)")
+            return 1
+        }
+    }
 
     do {
         // Filtrer sur HumanWare par défaut : un téléphone Android est un

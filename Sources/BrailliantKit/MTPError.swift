@@ -19,6 +19,8 @@ public enum MTPError: Error, CustomStringConvertible {
     case deleteFailed(path: String, code: Int32)
     case invalidRemotePath(String)
     case cannotRemoveRoot
+    case applicationHôteIntrouvable(cherchée: [String])
+    case agentNonDémarré(détail: String)
     case noHumanwareDevice(otherMTPDevices: [(vendor: UInt16, product: UInt16)])
     case storageNotFound(selector: String, available: [String])
     case ambiguousStorage(selector: String, matches: [String])
@@ -86,6 +88,21 @@ public enum MTPError: Error, CustomStringConvertible {
             return "Chemin distant invalide : « \(path) »"
         case .cannotRemoveRoot:
             return "La racine de la plage ne peut pas être supprimée."
+        case .applicationHôteIntrouvable(let cherchée):
+            return """
+            BrailliantConnect.app est introuvable ; c'est elle qui porte
+            l'extension Finder.
+
+            Emplacements examinés :
+              \(cherchée.joined(separator: "\n  "))
+            """
+        case .agentNonDémarré(let détail):
+            return """
+            La surveillance n'a pas pu démarrer : \(détail)
+
+            L'emplacement peut tout de même être publié à la main avec
+            « brailliant finder on » après avoir corrigé le problème.
+            """
         case .noHumanwareDevice(let others):
             if others.isEmpty {
                 return """

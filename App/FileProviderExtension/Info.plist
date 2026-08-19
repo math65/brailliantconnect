@@ -22,14 +22,12 @@
 	<dict/>
 	<key>NSExtension</key>
 	<dict>
+		<key>NSExtensionFileProviderSupportsEnumeration</key>
+		<true/>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.fileprovider-nonui</string>
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).FileProviderExtension</string>
 	</dict>
-	<key>NSExtensionFileProviderDocumentGroup</key>
-	<string>$(TeamIdentifierPrefix)group.com.mathieumartin.brailliantconnect</string>
-	<key>NSExtensionFileProviderSupportsEnumeration</key>
-	<true/>
 </dict>
 </plist>
