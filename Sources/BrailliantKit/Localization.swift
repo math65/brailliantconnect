@@ -427,5 +427,13 @@ public enum L {
             "Lecture de la courbe : si le temps par élément reste stable, le coût est linéaire et prévisible.",
         "If it grows, enumeration degenerates and a cache becomes indispensable beyond a certain size.":
             "S'il augmente, l'énumération dégénère et un cache devient indispensable au-delà d'une certaine taille.",
+        "display asleep — location removed until it wakes up":
+            "plage en veille — emplacement retiré jusqu'à son réveil",
+        "display asleep":
+            "plage en veille",
+        "Moved: %@ → %@":
+            "Déplacé : %@ → %@",
+        "Usage: brailliant mv <source> <destination>":
+            "Usage : brailliant mv <source> <destination>",
     ]
 }

@@ -89,7 +89,11 @@ func finish(_ message: String, code: Int32 = 0) -> Never {
 
 /// Brings the published state in line with the physical presence of the display.
 func syncWithHardware() {
-    let connected = USBWatcher.connectedDisplayCount() > 0
+    // "Available" means reachable over MTP, not merely plugged in: a sleeping
+    // display stays enumerated but answers nothing.
+    let available = USBWatcher.connectedDisplayCount() > 0
+    let pluggedIn = USBWatcher.pluggedDisplayCount() > 0
+    let connected = available
     isPublished { published in
         switch FinderLocation.action(displayConnected: connected, locationPublished: published) {
         case .publish:
@@ -106,7 +110,9 @@ func syncWithHardware() {
             unpublish { error in
                 log(
                     error == nil
-                        ? L.t("display disconnected — location removed")
+                        ? (pluggedIn
+                            ? L.t("display asleep — location removed until it wakes up")
+                            : L.t("display disconnected — location removed"))
                         : L.t(
                             "display disconnected but removal failed: %@",
                             error!.localizedDescription)
