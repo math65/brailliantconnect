@@ -18,10 +18,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>NSExtensionFileProviderDocumentGroup</key>
-	<string>$(TeamIdentifierPrefix)group.com.mathieumartin.brailliantconnect</string>
-	<key>NSExtensionFileProviderSupportsEnumeration</key>
-	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict/>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>
@@ -29,5 +27,9 @@
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).FileProviderExtension</string>
 	</dict>
+	<key>NSExtensionFileProviderDocumentGroup</key>
+	<string>$(TeamIdentifierPrefix)group.com.mathieumartin.brailliantconnect</string>
+	<key>NSExtensionFileProviderSupportsEnumeration</key>
+	<true/>
 </dict>
 </plist>

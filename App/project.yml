@@ -37,6 +37,10 @@ targets:
     dependencies:
       - target: FileProviderExtension
         embed: true
+        # « Embed Without Signing » : prescrit par la documentation Apple.
+        # Re-signer l'extension à l'embarquement lui fait perdre ses propres
+        # entitlements au profit de ceux de l'app hôte.
+        codeSign: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mathieumartin.BrailliantConnect
@@ -60,6 +64,20 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: FileProviderExtension/Info.plist
         # Le sandbox est obligatoire pour une extension. Xcode le retire parfois
-        # en propageant les entitlements de l'app hôte au moment de l'embarquement :
-        # à revérifier après chaque build (voir tools/check-extension.sh).
+        # en propageant les entitlements de l'app hôte au moment de l'embarquement.
         ENABLE_APP_SANDBOX: YES
+        # Xcode 16+ déporte le code dans une « debug dylib » et ne laisse qu'un
+        # lanceur dans le binaire. Le système cherche la classe principale d'une
+        # extension DANS son binaire : sans cela, il ne la trouve pas et renvoie
+        # providerNotFound (-2001).
+        ENABLE_DEBUG_DYLIB: NO
+
+schemes:
+  BrailliantConnect:
+    build:
+      targets:
+        BrailliantConnect: all
+        FileProviderExtension: all
+    run:
+      config: Debug
+      executable: BrailliantConnect

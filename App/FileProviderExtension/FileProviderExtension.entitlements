@@ -6,7 +6,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.mathieumartin.brailliantconnect</string>
+		<string>633EG76YX5.group.com.mathieumartin.brailliantconnect</string>
 	</array>
 </dict>
 </plist>

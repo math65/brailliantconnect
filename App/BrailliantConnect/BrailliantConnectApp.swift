@@ -35,9 +35,20 @@ final class DomainController: ObservableObject {
                 ? "Actif — la plage apparaît dans la barre latérale du Finder."
                 : "Inactif — aucun emplacement n'est publié dans le Finder."
         } catch {
+            // Lister les domaines exige que le système résolve d'abord quel
+            // provider correspond à cette application, ce qui échoue tant
+            // qu'aucun domaine n'existe. Publier emprunte un autre chemin :
+            // l'échec de lecture ne doit donc pas empêcher d'essayer.
             actif = false
-            statut = "Impossible de lire l'état : \(error.localizedDescription)"
+            statut = "État indéterminé (\(Self.codeErreur(error))). "
+                + "La publication reste possible : essayez le bouton."
         }
+    }
+
+    /// Extrait le code d'erreur brut, plus parlant que le message localisé.
+    static func codeErreur(_ error: Error) -> String {
+        let ns = error as NSError
+        return "\(ns.domain) \(ns.code)"
     }
 
     func activer() async {
@@ -50,7 +61,8 @@ final class DomainController: ObservableObject {
             statut = "Emplacement publié. Ouvrez le Finder pour le voir."
             actif = true
         } catch {
-            statut = "Échec de la publication : \(error.localizedDescription)"
+            statut = "Échec de la publication : \(error.localizedDescription) "
+                + "[\(Self.codeErreur(error))]"
         }
     }
 
