@@ -99,7 +99,7 @@ final class DisplayAccess {
                 contents[itemID] = (entries, Date())
                 return entries.map { DisplayItem(entry: $0) }
             } catch {
-                Self.log.error("énumération impossible : \(String(describing: error))")
+                Self.log.error("enumeration failed: \(String(describing: error))")
                 reset()
                 throw error
             }

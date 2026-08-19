@@ -13,13 +13,11 @@ import Foundation
 //   --status      reports whether it is published
 //   --watch       stays in the background (default behaviour)
 
-let domainIdentifier = NSFileProviderDomainIdentifier("brailliant-principal")
-let displayName = "Brailliant"
+let domainIdentifier = NSFileProviderDomainIdentifier(FinderLocation.domainIdentifier)
+let displayName = FinderLocation.displayName
 
 var domainLocation: URL {
-    FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/CloudStorage")
-        .appendingPathComponent("BrailliantConnect-\(displayName)")
+    FinderLocation.domainLocation(home: FileManager.default.homeDirectoryForCurrentUser)
 }
 
 /// Shortcut visible directly in the home folder.
@@ -27,8 +25,7 @@ var domainLocation: URL {
 /// Without it, access would depend on the Finder sidebar — which can be
 /// hidden — or on a path under ~/Library, a folder hidden by default.
 var shortcut: URL {
-    FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(displayName)
+    FinderLocation.shortcut(home: FileManager.default.homeDirectoryForCurrentUser)
 }
 
 func createShortcut() {
@@ -47,7 +44,7 @@ func removeShortcut() {
     // may have created under the same name.
     let fm = FileManager.default
     guard let target = try? fm.destinationOfSymbolicLink(atPath: shortcut.path),
-        target.contains("BrailliantConnect-")
+        FinderLocation.isOurShortcut(pointingAt: target)
     else { return }
     try? fm.removeItem(at: shortcut)
 }
@@ -94,25 +91,29 @@ func finish(_ message: String, code: Int32 = 0) -> Never {
 func syncWithHardware() {
     let connected = USBWatcher.connectedDisplayCount() > 0
     isPublished { published in
-        switch (connected, published) {
-        case (true, false):
+        switch FinderLocation.action(displayConnected: connected, locationPublished: published) {
+        case .publish:
             publish { error in
                 log(
                     error == nil
-                        ? "plage branchée — emplacement publié dans ~/\(displayName)"
-                        : "plage branchée mais publication impossible : \(error!.localizedDescription)"
+                        ? L.t("display connected — location published in ~/%@", displayName)
+                        : L.t(
+                            "display connected but publishing failed: %@",
+                            error!.localizedDescription)
                 )
             }
-        case (false, true):
+        case .unpublish:
             unpublish { error in
                 log(
                     error == nil
-                        ? "plage débranchée — emplacement retiré"
-                        : "plage débranchée mais retrait impossible : \(error!.localizedDescription)"
+                        ? L.t("display disconnected — location removed")
+                        : L.t(
+                            "display disconnected but removal failed: %@",
+                            error!.localizedDescription)
                 )
             }
-        default:
-            break  // already in the desired state
+        case .nothing:
+            break
         }
     }
 }
@@ -130,13 +131,13 @@ case "--publish":
     publish { error in
         finalMessage =
             error == nil
-            ? "Emplacement publié. Accessible dans « ~/\(displayName) »."
-            : "Échec de la publication : \(error!.localizedDescription)"
+            ? L.t("Location published. Reachable in \"~/Brailliant\".")
+            : L.t("Publishing failed: %@", error!.localizedDescription)
         exitCode = error == nil ? 0 : 1
         waiter.signal()
     }
     if waiter.wait(timeout: .now() + 60) == .timedOut {
-        finish("Le système n'a pas répondu dans le délai imparti.", code: 1)
+        finish(L.t("The system did not answer within the allotted time."), code: 1)
     }
     finish(finalMessage, code: exitCode)
 
@@ -144,13 +145,13 @@ case "--unpublish":
     unpublish { error in
         finalMessage =
             error == nil
-            ? "Emplacement retiré du Finder."
-            : "Échec du retrait : \(error!.localizedDescription)"
+            ? L.t("Location removed from the Finder.")
+            : L.t("Removal failed: %@", error!.localizedDescription)
         exitCode = error == nil ? 0 : 1
         waiter.signal()
     }
     if waiter.wait(timeout: .now() + 60) == .timedOut {
-        finish("Le système n'a pas répondu dans le délai imparti.", code: 1)
+        finish(L.t("The system did not answer within the allotted time."), code: 1)
     }
     finish(finalMessage, code: exitCode)
 
@@ -158,18 +159,18 @@ case "--status":
     let connected = USBWatcher.connectedDisplayCount() > 0
     isPublished { published in
         finalMessage =
-            (published ? "publié — ~/\(displayName)" : "non publié")
-            + (connected ? " · plage branchée" : " · aucune plage branchée")
+            (published ? L.t("published") + " — ~/\(displayName)" : L.t("not published"))
+            + " · " + L.t(connected ? "display connected" : "no display connected")
         exitCode = published ? 0 : 2
         waiter.signal()
     }
     if waiter.wait(timeout: .now() + 30) == .timedOut {
-        finish("Le système n'a pas répondu.", code: 1)
+        finish(L.t("The system did not answer."), code: 1)
     }
     finish(finalMessage, code: exitCode)
 
 case "--watch":
-    log("agent démarré")
+    log(L.t("agent started"))
     // Align the state as soon as we start: the display may already be
     // connected, or a location may be left over from a previous session.
     syncWithHardware()
@@ -182,14 +183,15 @@ case "--watch":
 
 default:
     finish(
-        """
-        BrailliantConnect — agent de l'emplacement Finder (sans interface).
+        L.t(
+            """
+            BrailliantConnect — Finder location agent (headless).
 
-          (sans argument)   surveille la plage et publie ou retire l'emplacement
-          --publish         publie l'emplacement
-          --unpublish       le retire
-          --status          indique l'état
+              (no argument)     watch the display and publish or remove the location
+              --publish         publish the location
+              --unpublish       remove it
+              --status          report the current state
 
-        Cet agent est normalement piloté par la commande « brailliant ».
-        """, code: 2)
+            This agent is normally driven by the "brailliant" command.
+            """), code: 2)
 }

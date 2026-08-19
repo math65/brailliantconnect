@@ -88,11 +88,12 @@ enum Finder {
         guard code == 0 else {
             throw MTPError.agentFailedToStart(detail: output.isEmpty ? "code \(code)" : output)
         }
-        say("Surveillance activée.")
+        say(L.t("Watching enabled."))
         say(
-            "La plage apparaît dans « ~/Brailliant » dès qu'elle est branchée, "
-                + "et disparaît quand elle est retirée.")
-        say("L'agent redémarrera tout seul à chaque ouverture de session.")
+            L.t(
+                "The display appears in \"~/Brailliant\" as soon as it is connected, "
+                    + "and disappears when it is unplugged."))
+        say(L.t("The agent will restart on its own at every login."))
     }
 
     /// Stops the agent, removes it from startup and unpublishes the location.
@@ -105,7 +106,7 @@ enum Finder {
             let (output, _) = run(binary, ["--unpublish"])
             if !output.isEmpty { say(output) }
         }
-        say("Surveillance désactivée. L'agent ne redémarrera plus.")
+        say(L.t("Watching disabled. The agent will no longer restart."))
     }
 
     static func status() throws {
@@ -115,14 +116,15 @@ enum Finder {
         let (listing, _) = run("/bin/launchctl", ["print", "gui/\(getuid())/\(label)"])
         let active = !listing.isEmpty && !listing.contains("Could not find")
 
-        say("Emplacement : \(output.isEmpty ? "état inconnu" : output)")
+        say(L.t("Location: %@", output.isEmpty ? L.t("state unknown") : output))
         say(
-            "Surveillance : "
-                + (installed
-                    ? (active ? "active, relancée à chaque session" : "installée mais arrêtée")
-                    : "non installée"))
+            L.t(
+                "Watching: %@",
+                installed
+                    ? L.t(active ? "active, restarted at every login" : "installed but stopped")
+                    : L.t("not installed")))
         if !installed {
-            say("Pour l'activer : brailliant finder on")
+            say(L.t("To enable it: brailliant finder on"))
         }
     }
 }

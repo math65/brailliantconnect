@@ -22,14 +22,14 @@ enum Benchmark {
     }
 
     static func run(_ display: Brailliant, _ options: Options, path: String) throws {
-        say("Mesures de latence MTP — \(display.model)")
-        say("Chaque chiffre indique ce que coûterait l'opération équivalente")
-        say("au Finder. Plage branchée en USB, aucune autre application connectée.")
+        say(L.t("MTP latency measurements — %@", display.model))
+        say(L.t("Each figure is what the equivalent Finder operation would cost."))
+        say(L.t("Display plugged in over USB, no other application connected."))
         say()
 
         // --- Enumeration: the operation the Finder triggers most often ---
-        say("ÉNUMÉRATION D'UN DOSSIER")
-        say("(le Finder la relance à chaque ouverture de dossier)")
+        say(L.t("ENUMERATING A FOLDER"))
+        say(L.t("(the Finder runs it again every time a folder is opened)"))
         say()
 
         var folders: [(String, Int)] = []
@@ -47,24 +47,26 @@ enum Benchmark {
             let perItem = count > 0 ? firstPass / Double(count) : 0
             say("  \(folder)")
             say(
-                "    \(count) élément(s) — premier passage \(ms(firstPass)), "
-                    + "second \(ms(secondPass))")
+                "    "
+                    + L.t(
+                        "%@ item(s) — first pass %@, second %@",
+                        String(count), ms(firstPass), ms(secondPass)))
             if count > 0 {
-                say("    soit \(ms(perItem)) par élément")
+                say("    " + L.t("that is %@ per item", ms(perItem)))
             }
             // A markedly faster second pass would reveal an internal cache;
             // without one, every folder opening pays the full price again.
             if firstPass > 0, secondPass < firstPass * 0.5 {
-                say("    → mise en cache détectée")
+                say("    → " + L.t("caching detected"))
             } else {
-                say("    → aucune mise en cache : chaque passage recoûte le même prix")
+                say("    → " + L.t("no caching: every pass costs the same again"))
             }
         }
         say()
 
         // --- Path resolution: the hidden cost behind every operation ---
-        say("RÉSOLUTION D'UN CHEMIN")
-        say("(exécutée avant chaque lecture, écriture ou suppression)")
+        say(L.t("RESOLVING A PATH"))
+        say(L.t("(performed before every read, write or delete)"))
         say()
 
         let files = try display.walk(path).filter { !$0.isDirectory && !MacJunk.matches($0.name) }
@@ -72,45 +74,50 @@ enum Benchmark {
             let depth = RemotePath.components(target.path).count
             let cost = try duration { _ = try display.resolve(target.path) }
             say("  \(target.displayPath)")
-            say("    profondeur \(depth) — \(ms(cost))")
-            say("    → resolve() ré-énumère un niveau par segment de chemin")
+            say("    " + L.t("depth %@ — %@", String(depth), ms(cost)))
+            say("    → " + L.t("resolve() re-enumerates one level per path segment"))
         }
         say()
 
         // --- Full traversal: what copying a folder costs ---
-        say("PARCOURS RÉCURSIF COMPLET")
+        say(L.t("FULL RECURSIVE TRAVERSAL"))
         say()
         var total = 0
         let walkTime = try duration { total = try display.walk(path).count }
-        say("  \(total) élément(s) parcourus en \(ms(walkTime))")
+        say("  " + L.t("%@ item(s) walked in %@", String(total), ms(walkTime)))
         say()
 
         // --- Reading: latency before the first byte, then throughput ---
-        say("LECTURE D'UN FICHIER")
+        say(L.t("READING A FILE"))
         say()
         if let smallest = files.min(by: { $0.size < $1.size }) {
-            try measureRead(display, smallest, label: "le plus petit")
+            try measureRead(display, smallest, label: L.t("smallest"))
         }
         if let largest = files.max(by: { $0.size < $1.size }), largest.size > 1_000_000 {
-            try measureRead(display, largest, label: "le plus gros")
+            try measureRead(display, largest, label: L.t("largest"))
         }
 
         say()
-        say("VERDICT")
+        say(L.t("VERDICT"))
         say()
         let worst =
             folders.map { $0.0 }.compactMap { folder -> Double? in
                 try? duration { _ = try display.listDirectory(folder) }
             }.max() ?? 0
-        say("  Énumération la plus lente : \(ms(worst))")
+        say("  " + L.t("Slowest enumeration: %@", ms(worst)))
         if worst < 200 {
-            say("  → Le Finder resterait fluide même sans cache.")
+            say("  → " + L.t("The Finder would stay responsive even without a cache."))
         } else if worst < 1000 {
-            say("  → Perceptible mais acceptable ; un cache d'énumération suffirait.")
+            say(
+                "  → "
+                    + L.t("Noticeable but acceptable; an enumeration cache would be enough."))
         } else {
-            say("  → Trop lent pour une énumération à la demande.")
-            say("    Il faudra construire l'arborescence en tâche de fond et la")
-            say("    servir depuis le cache, en rafraîchissant après coup.")
+            say("  → " + L.t("Too slow for on-demand enumeration."))
+            say(
+                "    "
+                    + L.t(
+                        "The tree will have to be built in the background and served "
+                            + "from the cache, refreshed afterwards."))
         }
     }
 
@@ -125,27 +132,31 @@ enum Benchmark {
     static func scale(_ display: Brailliant, _ options: Options, maximum: Int) throws {
         let folder = "/documents/.bench-\(UUID().uuidString.prefix(8))"
         let source = NSTemporaryDirectory() + "brailliant-bench-source.txt"
-        try "mesure de montée en charge\n".write(
+        // Filler content for the test files; never shown to anyone.
+        try "scale measurement\n".write(
             toFile: source, atomically: true,
             encoding: .utf8)
         defer {
             try? FileManager.default.removeItem(atPath: source)
             // Cleaning up is mandatory: leave nothing behind on the user's display.
             say()
-            say("Nettoyage…")
+            say(L.t("Cleaning up…"))
             do {
                 try display.remove(folder, recursive: true)
-                say("  dossier de test supprimé")
+                say("  " + L.t("test folder deleted"))
             } catch {
                 complain(
-                    "  ATTENTION : « \(folder) » n'a pas pu être supprimé. "
-                        + "Retirez-le avec : brailliant rm -r \(folder)")
+                    "  "
+                        + L.t(
+                            "WARNING: \"%@\" could not be deleted. "
+                                + "Remove it with: brailliant rm -r %@",
+                            folder, folder))
             }
         }
 
         try display.createDirectory(folder)
-        say("MONTÉE EN CHARGE")
-        say("(création de fichiers de test dans \(folder))")
+        say(L.t("SCALING"))
+        say(L.t("(creating test files in %@)", folder))
         say()
 
         let steps = [10, 25, 50, 100, 200, 400].filter { $0 <= maximum }
@@ -163,14 +174,21 @@ enum Benchmark {
             let median = samples.sorted()[1]
             let perItem = median / Double(step)
             say(
-                "  \(step) fichiers : énumération \(ms(median)) "
-                    + "— \(ms(perItem)) par élément")
+                "  "
+                    + L.t(
+                        "%@ files: enumeration %@ — %@ per item",
+                        String(step), ms(median), ms(perItem)))
         }
 
         say()
-        say("Lecture de la courbe : si le temps par élément reste stable, le coût")
-        say("est linéaire et prévisible. S'il augmente, l'énumération dégénère et")
-        say("un cache devient indispensable au-delà d'une certaine taille.")
+        say(
+            L.t(
+                "Reading the curve: if the time per item stays flat, "
+                    + "the cost is linear and predictable."))
+        say(
+            L.t(
+                "If it grows, enumeration degenerates and a cache becomes "
+                    + "indispensable beyond a certain size."))
     }
 
     private static func measureRead(
@@ -191,14 +209,16 @@ enum Benchmark {
         }
         say("  \(entry.displayName) (\(label), \(entry.humanSize))")
         if let firstByte {
-            say("    premier octet après \(ms(firstByte))")
+            say("    " + L.t("first byte after %@", ms(firstByte)))
         }
-        say("    transfert complet \(ms(total))")
+        say("    " + L.t("complete transfer %@", ms(total)))
         if total > 0, entry.size > 100_000 {
             let throughput = Double(entry.size) / 1_000_000 / (total / 1000)
-            say(
-                String(format: "    débit %.1f Mo/s", throughput).replacingOccurrences(
-                    of: ".", with: ","))
+            // Unit and decimal separator are formatting, kept exactly as
+            // formatSize does it.
+            let rate = String(format: "%.1f", throughput)
+                .replacingOccurrences(of: ".", with: ",")
+            say("    " + L.t("throughput %@ Mo/s", rate))
         }
     }
 }

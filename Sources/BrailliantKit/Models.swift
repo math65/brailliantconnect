@@ -80,7 +80,11 @@ public enum StorageSelection {
     }
 
     static func describe(index: Int, storage: Storage) -> String {
-        "\(index + 1) — « \(storage.description) » (\(humanSize(storage.free)) libres)"
+        // This line is quoted verbatim inside the storageNotFound and
+        // ambiguousStorage messages, so it is localized like them.
+        L.t(
+            "%@ — \"%@\" (%@ free)",
+            String(index + 1), storage.description, humanSize(storage.free))
     }
 
     private static func fold(_ text: String) -> String {

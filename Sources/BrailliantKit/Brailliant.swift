@@ -571,6 +571,10 @@ public final class Brailliant {
                 .uppercased().replacingOccurrences(of: "-", with: "")
             if codeset == "UTF8" {
                 if !candidate.isEmpty {
+                    // Read the user's language before overwriting LC_ALL below,
+                    // otherwise the locale forced here for libmtp's benefit
+                    // would be mistaken for a deliberate choice.
+                    _ = L.isFrench
                     setenv("LANG", candidate, 0)
                     setenv("LC_ALL", candidate, 1)
                 }

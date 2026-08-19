@@ -4,52 +4,53 @@ import Foundation
 // Argument parsing is done by hand: no external dependency, so there is nothing
 // to download in order to build and nothing to install in order to run.
 
-let usage = """
-    brailliant — accès aux plages braille Brailliant depuis macOS, sans macFUSE.
+let usage = L.t(
+    """
+    brailliant — access Brailliant braille displays from macOS, without macFUSE.
 
     USAGE
-      brailliant <commande> [arguments] [options]
+      brailliant <command> [arguments] [options]
 
-    COMMANDES
-      info                     modèle, numéro de série, espace disponible
-      ls [chemin]              liste un dossier de la plage
-      tree [chemin]            affiche l'arborescence
-      get <distant> [local]    copie de la plage vers le Mac (fichier ou dossier)
-      put <local> [distant]    copie du Mac vers la plage (fichier ou dossier)
-      rm <chemin>...           supprime de la plage
-      mkdir <chemin>...        crée un dossier sur la plage
-      clean                    retire les fichiers parasites macOS de la plage
-      doctor                   vérifie que tout fonctionne
-      finder on|off|status     surveille la plage et l'affiche dans le Finder
-      bench [chemin]           mesure les latences du protocole (diagnostic)
-      bench --scale [n]        mesure la montée en charge (crée puis supprime
-                               des fichiers de test sur la plage)
+    COMMANDS
+      info                     model, serial number, free space
+      ls [path]                list a folder on the display
+      tree [path]              show the folder tree
+      get <remote> [local]     copy from the display to the Mac (file or folder)
+      put <local> [remote]     copy from the Mac to the display (file or folder)
+      rm <path>...             delete from the display
+      mkdir <path>...          create a folder on the display
+      clean                    remove macOS clutter files from the display
+      doctor                   check that everything works
+      finder on|off|status     watch the display and show it in the Finder
+      bench [path]             measure protocol latencies (diagnostic)
+      bench --scale [n]        measure how it scales (creates then deletes
+                               test files on the display)
 
     OPTIONS
-      -l, --long               affiche les tailles (ls)
-      -a, --all                affiche aussi les fichiers parasites macOS
-      -r, --recursive          supprime un dossier avec son contenu (rm)
-      -s, --storage <n|nom>    stockage ciblé : « 2 » ou « usb » (défaut : le premier)
-      -d, --depth <n>          profondeur maximale (tree)
-      -n, --dry-run            simule sans rien supprimer (clean)
-      -f, --force              supprime sans demander confirmation (rm -r)
-          --no-overwrite       refuse d'écraser un fichier existant (put)
-          --progress           force l'affichage de la progression
-          --no-progress        masque la progression
-          --any-device         accepte un appareil MTP d'un autre fabricant
-          --debug              affiche les messages internes de libmtp
-      -h, --help               affiche cette aide
+      -l, --long               show sizes (ls)
+      -a, --all                also show macOS clutter files
+      -r, --recursive          delete a folder along with its contents (rm)
+      -s, --storage <n|name>   target storage: "2" or "usb" (default: the first)
+      -d, --depth <n>          maximum depth (tree)
+      -n, --dry-run            simulate without deleting anything (clean)
+      -f, --force              delete without asking for confirmation (rm -r)
+          --no-overwrite       refuse to overwrite an existing file (put)
+          --progress           force the progress display on
+          --no-progress        hide the progress display
+          --any-device         accept an MTP device from another manufacturer
+          --debug              show libmtp's internal messages
+      -h, --help               show this help
 
-    EXEMPLES
-      brailliant put ~/Documents/roman.txt /documents
+    EXAMPLES
+      brailliant put ~/Documents/novel.txt /documents
       brailliant get /notes ~/Desktop
       brailliant clean --dry-run
       brailliant -s usb ls /
       brailliant finder on
 
-    Le dossier distant par défaut pour « put » est /documents. Les dossiers
-    manquants sont créés automatiquement.
-    """
+    The default remote folder for "put" is /documents. Missing folders are
+    created automatically.
+    """)
 
 func run() -> Int32 {
     let arguments = Array(CommandLine.arguments.dropFirst())
@@ -85,21 +86,22 @@ func run() -> Int32 {
             index += 1
             guard index < arguments.count else {
                 FileHandle.standardError.write(
-                    Data("Erreur : -s attend un numéro ou un nom de stockage.\n".utf8))
+                    Data((L.t("Error: -s expects a storage number or name.") + "\n").utf8))
                 return 2
             }
             options.storage = arguments[index]
         case "-d", "--depth":
             index += 1
             guard index < arguments.count, let value = Int(arguments[index]) else {
-                FileHandle.standardError.write(Data("Erreur : -d attend un nombre.\n".utf8))
+                FileHandle.standardError.write(
+                    Data((L.t("Error: -d expects a number.") + "\n").utf8))
                 return 2
             }
             options.depth = value
         default:
             if argument.hasPrefix("-") && argument.count > 1 {
                 FileHandle.standardError.write(
-                    Data("Erreur : option inconnue « \(argument) ».\n".utf8))
+                    Data((L.t("Error: unknown option \"%@\".", argument) + "\n").utf8))
                 return 2
             }
             positional.append(argument)
@@ -122,7 +124,8 @@ func run() -> Int32 {
     guard known.contains(command) else {
         FileHandle.standardError.write(
             Data(
-                "Erreur : commande inconnue « \(command) ».\nUtilisez « brailliant --help ».\n".utf8
+                (L.t("Error: unknown command \"%@\".", command) + "\n"
+                    + L.t("Use \"brailliant --help\".") + "\n").utf8
             ))
         return 2
     }
@@ -130,7 +133,9 @@ func run() -> Int32 {
     case "get" where rest.isEmpty, "put" where rest.isEmpty,
         "rm" where rest.isEmpty, "mkdir" where rest.isEmpty:
         FileHandle.standardError.write(
-            Data("Erreur : la commande « \(command) » attend au moins un argument.\n".utf8))
+            Data(
+                (L.t("Error: the \"%@\" command expects at least one argument.", command)
+                    + "\n").utf8))
         return 2
     default: break
     }
@@ -147,15 +152,15 @@ func run() -> Int32 {
             case "off": try Finder.disable()
             case "status": try Finder.status()
             default:
-                complain("Usage : brailliant finder on|off|status")
+                complain(L.t("Usage: brailliant finder on|off|status"))
                 return 2
             }
             return 0
         } catch let error as MTPError {
-            complain("Erreur : \(error.description)")
+            complain(L.t("Error: %@", error.description))
             return 1
         } catch {
-            complain("Erreur : \(error.localizedDescription)")
+            complain(L.t("Error: %@", error.localizedDescription))
             return 1
         }
     }
@@ -197,10 +202,10 @@ func run() -> Int32 {
         }
         return 0
     } catch let error as MTPError {
-        complain("Erreur : \(error.description)")
+        complain(L.t("Error: %@", error.description))
         return 1
     } catch {
-        complain("Erreur : \(error.localizedDescription)")
+        complain(L.t("Error: %@", error.localizedDescription))
         return 1
     }
 }

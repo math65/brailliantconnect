@@ -34,6 +34,11 @@ targets:
     platform: macOS
     sources:
       - path: BrailliantConnect
+      # L'agent n'a pas besoin de la couche MTP, mais il partage les chemins de
+      # l'emplacement Finder et la table de traduction : ces deux fichiers-là
+      # sont compilés ici, pas le reste de BrailliantKit.
+      - path: ../Sources/BrailliantKit/FinderLocation.swift
+      - path: ../Sources/BrailliantKit/Localization.swift
     dependencies:
       - target: FileProviderExtension
         embed: true

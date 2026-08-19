@@ -1,7 +1,7 @@
 import Foundation
 
-/// Error raised by the MTP layer. Its message is French text that can be shown
-/// to the user as is.
+/// Error raised by the MTP layer. Its message is localized text that can be
+/// shown to the user as is.
 public enum MTPError: Error, CustomStringConvertible {
     case libraryMissing(triedPaths: [String])
     case localeUnavailable
@@ -33,141 +33,116 @@ public enum MTPError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .libraryMissing(let tried):
-            return """
-                libmtp est introuvable.
-
-                Une copie devrait être fournie dans le dossier Vendor/ à côté du \
-                programme. Si elle manque, régénérez-la avec ./tools/build-vendor.sh
-
-                Chemins essayés :
-                  \(tried.joined(separator: "\n  "))
-                """
+            return L.t("libmtp could not be found.") + "\n\n"
+                + L.t(
+                    "A copy should ship in the Vendor/ folder next to the program. "
+                        + "If it is missing, rebuild it with ./tools/build-vendor.sh") + "\n\n"
+                + L.t("Paths tried:") + "\n  " + tried.joined(separator: "\n  ")
         case .localeUnavailable:
-            return """
-                Impossible d'activer une locale UTF-8 ; les noms de fichiers \
-                accentués seraient corrompus.
-                """
+            return L.t(
+                "No UTF-8 locale could be enabled; accented file names would be corrupted.")
         case .noDeviceFound:
-            return """
-                Aucune plage braille détectée.
-                Vérifiez que : le câble USB est branché, la plage est allumée, et \
-                qu'elle est en mode « transfert de fichiers » (MTP) et non en mode \
-                terminal braille.
-                """
+            return L.t("No braille display detected.") + "\n"
+                + L.t(
+                    "Check that the USB cable is connected, the display is switched on, "
+                        + "and it is in file transfer mode (MTP) rather than braille "
+                        + "terminal mode.")
         case .connectionFailed:
-            return """
-                La plage a été détectée mais la connexion MTP a échoué.
-                Causes fréquentes : la plage est en mode terminal braille au lieu \
-                du mode transfert de fichiers, ou une autre application occupe \
-                déjà le périphérique.
-                """
+            return L.t("The display was detected but the MTP connection failed.") + "\n"
+                + L.t(
+                    "Common causes: the display is in braille terminal mode instead of "
+                        + "file transfer mode, or another application is already using it.")
         case .deviceIndexOutOfRange(let requested, let found):
-            return "Appareil n°\(requested) demandé, mais \(found) détecté(s)."
+            return L.t(
+                "Device no. %@ requested, but %@ detected.",
+                String(requested), String(found))
         case .noStorage:
-            return "Aucun stockage disponible sur la plage."
+            return L.t("No storage available on the display.")
         case .notFound(let path):
-            return "Introuvable sur la plage : \(path)"
+            return L.t("Not found on the display: %@", path)
         case .notADirectory(let path):
-            return "« \(path) » est un fichier, pas un dossier."
+            return L.t("\"%@\" is a file, not a folder.", path)
         case .alreadyExists(let path):
-            return "« \(path) » existe déjà sur la plage."
+            return L.t("\"%@\" already exists on the display.", path)
         case .directoryNotEmpty(let path, let count):
-            return """
-                Le dossier « \(path) » n'est pas vide (\(count) élément(s)). \
-                Utilisez l'option -r pour le supprimer avec son contenu.
-                """
+            return L.t(
+                "The folder \"%@\" is not empty (%@ item(s)). "
+                    + "Use the -r option to delete it along with its contents.",
+                path, String(count))
         case .localFileMissing(let path):
-            return "Fichier local introuvable : \(path)"
+            return L.t("Local file not found: %@", path)
         case .transferFailed(let path, let code):
-            return "Échec du transfert de « \(path) » (code \(code))."
+            return L.t("Transfer of \"%@\" failed (code %@).", path, String(code))
         case .createFolderFailed(let name):
-            return "Échec de la création du dossier « \(name) »."
+            return L.t("Could not create the folder \"%@\".", name)
         case .deleteFailed(let path, let code):
-            return "Échec de la suppression de « \(path) » (code \(code))."
+            return L.t("Deletion of \"%@\" failed (code %@).", path, String(code))
         case .invalidRemotePath(let path):
-            return "Chemin distant invalide : « \(path) »"
+            return L.t("Invalid remote path: \"%@\"", path)
         case .cannotRemoveRoot:
-            return "La racine de la plage ne peut pas être supprimée."
+            return L.t("The root of the display cannot be deleted.")
         case .hostApplicationNotFound(let searched):
-            return """
-                BrailliantConnect.app est introuvable ; c'est elle qui porte
-                l'extension Finder.
-
-                Emplacements examinés :
-                  \(searched.joined(separator: "\n  "))
-                """
+            return L.t(
+                "BrailliantConnect.app cannot be found; it is the app that carries "
+                    + "the Finder extension.") + "\n\n"
+                + L.t("Locations searched:") + "\n  " + searched.joined(separator: "\n  ")
         case .agentFailedToStart(let detail):
-            return """
-                La surveillance n'a pas pu démarrer : \(detail)
-
-                L'emplacement peut tout de même être publié à la main avec
-                « brailliant finder on » après avoir corrigé le problème.
-                """
+            return L.t("Watching could not be started: %@", detail) + "\n\n"
+                + L.t(
+                    "The location can still be published by hand with "
+                        + "\"brailliant finder on\" once the problem is fixed.")
         case .noHumanwareDevice(let others):
+            let checkCable = L.t(
+                "Check that the USB cable is connected, the display is switched on, "
+                    + "and it is in file transfer mode (MTP) rather than braille "
+                    + "terminal mode.")
             if others.isEmpty {
-                return """
-                    Aucune plage braille HumanWare détectée.
-                    Vérifiez que : le câble USB est branché, la plage est allumée, et \
-                    qu'elle est en mode « transfert de fichiers » (MTP) et non en mode \
-                    terminal braille.
-                    """
+                return L.t("No HumanWare braille display detected.") + "\n" + checkCable
             }
             let list =
                 others
-                .map { String(format: "fabricant 0x%04x, produit 0x%04x", $0.vendor, $0.product) }
+                .map { L.t("vendor 0x%04x, product 0x%04x", $0.vendor, $0.product) }
                 .joined(separator: "\n  ")
-            return """
-                Aucune plage braille HumanWare détectée, mais \(others.count) autre(s) \
-                appareil(s) MTP sont branchés :
-                  \(list)
-
-                Il s'agit sans doute d'un téléphone ou d'un baladeur. Pour éviter \
-                d'agir sur le mauvais appareil, ils sont ignorés par défaut.
-                Si l'un d'eux est bien votre plage, relancez avec --any-device.
-                """
+            return L.t(
+                "No HumanWare braille display detected, but %@ other MTP device(s) "
+                    + "are plugged in:", String(others.count)) + "\n  " + list + "\n\n"
+                + L.t(
+                    "It is probably a phone or a music player. To avoid acting on the "
+                        + "wrong device, such devices are ignored by default.") + "\n"
+                + L.t("If one of them really is your display, run again with --any-device.")
         case .storageNotFound(let selector, let available):
-            return """
-                Aucun stockage ne correspond à « \(selector) ».
-
-                Stockages disponibles :
-                  \(available.joined(separator: "\n  "))
-                """
+            return L.t("No storage matches \"%@\".", selector) + "\n\n"
+                + L.t("Available storages:") + "\n  " + available.joined(separator: "\n  ")
         case .ambiguousStorage(let selector, let matches):
-            return """
-                « \(selector) » correspond à plusieurs stockages :
-                  \(matches.joined(separator: "\n  "))
-
-                Précisez le numéro plutôt que le nom.
-                """
+            return L.t("\"%@\" matches several storages:", selector) + "\n  "
+                + matches.joined(separator: "\n  ") + "\n\n"
+                + L.t("Give the number rather than the name.")
         case .unsafeRemoteName(let name):
-            return """
-                La plage a renvoyé un nom de fichier inutilisable : « \
-                \(name.sanitizedForDisplay) ».
-
-                Un tel nom permettrait d'écrire hors du dossier de destination ; \
-                l'opération a été interrompue par précaution.
-                """
+            return L.t(
+                "The display returned an unusable file name: \"%@\".",
+                name.sanitizedForDisplay) + "\n\n"
+                + L.t(
+                    "Such a name would allow writing outside the destination folder; "
+                        + "the operation was stopped as a precaution.")
         case .pathEscapesDestination(let attempted, let root):
-            return """
-                Écriture refusée : la destination calculée sort du dossier demandé.
-                  demandé : \(root)
-                  calculé : \(attempted)
-                """
+            return L.t(
+                "Write refused: the computed destination falls outside the requested folder.")
+                + "\n  " + L.t("requested: %@", root)
+                + "\n  " + L.t("computed:  %@", attempted)
         case .notEnoughSpace(let needed, let available):
-            return """
-                Espace insuffisant sur la plage : \(humanSize(needed)) nécessaires, \
-                \(humanSize(available)) disponibles.
-                """
+            return L.t(
+                "Not enough space on the display: %@ needed, %@ available.",
+                humanSize(needed), humanSize(available))
         case .renameFailed(let from, let to, let code):
-            return "Échec du renommage de « \(from) » en « \(to) » (code \(code))."
+            return L.t(
+                "Renaming \"%@\" to \"%@\" failed (code %@).",
+                from, to, String(code))
         case .interruptedAfterDelete(let temporary, let target):
-            return """
-                Le transfert a réussi mais le fichier n'a pas pu être renommé.
-
-                Vos données sont intactes : elles se trouvent sur la plage sous le \
-                nom « \(temporary) ». Renommez-le en « \(target) », ou relancez \
-                l'envoi.
-                """
+            return L.t("The transfer succeeded but the file could not be renamed.") + "\n\n"
+                + L.t(
+                    "Your data is intact: it is on the display under the name \"%@\". "
+                        + "Rename it to \"%@\", or send it again.",
+                    temporary, target)
         }
     }
 }

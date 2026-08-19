@@ -32,7 +32,8 @@ func makeProgress(label: String, options: Options) -> ProgressHandler? {
         lastStep = step
         let percent = min(100, step * 10)
         let terminator = sent >= total ? "\n" : "\r"
-        Console.shared.partial("  \(label) : \(percent) %   \(terminator)")
+        let line = L.t("%@: %@%%", label, String(percent))
+        Console.shared.partial("  \(line)   \(terminator)")
     }
 }
 
@@ -44,9 +45,9 @@ func describe(_ entry: Entry, long: Bool) -> String {
     var name = entry.displayName + (entry.isDirectory ? "/" : "")
     // A name that cannot be used as a local path is flagged: the user has to
     // know that the item exists, and why it cannot be copied.
-    if !entry.hasSafeName { name += "   [nom inutilisable — non copiable]" }
+    if !entry.hasSafeName { name += "   " + L.t("[unusable name — cannot be copied]") }
     guard long else { return name }
-    let size = entry.isDirectory ? "dossier" : entry.humanSize
+    let size = entry.isDirectory ? L.t("folder") : entry.humanSize
     return String(repeating: " ", count: max(0, 10 - size.count)) + size + "  " + name
 }
 
@@ -55,29 +56,35 @@ enum Commands {
     // MARK: info
 
     static func info(_ display: Brailliant, _ options: Options) throws {
-        say("Appareil : \(display.model)")
+        say(L.t("Device: %@", display.model))
         if !display.friendlyName.isEmpty && display.friendlyName != display.model {
-            say("Nom      : \(display.friendlyName)")
+            say(L.t("Name:   %@", display.friendlyName))
         }
-        say("Série    : \(display.serialNumber)")
+        say(L.t("Serial: %@", display.serialNumber))
         say(
-            String(
-                format: "USB      : fabricant 0x%04x, produit 0x%04x",
-                display.vendorID, display.productID))
+            L.t(
+                "USB:    %@",
+                L.t("vendor 0x%04x, product 0x%04x", display.vendorID, display.productID)))
         say()
         let storages = try display.storages()
         let current = try display.defaultStorage()
         for (index, storage) in storages.enumerated() {
             // The number shown is the one to pass to -s.
-            let active = storage.id == current.id ? "   [actif]" : ""
-            say("Stockage \(index + 1) « \(storage.description.sanitizedForDisplay) »\(active)")
-            say("  capacité   : \(humanSize(storage.capacity))")
-            say("  utilisé    : \(humanSize(storage.used)) (\(storage.usedPercent) %)")
-            say("  disponible : \(humanSize(storage.free))")
+            let active = storage.id == current.id ? "   " + L.t("[active]") : ""
+            say(
+                L.t(
+                    "Storage %@ \"%@\"",
+                    String(index + 1), storage.description.sanitizedForDisplay) + active)
+            say(L.t("  capacity: %@", humanSize(storage.capacity)))
+            say(
+                L.t(
+                    "  used:     %@ (%@%%)",
+                    humanSize(storage.used), String(storage.usedPercent)))
+            say(L.t("  free:     %@", humanSize(storage.free)))
         }
         if storages.count > 1 {
             say()
-            say("Pour travailler sur un autre stockage : brailliant -s <numéro ou nom> …")
+            say(L.t("To work on another storage: brailliant -s <number or name> …"))
         }
     }
 
@@ -88,7 +95,7 @@ enum Commands {
         if !options.showAll { entries.removeAll { MacJunk.matches($0.name) } }
 
         guard !entries.isEmpty else {
-            say("(dossier vide : \(RemotePath.normalize(path)))")
+            say(L.t("(empty folder: %@)", RemotePath.normalize(path)))
             return
         }
         for entry in entries { say(describe(entry, long: options.long)) }
@@ -97,7 +104,10 @@ enum Commands {
             let files = entries.filter { !$0.isDirectory }
             let total = files.reduce(UInt64(0)) { $0 + $1.size }
             say()
-            say("\(entries.count) élément(s), \(files.count) fichier(s), \(humanSize(total))")
+            say(
+                L.t(
+                    "%@ item(s), %@ file(s), %@",
+                    String(entries.count), String(files.count), humanSize(total)))
         }
 
         // At the root, point out the storages that are not being shown:
@@ -108,12 +118,18 @@ enum Commands {
                 let current = try display.defaultStorage()
                 let others = storages.enumerated()
                     .filter { $0.element.id != current.id }
-                    .map { "\($0.offset + 1) « \($0.element.description.sanitizedForDisplay) »" }
+                    .map {
+                        L.t(
+                            "%@ \"%@\"",
+                            String($0.offset + 1),
+                            $0.element.description.sanitizedForDisplay)
+                    }
                 say()
                 say(
-                    "Contenu de « \(current.description.sanitizedForDisplay) ». "
-                        + "Autre(s) stockage(s) : \(others.joined(separator: ", ")) — "
-                        + "utilisez -s pour y accéder.")
+                    L.t(
+                        "Contents of \"%@\". Other storage(s): %@ — use -s to reach them.",
+                        current.description.sanitizedForDisplay,
+                        others.joined(separator: ", ")))
             }
         }
     }
@@ -164,7 +180,7 @@ enum Commands {
                     target = try LocalPath.confine(root: base, relative: relative)
                 } catch {
                     refused += 1
-                    complain("  IGNORÉ (nom dangereux) : \(item.displayName)")
+                    complain("  " + L.t("SKIPPED (unsafe name): %@", item.displayName))
                     continue
                 }
 
@@ -181,11 +197,21 @@ enum Commands {
                         options: options))
                 count += 1
                 total += item.size
-                say("  reçu : \(relative.sanitizedForDisplay) (\(item.humanSize))")
+                say(
+                    "  "
+                        + L.t(
+                            "Received: %@ (%@)",
+                            relative.sanitizedForDisplay, item.humanSize))
             }
-            say("\(count) fichier(s) reçus dans \(base) (\(humanSize(total)))")
+            say(
+                L.t(
+                    "%@ file(s) received into %@ (%@)",
+                    String(count), base, humanSize(total)))
             if refused > 0 {
-                complain("\(refused) élément(s) ignoré(s) : nom incompatible avec le disque.")
+                complain(
+                    L.t(
+                        "%@ item(s) skipped: name unusable on the disk.",
+                        String(refused)))
             }
             return
         }
@@ -193,9 +219,9 @@ enum Commands {
         let written = try display.download(
             remote, to: destination,
             progress: makeProgress(
-                label: "Téléchargement de \(entry.displayName)",
+                label: L.t("Downloading %@", entry.displayName),
                 options: options))
-        say("Reçu : \(written) (\(entry.humanSize))")
+        say(L.t("Received: %@ (%@)", written, entry.humanSize))
     }
 
     // MARK: put
@@ -227,10 +253,10 @@ enum Commands {
         let entry = try display.upload(
             source, to: target,
             progress: makeProgress(
-                label: "Envoi de \(name)",
+                label: L.t("Sending %@", name),
                 options: options),
             overwrite: !options.noOverwrite)
-        say("Envoyé : \(entry.displayPath) (\(entry.humanSize))")
+        say(L.t("Sent: %@ (%@)", entry.displayPath, entry.humanSize))
     }
 
     private static func putDirectory(
@@ -267,9 +293,9 @@ enum Commands {
                 overwrite: !options.noOverwrite)
             count += 1
             total += entry.size
-            say("  envoyé : \(entry.displayPath) (\(entry.humanSize))")
+            say("  " + L.t("Sent: %@ (%@)", entry.displayPath, entry.humanSize))
         }
-        say("\(count) fichier(s) envoyés vers \(base) (\(humanSize(total)))")
+        say(L.t("%@ file(s) sent to %@ (%@)", String(count), base, humanSize(total)))
     }
 
     // MARK: rm / mkdir
@@ -277,7 +303,7 @@ enum Commands {
     static func remove(_ display: Brailliant, _ options: Options, paths: [String]) throws {
         for path in paths {
             guard let entry = try display.resolve(path) else {
-                complain("Ignoré (introuvable) : \(path.sanitizedForDisplay)")
+                complain(L.t("Skipped (not found): %@", path.sanitizedForDisplay))
                 continue
             }
 
@@ -292,26 +318,30 @@ enum Commands {
                 if !contents.isEmpty {
                     let files = contents.filter { !$0.isDirectory }.count
                     Console.shared.partial(
-                        "Supprimer « \(entry.displayPath) » et son contenu "
-                            + "(\(contents.count) élément(s), dont \(files) fichier(s)) ? [o/N] ")
+                        L.t(
+                            "Delete \"%@\" and its contents "
+                                + "(%@ item(s), of which %@ file(s))? [y/N] ",
+                            entry.displayPath, String(contents.count), String(files)))
                     let answer = (readLine() ?? "").trimmingCharacters(in: .whitespaces)
                         .lowercased()
-                    guard answer == "o" || answer == "oui" else {
-                        say("Abandon : rien n'a été supprimé.")
+                    // The accepted answers are localized along with the prompt:
+                    // whoever is asked "[o/N]" types "o", not "y".
+                    guard answer == L.t("y") || answer == L.t("yes") else {
+                        say(L.t("Cancelled: nothing was deleted."))
                         continue
                     }
                 }
             }
 
             try display.remove(path, recursive: options.recursive)
-            say("Supprimé : \(entry.displayPath)")
+            say(L.t("Deleted: %@", entry.displayPath))
         }
     }
 
     static func makeDirectory(_ display: Brailliant, _ options: Options, paths: [String]) throws {
         for path in paths {
             let entry = try display.createDirectory(path)
-            say("Dossier prêt : \(entry.displayPath)")
+            say(L.t("Folder ready: %@", entry.displayPath))
         }
     }
 
@@ -320,35 +350,36 @@ enum Commands {
     static func clean(_ display: Brailliant, _ options: Options) throws {
         let victims = try display.walk("/").filter { !$0.isDirectory && MacJunk.matches($0.name) }
         guard !victims.isEmpty else {
-            say("Aucun fichier parasite macOS trouvé.")
+            say(L.t("No macOS clutter files found."))
             return
         }
-        say("\(victims.count) fichier(s) parasite(s) trouvé(s) :")
+        say(L.t("%@ clutter file(s) found:", String(victims.count)))
         for entry in victims { say("  \(entry.displayPath) (\(entry.humanSize))") }
 
         if options.dryRun {
             say()
-            say("(simulation : rien n'a été supprimé — relancez sans -n)")
+            say(L.t("(dry run: nothing was deleted — run again without -n)"))
             return
         }
         for entry in victims { try display.remove(entry.path) }
         say()
-        say("\(victims.count) fichier(s) supprimé(s).")
+        say(L.t("%@ file(s) deleted.", String(victims.count)))
     }
 
     // MARK: doctor
 
     static func doctor(_ display: Brailliant, _ options: Options) throws {
-        say("Connexion  : OK")
-        say("Appareil   : \(display.model) (série \(display.serialNumber))")
+        say(L.t("Connection: OK"))
+        say(L.t("Device:     %@ (serial %@)", display.model, display.serialNumber))
         let storages = try display.storages()
         let current = try display.defaultStorage()
         say(
-            "Stockages  : \(storages.count) détecté(s), "
-                + "actif : « \(current.description.sanitizedForDisplay) »")
+            L.t(
+                "Storages:   %@ detected, active: \"%@\"",
+                String(storages.count), current.description.sanitizedForDisplay))
 
         let root = try display.listDirectory("/")
-        say("Racine     : \(root.count) élément(s) lisibles")
+        say(L.t("Root:       %@ readable item(s)", String(root.count)))
 
         // "Embedded" means: shipped with the program — either next to the
         // binary (distributed package), or in Vendor/ (development tree).
@@ -357,8 +388,10 @@ enum Commands {
         let executableDirectory = (Bundle.main.executablePath as NSString?)?
             .deletingLastPathComponent
         let embedded = libraryDirectory == executableDirectory || path.contains("/Vendor/")
-        say("libmtp     : \(embedded ? "copie embarquée" : "installation système")")
-        say("             \(path)")
+        say(
+            L.t(
+                "libmtp:     %@\n            %@",
+                L.t(embedded ? "embedded copy" : "system installation"), path))
 
         var machine = utsname()
         uname(&machine)
@@ -366,15 +399,20 @@ enum Commands {
             $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
         }
         let version = ProcessInfo.processInfo.operatingSystemVersion
-        say("Machine    : \(architecture), macOS \(version.majorVersion).\(version.minorVersion)")
+        say(
+            L.t(
+                "Machine:    %@, macOS %@",
+                architecture, "\(version.majorVersion).\(version.minorVersion)"))
 
         let junk = root.filter { MacJunk.matches($0.name) }
         if !junk.isEmpty {
             say(
-                "Parasites  : \(junk.count) fichier(s) macOS à la racine "
-                    + "(commande « brailliant clean » pour les retirer)")
+                L.t(
+                    "Clutter:    %@ macOS file(s) at the root "
+                        + "(run \"brailliant clean\" to remove them)",
+                    String(junk.count)))
         }
         say()
-        say("Tout fonctionne. Aucun macFUSE ni extension noyau n'est utilisé.")
+        say(L.t("Everything works. No macFUSE and no kernel extension is involved."))
     }
 }
