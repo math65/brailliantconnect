@@ -34,6 +34,54 @@ public enum FinderLocation {
         home.appendingPathComponent(displayName)
     }
 
+    /// Where the shortcut can actually go, given what already occupies the
+    /// home folder.
+    ///
+    /// Somebody who owns a braille display may well already keep a folder
+    /// called "Brailliant". Refusing to create the shortcut at all was the
+    /// first answer and is unpredictable: it works on one machine and silently
+    /// does nothing on the next. The Finder's own convention is used instead —
+    /// "Brailliant 2", "Brailliant 3" — so there is always a shortcut, and the
+    /// guide can name the one that was actually created.
+    ///
+    /// - Parameter exists: whether something occupies a path. Injected so the
+    ///   choice can be tested without touching the file system.
+    /// - Returns: the free path, or nil if even the alternatives are taken.
+    public static func availableShortcut(
+        home: URL, upTo limit: Int = 9, exists: (URL) -> Bool
+    ) -> URL? {
+        let preferred = shortcut(home: home)
+        if !exists(preferred) { return preferred }
+        for suffix in 2...max(2, limit) {
+            let candidate = home.appendingPathComponent("\(displayName) \(suffix)")
+            if !exists(candidate) { return candidate }
+        }
+        return nil
+    }
+
+    /// True if `url` is a symlink of ours, whatever name it goes by.
+    public static func isOurShortcut(at url: URL) -> Bool {
+        guard
+            let target = try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)
+        else { return false }
+        return isOurShortcut(pointingAt: target)
+    }
+
+    /// Every shortcut of ours in the home folder, under any of its names.
+    ///
+    /// Removal has to find them all: a shortcut left behind under "Brailliant 2"
+    /// after the original name freed up would point at a location that no
+    /// longer exists.
+    public static func existingShortcuts(home: URL) -> [URL] {
+        var found: [URL] = []
+        for suffix in 0...9 {
+            let name = suffix == 0 ? displayName : "\(displayName) \(suffix + 1)"
+            let candidate = home.appendingPathComponent(name)
+            if isOurShortcut(at: candidate) { found.append(candidate) }
+        }
+        return found
+    }
+
     /// True if `target` is a symlink we created, and therefore ours to delete.
     ///
     /// A user may well have a real folder named "Brailliant" in their home

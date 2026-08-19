@@ -82,8 +82,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(disabled(L.t("Display asleep")))
             menu.addItem(disabled(L.t("Press a key on the display to wake it")))
         case .brailleTerminal:
-            menu.addItem(disabled(L.t("Display in braille terminal mode")))
-            menu.addItem(disabled(L.t("Switch it to file transfer mode")))
+            menu.addItem(disabled(L.t("File transfer not turned on")))
+            menu.addItem(disabled(L.t("Turn it on in the display's own menu")))
         case .absent:
             menu.addItem(disabled(L.t("No display connected")))
         }
@@ -95,6 +95,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        add(menu, L.t("Getting Started"), #selector(openWelcome))
         add(menu, L.t("Uninstall BrailliantConnect…"), #selector(uninstall))
         add(menu, L.t("Quit"), #selector(quit), key: "q")
     }
@@ -121,13 +122,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func openInFinder() {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let shortcut = FinderLocation.shortcut(home: home)
-        // Prefer the home-folder shortcut: that is the path the user can find
-        // again on their own afterwards, without going through this menu.
+        // Prefer the home-folder shortcut — the path the user can find again on
+        // their own afterwards — under whatever name it ended up taking.
         let target =
-            FileManager.default.fileExists(atPath: shortcut.path)
-            ? shortcut : FinderLocation.domainLocation(home: home)
+            FinderLocation.existingShortcuts(home: home).first
+            ?? FinderLocation.domainLocation(home: home)
         NSWorkspace.shared.open(target)
+    }
+
+    @objc private func openWelcome() {
+        Welcome.show(
+            shortcut: FinderLocation.existingShortcuts(
+                home: FileManager.default.homeDirectoryForCurrentUser
+            ).first)
     }
 
     @objc private func toggleStartup() {

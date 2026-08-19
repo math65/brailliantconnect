@@ -32,13 +32,12 @@ var domainLocation: URL {
     FinderLocation.domainLocation(home: FileManager.default.homeDirectoryForCurrentUser)
 }
 
-/// Shortcut visible directly in the home folder.
+/// Path of the shortcut currently in place, if there is one.
 ///
-/// Without it, access would depend on the Finder sidebar — which can be
-/// hidden — or on a path under ~/Library, a folder hidden by default.
-var shortcut: URL {
-    FinderLocation.shortcut(home: FileManager.default.homeDirectoryForCurrentUser)
-}
+/// Not always `~/Brailliant`: that name may be taken by something the user
+/// created, in which case the shortcut steps aside to "Brailliant 2". The guide
+/// and the log both name the one that actually exists.
+var shortcutInPlace: URL?
 
 @discardableResult
 func createShortcut() -> Bool {
@@ -49,33 +48,43 @@ func createShortcut() -> Bool {
     }
     guard fm.fileExists(atPath: domainLocation.path) else { return false }
 
-    // Never overwrite what is already there unless it is our own link. Somebody
-    // who owns a braille display may well keep a folder called "Brailliant" in
-    // their home directory, and removing it here would delete it outright —
-    // recursively, with no trip through the Trash. The location stays reachable
-    // from the Finder sidebar; the shortcut is a convenience, not worth data.
-    let existing = URL(fileURLWithPath: shortcut.path)
-    if let target = try? fm.destinationOfSymbolicLink(atPath: existing.path) {
-        guard FinderLocation.isOurShortcut(pointingAt: target) else {
-            log(L.t("~/%@ is a link to something else — shortcut not created", displayName))
-            return false
-        }
-        try? fm.removeItem(at: shortcut)
-    } else if fm.fileExists(atPath: shortcut.path) {
-        log(L.t("~/%@ already exists — shortcut not created", displayName))
+    let home = fm.homeDirectoryForCurrentUser
+    // Reuse ours if one is already there — under whatever name it took.
+    if let existing = FinderLocation.existingShortcuts(home: home).first {
+        try? fm.removeItem(at: existing)
+    }
+    // Never overwrite anything else: a real folder called "Brailliant" belongs
+    // to the user, and removing it here would delete it outright.
+    guard
+        let destination = FinderLocation.availableShortcut(
+            home: home,
+            exists: {
+                fm.fileExists(atPath: $0.path)
+                    || (try? fm.destinationOfSymbolicLink(atPath: $0.path)) != nil
+            })
+    else {
+        log(L.t("no free name for the shortcut in the home folder"))
+        shortcutInPlace = nil
         return false
     }
-    return (try? fm.createSymbolicLink(at: shortcut, withDestinationURL: domainLocation)) != nil
+    guard (try? fm.createSymbolicLink(at: destination, withDestinationURL: domainLocation)) != nil
+    else {
+        shortcutInPlace = nil
+        return false
+    }
+    shortcutInPlace = destination
+    return true
 }
 
 func removeShortcut() {
-    // Only remove it if it really is our link: never a real folder the user
-    // may have created under the same name.
-    let fm = FileManager.default
-    guard let target = try? fm.destinationOfSymbolicLink(atPath: shortcut.path),
-        FinderLocation.isOurShortcut(pointingAt: target)
-    else { return }
-    try? fm.removeItem(at: shortcut)
+    // Only ever remove our own links: never a real folder the user may have
+    // created under the same name.
+    for shortcut in FinderLocation.existingShortcuts(
+        home: FileManager.default.homeDirectoryForCurrentUser)
+    {
+        try? FileManager.default.removeItem(at: shortcut)
+    }
+    shortcutInPlace = nil
 }
 
 func log(_ message: String) {
@@ -90,15 +99,11 @@ func log(_ message: String) {
 /// Reads how much is still on its way to the display, for the menu bar.
 let transfers = TransferMonitor()
 
-/// Whether the home-folder shortcut is in place. It is not, when something else
-/// already occupies that name — and the log must not then claim otherwise.
-var shortcutExists = false
-
 func publish(_ completion: @escaping (Error?) -> Void) {
     let domain = NSFileProviderDomain(identifier: domainIdentifier, displayName: displayName)
     NSFileProviderManager.add(domain) { error in
         if error == nil {
-            shortcutExists = createShortcut()
+            createShortcut()
             // A domain removed and re-added is a new one, so its progress has
             // to be picked up again rather than kept from last time.
             transfers.follow(domain: domainIdentifier)
@@ -158,10 +163,11 @@ func syncWithHardware() {
                 guard worthLogging || error != nil else { return }
                 log(
                     error == nil
-                        ? (shortcutExists
-                            ? L.t("display connected — location published in ~/%@", displayName)
-                            : L.t(
-                                "display connected — location published, in the Finder sidebar"))
+                        ? (shortcutInPlace.map {
+                            L.t(
+                                "display connected — location published in ~/%@",
+                                $0.lastPathComponent)
+                        } ?? L.t("display connected — location published, in the Finder sidebar"))
                         : L.t(
                             "display connected but publishing failed: %@",
                             error!.localizedDescription)
@@ -175,9 +181,7 @@ func syncWithHardware() {
                 case .asleep:
                     reason = L.t("display asleep — location removed until it wakes up")
                 case .brailleTerminal:
-                    reason = L.t(
-                        "display in braille terminal mode — location removed until it "
-                            + "is switched to file transfer")
+                    reason = L.t("file transfer turned off on the display — location removed")
                 default:
                     reason = L.t("display disconnected — location removed")
                 }
@@ -352,6 +356,12 @@ case "--watch":
     // have anything to attach a permission dialog to. Asked for before that,
     // the request is dropped and the status stays "not determined" — silently,
     // which is how it went unnoticed the first time.
+    // Shown once, on first launch. Delayed a moment because it names the
+    // shortcut, which only exists once the location has been published.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        Welcome.showIfFirstLaunch(shortcut: shortcutInPlace)
+    }
+
     TransferNotice.delivery = { log($0) }
     DispatchQueue.main.async { TransferNotice.requestPermission(report: { log($0) }) }
 

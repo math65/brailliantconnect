@@ -37,6 +37,11 @@ space, needs no kernel extension, and works from macOS 11.
 Unpack the archive, drag **BrailliantConnect** into Applications, and open it
 once. That is the entire procedure — no terminal, no configuration.
 
+A window appears the first time, saying the few things nobody can guess: turn
+on file transfer from the display's own menu, the files sit one level down
+under their storage, and a copy is not over when the Finder says it is. It can
+be reopened later from the menu bar, under **Getting Started**.
+
 Opening it registers a background agent and quits. From then on the agent starts
 with every session, and the display shows up in `~/Brailliant` whenever it is
 connected. An item in the menu bar says whether the display is there, opens it
@@ -103,8 +108,10 @@ current directory.
 
 ## Use
 
-Connect the display over USB and put it in **file transfer mode** (not braille
-terminal mode).
+Connect the display over USB and turn on **file transfer** from its own menu.
+It stays usable as a braille terminal at the same time: the display publishes
+its braille interfaces and the MTP one together, and turning file transfer on
+adds access to the files rather than replacing anything.
 
 | Command | What it does |
 |---|---|

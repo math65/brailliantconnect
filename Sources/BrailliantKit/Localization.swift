@@ -61,12 +61,12 @@ public enum L {
         "No HumanWare braille display detected.":
             "Aucune plage braille HumanWare détectée.",
         "No braille display detected.": "Aucune plage braille détectée.",
-        "Check that the USB cable is connected, the display is switched on, and it is in file transfer mode (MTP) rather than braille terminal mode.":
-            "Vérifiez que le câble USB est branché, que la plage est allumée, et qu'elle est en mode « transfert de fichiers » (MTP) et non en mode terminal braille.",
+        "Check that the USB cable is connected, the display is switched on, and that file transfer is turned on in its own menu.":
+            "Vérifiez que le câble USB est branché, que la plage est allumée, et que le transfert de fichiers est activé dans son menu.",
         "The display was detected but the MTP connection failed.":
             "La plage a été détectée mais la connexion MTP a échoué.",
-        "Common causes: the display is in braille terminal mode instead of file transfer mode, or another application is already using it.":
-            "Causes fréquentes : la plage est en mode terminal braille au lieu du mode transfert de fichiers, ou une autre application occupe déjà le périphérique.",
+        "Common causes: file transfer is not turned on in the display's own menu, or another application is already using the display.":
+            "Causes fréquentes : le transfert de fichiers n'est pas activé dans le menu de la plage, ou une autre application occupe déjà le périphérique.",
         "No HumanWare braille display detected, but %@ other MTP device(s) are plugged in:":
             "Aucune plage braille HumanWare détectée, mais %@ autre(s) appareil(s) MTP sont branchés :",
         "It is probably a phone or a music player. To avoid acting on the wrong device, such devices are ignored by default.":
@@ -97,6 +97,8 @@ public enum L {
         "Transfer of \"%@\" failed (code %@).": "Échec du transfert de « %@ » (code %@).",
         "Could not create the folder \"%@\".": "Échec de la création du dossier « %@ ».",
         "Deletion of \"%@\" failed (code %@).": "Échec de la suppression de « %@ » (code %@).",
+        "Moving \"%@\" to \"%@\" failed (code %@).":
+            "Le déplacement de « %@ » vers « %@ » a échoué (code %@).",
         "Renaming \"%@\" to \"%@\" failed (code %@).":
             "Échec du renommage de « %@ » en « %@ » (code %@).",
         "Invalid remote path: \"%@\"": "Chemin distant invalide : « %@ »",
@@ -162,21 +164,17 @@ public enum L {
         // MARK: The agent's own messages
 
         "agent started": "agent démarré",
+        "no free name for the shortcut in the home folder":
+            "aucun nom libre pour le raccourci dans le dossier personnel",
         "display connected — location published, in the Finder sidebar":
             "plage branchée — emplacement publié, dans la barre latérale du Finder",
-        "~/%@ is a link to something else — shortcut not created":
-            "~/%@ est un lien vers autre chose — raccourci non créé",
-        "~/%@ already exists — shortcut not created":
-            "~/%@ existe déjà — raccourci non créé",
         "display connected — location published in ~/%@":
             "plage branchée — emplacement publié dans ~/%@",
         "display connected but publishing failed: %@":
             "plage branchée mais publication impossible : %@",
         "display disconnected — location removed": "plage débranchée — emplacement retiré",
-        "display in braille terminal mode — location removed until it "
-            + "is switched to file transfer":
-            "plage en mode terminal braille — emplacement retiré jusqu'au passage "
-            + "en mode transfert de fichiers",
+        "file transfer turned off on the display — location removed":
+            "transfert de fichiers désactivé sur la plage — emplacement retiré",
         "display disconnected but removal failed: %@":
             "plage débranchée mais retrait impossible : %@",
         "Publishing failed: %@": "Échec de la publication : %@",
@@ -233,6 +231,8 @@ public enum L {
 
         "Display connected": "Plage branchée",
         "Display asleep": "Plage en veille",
+        "File transfer not turned on": "Transfert de fichiers non activé",
+        "Turn it on in the display's own menu": "Activez-le dans le menu de la plage",
         "Display in braille terminal mode": "Plage en mode terminal braille",
         "Transferring — %@ of %@": "Transfert en cours — %@ sur %@",
         "Transferring — %@": "Transfert en cours — %@",
@@ -268,6 +268,60 @@ public enum L {
         "Press a key on the display to wake it":
             "Appuyez sur une touche de la plage pour la réveiller",
         "Open at Login": "Ouvrir à l'ouverture de session",
+        "Getting Started": "Premiers pas",
+        "Getting started with BrailliantConnect": "Premiers pas avec BrailliantConnect",
+        "BrailliantConnect is installed": "BrailliantConnect est installé",
+        "Done": "Terminé",
+        "Your braille display now appears in the Finder when you plug it in, "
+            + "and disappears when you unplug it. There is nothing to launch: "
+            + "a background program takes care of it and comes back at every login.":
+            "Votre plage braille apparaît maintenant dans le Finder quand vous la "
+            + "branchez, et disparaît quand vous la débranchez. Il n'y a rien à "
+            + "lancer : un programme d'arrière-plan s'en charge et revient à chaque "
+            + "ouverture de session.",
+        "1. Turn on file transfer on the display":
+            "1. Activez le transfert de fichiers sur la plage",
+        "This is the one thing to know. In the display's own menu, turn on "
+            + "file transfer: the location appears within a second or two. You "
+            + "can go on using the display as a braille terminal at the same "
+            + "time — the two work together. Until file transfer is on, the "
+            + "computer only sees the braille side and no files at all.":
+            "C'est la seule chose à savoir. Dans le menu de la plage, activez le "
+            + "transfert de fichiers : l'emplacement apparaît en une seconde ou deux. "
+            + "Vous pouvez continuer à vous servir de la plage comme afficheur "
+            + "braille en même temps — les deux fonctionnent ensemble. Tant que le "
+            + "transfert de fichiers n'est pas activé, l'ordinateur ne voit que le "
+            + "braille et aucun fichier.",
+        "2. Your files are in %@": "2. Vos fichiers sont dans %@",
+        "Inside, one folder per storage: \"mémoire interne\" for the display "
+            + "itself, and \"usb\" for a stick plugged into it. Your documents are "
+            + "therefore one level down, in \"mémoire interne\". The top level "
+            + "holds only these storages and accepts no files.":
+            "À l'intérieur, un dossier par stockage : « mémoire interne » pour la "
+            + "plage elle-même, et « usb » pour une clé branchée dessus. Vos "
+            + "documents sont donc un niveau plus bas, dans « mémoire interne ». Le "
+            + "premier niveau ne contient que ces stockages et n'accepte aucun fichier.",
+        "3. Wait before unplugging": "3. Attendez avant de débrancher",
+        "The Finder hands control back immediately, long before a copy is "
+            + "finished. Three gigabytes take about seven minutes, during which "
+            + "everything looks done. A notification announces the end, and the "
+            + "menu bar says \"Do not unplug the display\" until then. Deleting, "
+            + "on the other hand, is immediate.":
+            "Le Finder vous rend la main immédiatement, bien avant la fin de la "
+            + "copie. Trois gigaoctets prennent environ sept minutes, pendant "
+            + "lesquelles tout semble terminé. Une notification annonce la fin, et "
+            + "la barre des menus affiche « Ne débranchez pas la plage » jusque-là. "
+            + "La suppression, en revanche, est immédiate.",
+        "4. Everything else is in the menu bar":
+            "4. Tout le reste est dans la barre des menus",
+        "The menu bar item is the only visible part of the app. It reports the "
+            + "state of the display, opens the location in the Finder, and "
+            + "uninstalls everything — including itself — leaving the braille "
+            + "display untouched.":
+            "L'élément de la barre des menus est la seule partie visible de "
+            + "l'application. Il indique l'état de la plage, ouvre l'emplacement "
+            + "dans le Finder, et désinstalle tout — y compris lui-même — sans rien "
+            + "toucher sur la plage braille.",
         "Uninstall BrailliantConnect…": "Désinstaller BrailliantConnect…",
         "Quit": "Quitter",
         "Uninstall BrailliantConnect?": "Désinstaller BrailliantConnect ?",

@@ -119,9 +119,14 @@ Each of these produces an error that points somewhere other than its cause.
   the **IOService plane** (`ioreg -p IOUSB` shows a different tree and will not
   answer this):
   - no interfaces → asleep, a keypress brings it back;
-  - HID interfaces only → braille terminal mode, the user must switch it to
-    file transfer;
+  - HID interfaces only → file transfer is not turned on, and the user has to
+    turn it on from the display's own menu;
   - an interface of class 6, or vendor-specific and named `MTP` → reachable.
+
+  The braille side and file transfer are **not exclusive**: an available
+  display publishes its two HID interfaces *and* the MTP one at once, and stays
+  usable as a braille terminal throughout. Wording that asks the user to
+  "switch to file transfer mode" is wrong — nothing is switched off.
 
   Only the last one publishes the location. "Has children" was the first
   criterion here and was wrong: in braille terminal mode the device publishes

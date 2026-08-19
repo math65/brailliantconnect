@@ -91,3 +91,38 @@ final class FinderLocationTests: XCTestCase {
         XCTAssertEqual(FinderLocation.domainIdentifier, "brailliant-principal")
     }
 }
+
+// MARK: - Choosing a shortcut name
+
+/// Someone who owns a braille display may already have a folder called
+/// "Brailliant". Never overwrite it, and never silently give up either.
+final class ShortcutNamingTests: XCTestCase {
+
+    private let home = URL(fileURLWithPath: "/Users/someone")
+
+    func testPrefersThePlainName() {
+        let chosen = FinderLocation.availableShortcut(home: home) { _ in false }
+        XCTAssertEqual(chosen?.lastPathComponent, "Brailliant")
+    }
+
+    func testStepsAsideForAnExistingFolder() {
+        let taken = Set(["/Users/someone/Brailliant"])
+        let chosen = FinderLocation.availableShortcut(home: home) { taken.contains($0.path) }
+        XCTAssertEqual(chosen?.lastPathComponent, "Brailliant 2")
+    }
+
+    func testKeepsCountingWhileNamesAreTaken() {
+        let taken = Set([
+            "/Users/someone/Brailliant",
+            "/Users/someone/Brailliant 2",
+            "/Users/someone/Brailliant 3",
+        ])
+        let chosen = FinderLocation.availableShortcut(home: home) { taken.contains($0.path) }
+        XCTAssertEqual(chosen?.lastPathComponent, "Brailliant 4")
+    }
+
+    func testGivesUpRatherThanLoopForever() {
+        let chosen = FinderLocation.availableShortcut(home: home, upTo: 3) { _ in true }
+        XCTAssertNil(chosen)
+    }
+}

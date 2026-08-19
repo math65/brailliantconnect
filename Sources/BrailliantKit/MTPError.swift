@@ -46,13 +46,12 @@ public enum MTPError: Error, CustomStringConvertible {
             return L.t("No braille display detected.") + "\n"
                 + L.t(
                     "Check that the USB cable is connected, the display is switched on, "
-                        + "and it is in file transfer mode (MTP) rather than braille "
-                        + "terminal mode.")
+                        + "and that file transfer is turned on in its own menu.")
         case .connectionFailed:
             return L.t("The display was detected but the MTP connection failed.") + "\n"
                 + L.t(
-                    "Common causes: the display is in braille terminal mode instead of "
-                        + "file transfer mode, or another application is already using it.")
+                    "Common causes: file transfer is not turned on in the display's own "
+                        + "menu, or another application is already using the display.")
         case .deviceIndexOutOfRange(let requested, let found):
             return L.t(
                 "Device no. %@ requested, but %@ detected.",
@@ -95,8 +94,7 @@ public enum MTPError: Error, CustomStringConvertible {
         case .noHumanwareDevice(let others):
             let checkCable = L.t(
                 "Check that the USB cable is connected, the display is switched on, "
-                    + "and it is in file transfer mode (MTP) rather than braille "
-                    + "terminal mode.")
+                    + "and that file transfer is turned on in its own menu.")
             if others.isEmpty {
                 return L.t("No HumanWare braille display detected.") + "\n" + checkCable
             }
