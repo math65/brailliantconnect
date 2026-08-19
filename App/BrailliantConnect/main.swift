@@ -356,9 +356,11 @@ case "--watch":
     // have anything to attach a permission dialog to. Asked for before that,
     // the request is dropped and the status stays "not determined" — silently,
     // which is how it went unnoticed the first time.
-    // Shown once, on first launch. Delayed a moment because it names the
-    // shortcut, which only exists once the location has been published.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+    // Shown once, on first launch. Delayed only enough for the shortcut to
+    // exist, since the window names it. Three seconds was the first guess and
+    // put the window on screen a full six seconds after the double-click — long
+    // enough for someone to have moved on and miss it entirely.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
         Welcome.showIfFirstLaunch(shortcut: shortcutInPlace)
     }
 

@@ -19,10 +19,19 @@ final class Welcome: NSObject, NSWindowDelegate {
     private var window: NSWindow?
 
     /// Shows the window the first time, and never again on its own.
+    ///
+    /// Marked as seen only once a window is actually on screen. Marking first
+    /// was the obvious order and is wrong: anything that stops the window from
+    /// appearing then spends its one chance in silence, and the user never sees
+    /// it — not on this launch, and not on any other.
     static func showIfFirstLaunch(shortcut: URL?) {
         guard !UserDefaults.standard.bool(forKey: seenKey) else { return }
-        UserDefaults.standard.set(true, forKey: seenKey)
         show(shortcut: shortcut)
+        guard current?.window?.isVisible == true else { return }
+        UserDefaults.standard.set(true, forKey: seenKey)
+        // Written now rather than whenever the system feels like it: the agent
+        // may be killed at logout without a chance to flush.
+        UserDefaults.standard.synchronize()
     }
 
     static func show(shortcut: URL?) {
