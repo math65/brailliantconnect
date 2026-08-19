@@ -1,16 +1,15 @@
 import FileProvider
 import UniformTypeIdentifiers
 
-/// Extension File Provider — étape de validation.
+/// Extension File Provider adossée à la plage braille.
 ///
-/// Elle sert pour l'instant une arborescence factice, sans toucher à la plage.
-/// L'objectif est de confirmer que la plomberie système fonctionne — App Group,
-/// entitlements, enregistrement du domaine, apparition dans le Finder — avant
-/// d'y brancher BrailliantKit. Diagnostiquer un problème d'entitlements à
-/// travers du code MTP serait inutilement pénible.
+/// Elle traduit l'arborescence MTP en éléments que le Finder sait afficher.
+/// La connexion est ouverte à la demande et conservée : MTP n'accepte qu'une
+/// session à la fois, et rouvrir à chaque requête coûterait ~130 ms.
 final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
 
     private let domain: NSFileProviderDomain
+    private let accès = AccèsPlage()
 
     required init(domain: NSFileProviderDomain) {
         self.domain = domain
@@ -18,7 +17,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
     }
 
     func invalidate() {
-        // Rien à libérer tant qu'aucune connexion MTP n'est ouverte.
+        accès.fermer()
     }
 
     // MARK: - Lecture
@@ -26,9 +25,9 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
     func item(for identifier: NSFileProviderItemIdentifier,
               request: NSFileProviderRequest,
               completionHandler: @escaping (NSFileProviderItem?, Error?) -> Void) -> Progress {
-        if let item = FakeTree.item(for: identifier) {
-            completionHandler(item, nil)
-        } else {
+        do {
+            completionHandler(try accès.élément(pour: identifier), nil)
+        } catch {
             completionHandler(nil, NSFileProviderError(.noSuchItem))
         }
         return Progress()
@@ -39,31 +38,25 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                        request: NSFileProviderRequest,
                        completionHandler: @escaping (URL?, NSFileProviderItem?, Error?) -> Void)
     -> Progress {
-        guard let item = FakeTree.item(for: itemIdentifier),
-              let contents = FakeTree.contents(for: itemIdentifier) else {
-            completionHandler(nil, nil, NSFileProviderError(.noSuchItem))
-            return Progress()
-        }
-
-        // Le contenu doit être remis sous forme de fichier temporaire, que le
-        // système recopie puis supprime.
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
+        let progression = Progress(totalUnitCount: 100)
         do {
-            try contents.write(to: url)
-            completionHandler(url, item, nil)
+            let (url, élément) = try accès.contenu(de: itemIdentifier) { transféré, total in
+                guard total > 0 else { return }
+                progression.completedUnitCount = Int64(transféré * 100 / total)
+            }
+            completionHandler(url, élément, nil)
         } catch {
-            completionHandler(nil, nil, error)
+            completionHandler(nil, nil, NSFileProviderError(.serverUnreachable))
         }
-        return Progress()
+        return progression
     }
 
     func enumerator(for containerItemIdentifier: NSFileProviderItemIdentifier,
                     request: NSFileProviderRequest) throws -> NSFileProviderEnumerator {
-        Enumerator(container: containerItemIdentifier)
+        Enumerator(accès: accès, conteneur: containerItemIdentifier)
     }
 
-    // MARK: - Écriture (non prise en charge à ce stade)
+    // MARK: - Écriture (pas encore prise en charge)
 
     func createItem(basedOn itemTemplate: NSFileProviderItem,
                     fields: NSFileProviderItemFields,
@@ -72,7 +65,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                     request: NSFileProviderRequest,
                     completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields,
                                                   Bool, Error?) -> Void) -> Progress {
-        completionHandler(nil, [], false, NSFileProviderError(.notAuthenticated))
+        completionHandler(nil, [], false, NSFileProviderError(.noSuchItem))
         return Progress()
     }
 
@@ -84,7 +77,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                     request: NSFileProviderRequest,
                     completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields,
                                                   Bool, Error?) -> Void) -> Progress {
-        completionHandler(nil, [], false, NSFileProviderError(.notAuthenticated))
+        completionHandler(nil, [], false, NSFileProviderError(.noSuchItem))
         return Progress()
     }
 
@@ -93,7 +86,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                     options: NSFileProviderDeleteItemOptions = [],
                     request: NSFileProviderRequest,
                     completionHandler: @escaping (Error?) -> Void) -> Progress {
-        completionHandler(NSFileProviderError(.notAuthenticated))
+        completionHandler(NSFileProviderError(.noSuchItem))
         return Progress()
     }
 }
@@ -102,10 +95,12 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
 
 private final class Enumerator: NSObject, NSFileProviderEnumerator {
 
-    private let container: NSFileProviderItemIdentifier
+    private let accès: AccèsPlage
+    private let conteneur: NSFileProviderItemIdentifier
 
-    init(container: NSFileProviderItemIdentifier) {
-        self.container = container
+    init(accès: AccèsPlage, conteneur: NSFileProviderItemIdentifier) {
+        self.accès = accès
+        self.conteneur = conteneur
         super.init()
     }
 
@@ -113,113 +108,97 @@ private final class Enumerator: NSObject, NSFileProviderEnumerator {
 
     func enumerateItems(for observer: NSFileProviderEnumerationObserver,
                         startingAt page: NSFileProviderPage) {
-        observer.didEnumerate(FakeTree.children(of: container))
-        observer.finishEnumerating(upTo: nil)
+        do {
+            observer.didEnumerate(try accès.contenu(duDossier: conteneur))
+            observer.finishEnumerating(upTo: nil)
+        } catch {
+            // Plage débranchée ou occupée par un autre programme : MTP
+            // n'accepte qu'une session à la fois.
+            observer.finishEnumeratingWithError(NSFileProviderError(.serverUnreachable))
+        }
     }
 
     func enumerateChanges(for observer: NSFileProviderChangeObserver,
                           from syncAnchor: NSFileProviderSyncAnchor) {
-        // MTP n'émet aucune notification de changement : il n'y aura jamais de
-        // modification poussée par l'appareil. Le rafraîchissement devra être
-        // déclenché explicitement.
+        // MTP n'émet aucune notification : rien ne sera jamais poussé par
+        // l'appareil. Le rafraîchissement passe par une nouvelle énumération.
         observer.finishEnumeratingChanges(upTo: syncAnchor, moreComing: false)
     }
 
     func currentSyncAnchor(completionHandler: @escaping (NSFileProviderSyncAnchor?) -> Void) {
-        completionHandler(NSFileProviderSyncAnchor(Data("0".utf8)))
+        completionHandler(NSFileProviderSyncAnchor(Data("1".utf8)))
     }
 }
 
-// MARK: - Arborescence factice
+// MARK: - Éléments
 
-/// Contenu de démonstration, remplacé par BrailliantKit une fois la plomberie
-/// validée. Reproduit la forme réelle d'une plage : des dossiers à la racine,
-/// des fichiers dedans.
-private enum FakeTree {
+/// Élément du Finder adossé à une entrée MTP.
+final class ÉlémentPlage: NSObject, NSFileProviderItem {
 
-    struct Node {
-        let identifier: String
-        let parent: String
-        let name: String
-        let isFolder: Bool
-        let text: String?
-    }
+    private let entrée: Entry?
+    private let estRacine: Bool
 
-    static let nodes: [Node] = [
-        Node(identifier: "documents", parent: NSFileProviderItemIdentifier.rootContainer.rawValue,
-             name: "documents", isFolder: true, text: nil),
-        Node(identifier: "notes", parent: NSFileProviderItemIdentifier.rootContainer.rawValue,
-             name: "notes", isFolder: true, text: nil),
-        Node(identifier: "essai", parent: "documents",
-             name: "essai-éàç.txt", isFolder: false,
-             text: "Si vous lisez ceci depuis le Finder, la plomberie fonctionne.\n"),
-    ]
-
-    static func item(for identifier: NSFileProviderItemIdentifier) -> NSFileProviderItem? {
-        if identifier == .rootContainer { return Item(root: true) }
-        guard let node = nodes.first(where: { $0.identifier == identifier.rawValue }) else {
-            return nil
-        }
-        return Item(node: node)
-    }
-
-    static func children(of container: NSFileProviderItemIdentifier) -> [NSFileProviderItem] {
-        let key = container == .rootContainer
-            ? NSFileProviderItemIdentifier.rootContainer.rawValue
-            : container.rawValue
-        return nodes.filter { $0.parent == key }.map { Item(node: $0) }
-    }
-
-    static func contents(for identifier: NSFileProviderItemIdentifier) -> Data? {
-        nodes.first { $0.identifier == identifier.rawValue }?.text.map { Data($0.utf8) }
-    }
-}
-
-private final class Item: NSObject, NSFileProviderItem {
-
-    private let node: FakeTree.Node?
-    private let isRoot: Bool
-
-    init(node: FakeTree.Node) {
-        self.node = node
-        self.isRoot = false
+    init(entrée: Entry) {
+        self.entrée = entrée
+        self.estRacine = false
         super.init()
     }
 
-    init(root: Bool) {
-        self.node = nil
-        self.isRoot = true
+    init(racine: Bool) {
+        self.entrée = nil
+        self.estRacine = true
         super.init()
     }
 
     var itemIdentifier: NSFileProviderItemIdentifier {
-        isRoot ? .rootContainer : NSFileProviderItemIdentifier(node!.identifier)
+        guard let entrée else { return .rootContainer }
+        return NSFileProviderItemIdentifier(String(entrée.itemID))
     }
 
     var parentItemIdentifier: NSFileProviderItemIdentifier {
-        isRoot ? .rootContainer : NSFileProviderItemIdentifier(node!.parent)
+        guard let entrée else { return .rootContainer }
+        // La racine MTP porte un identifiant sentinelle ; le Finder attend
+        // son propre conteneur racine à la place.
+        return entrée.parentID == 0xFFFF_FFFF || entrée.parentID == 0
+            ? .rootContainer
+            : NSFileProviderItemIdentifier(String(entrée.parentID))
     }
 
-    var filename: String { isRoot ? "Brailliant" : node!.name }
+    var filename: String {
+        guard let entrée else { return "Brailliant" }
+        // Un nom inutilisable comme composant de chemin est neutralisé plutôt
+        // que présenté tel quel au système de fichiers.
+        return entrée.hasSafeName ? entrée.name : entrée.displayName
+    }
 
     var contentType: UTType {
-        (isRoot || node!.isFolder) ? .folder : .plainText
+        guard let entrée else { return .folder }
+        if entrée.isDirectory { return .folder }
+        let extensionFichier = (entrée.name as NSString).pathExtension
+        return UTType(filenameExtension: extensionFichier) ?? .data
     }
 
     var capabilities: NSFileProviderItemCapabilities {
-        // Lecture seule à ce stade : l'écriture viendra avec BrailliantKit.
-        (isRoot || node!.isFolder) ? [.allowsContentEnumerating, .allowsReading]
-                                   : [.allowsReading]
+        // Lecture seule : l'écriture viendra dans un second temps.
+        guard let entrée else { return [.allowsContentEnumerating, .allowsReading] }
+        return entrée.isDirectory
+            ? [.allowsContentEnumerating, .allowsReading]
+            : [.allowsReading]
     }
 
     var documentSize: NSNumber? {
-        guard let text = node?.text else { return nil }
-        return NSNumber(value: text.utf8.count)
+        guard let entrée, !entrée.isDirectory else { return nil }
+        return NSNumber(value: entrée.size)
     }
 
+    var contentModificationDate: Date? { entrée?.modified }
+
     var itemVersion: NSFileProviderItemVersion {
-        // Versions constantes : le contenu factice ne change jamais.
-        NSFileProviderItemVersion(contentVersion: Data("1".utf8),
-                                  metadataVersion: Data("1".utf8))
+        // MTP ne fournit pas de jeton de version : la date de modification et
+        // la taille servent d'empreinte.
+        let empreinte = entrée.map { "\($0.modified?.timeIntervalSince1970 ?? 0)-\($0.size)" }
+            ?? "racine"
+        return NSFileProviderItemVersion(contentVersion: Data(empreinte.utf8),
+                                         metadataVersion: Data(empreinte.utf8))
     }
 }

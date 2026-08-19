@@ -41,6 +41,18 @@ targets:
         # Re-signer l'extension à l'embarquement lui fait perdre ses propres
         # entitlements au profit de ceux de l'app hôte.
         codeSign: false
+    postBuildScripts:
+      - name: Embarquer libmtp et libusb
+        script: |
+          DEST="$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH"
+          mkdir -p "$DEST"
+          for lib in libmtp.9.dylib libusb-1.0.0.dylib; do
+            cp -f "$SRCROOT/../Vendor/$lib" "$DEST/$lib"
+            # Signer chaque bibliothèque séparément. Une signature « --deep »
+            # appliquée à l'application entière écraserait les entitlements de
+            # l'extension, qui refuserait alors de se charger.
+            codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$DEST/$lib"
+          done
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mathieumartin.BrailliantConnect
@@ -56,6 +68,23 @@ targets:
     platform: macOS
     sources:
       - path: FileProviderExtension
+      # La couche MTP est compilée dans l'extension : c'est elle qui parle à
+      # la plage, l'application hôte ne fait que déclarer le domaine.
+      - path: ../Sources/BrailliantKit
+      - path: ../Sources/CMTP
+        buildPhase: none
+    postBuildScripts:
+      - name: Embarquer libmtp et libusb
+        script: |
+          DEST="$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH"
+          mkdir -p "$DEST"
+          for lib in libmtp.9.dylib libusb-1.0.0.dylib; do
+            cp -f "$SRCROOT/../Vendor/$lib" "$DEST/$lib"
+            # Signer chaque bibliothèque séparément. Une signature « --deep »
+            # appliquée à l'application entière écraserait les entitlements de
+            # l'extension, qui refuserait alors de se charger.
+            codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$DEST/$lib"
+          done
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mathieumartin.BrailliantConnect.FileProvider
@@ -71,6 +100,14 @@ targets:
         # extension DANS son binaire : sans cela, il ne la trouve pas et renvoie
         # providerNotFound (-2001).
         ENABLE_DEBUG_DYLIB: NO
+        # En-têtes du shim C exposant libmtp à Swift.
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/../Sources/CMTP
+        # libmtp est fournie par son chemin : son nom de fichier ne suit pas
+        # la convention -lmtp attendue par le linker.
+        OTHER_LDFLAGS: $(SRCROOT)/../Vendor/libmtp.9.dylib
+        # Les bibliothèques voyagent dans Contents/Frameworks de l'application ;
+        # depuis l'extension, il faut remonter jusqu'à ce dossier.
+        LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/../../../../Frameworks
 
 schemes:
   BrailliantConnect:

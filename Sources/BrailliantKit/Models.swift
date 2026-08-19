@@ -11,7 +11,7 @@ public struct Entry: Sendable, Equatable {
     public let isDirectory: Bool
     public let path: String
 
-    public var humanSize: String { BrailliantKit.humanSize(size) }
+    public var humanSize: String { formatTaille(size) }
 
     /// Nom débarrassé des caractères de contrôle, sûr à afficher.
     public var displayName: String { name.sanitizedForDisplay }
@@ -88,7 +88,11 @@ public enum StorageSelection {
 }
 
 /// Taille lisible, en convention française (virgule décimale, unités « o »).
-public func humanSize(_ bytes: UInt64) -> String {
+public func humanSize(_ bytes: UInt64) -> String { formatTaille(bytes) }
+
+/// Implémentation, nommée distinctement pour rester appelable depuis un type
+/// qui expose lui-même une propriété « humanSize ».
+func formatTaille(_ bytes: UInt64) -> String {
     if bytes < 1000 { return "\(bytes) o" }
     var value = Double(bytes)
     for unit in ["ko", "Mo", "Go", "To"] {
