@@ -1,13 +1,12 @@
 import Foundation
 
-/// Manipulation des chemins distants (toujours en style Unix, séparateur « / »).
+/// Remote path handling (always Unix style, with "/" as the separator).
 ///
-/// Les chemins de la plage sont indépendants de ceux du Mac : ils sont
-/// normalisés séparément pour éviter toute confusion entre les deux espaces
-/// de noms.
+/// The display's paths are independent of the Mac's: they are normalized
+/// separately so that the two namespaces never get confused with one another.
 public enum RemotePath {
 
-    /// Normalise un chemin : supprime les segments vides, « . » et résout « .. ».
+    /// Normalizes a path: drops empty segments and ".", and resolves "..".
     public static func normalize(_ path: String) -> String {
         var stack: [String] = []
         for part in path.replacingOccurrences(of: "\\", with: "/").split(separator: "/") {
@@ -23,12 +22,12 @@ public enum RemotePath {
         return stack.isEmpty ? "/" : "/" + stack.joined(separator: "/")
     }
 
-    /// Concatène un dossier et un nom d'élément.
+    /// Joins a folder and an item name.
     public static func join(_ base: String, _ name: String) -> String {
         (base == "/" || base.isEmpty) ? "/" + name : base + "/" + name
     }
 
-    /// Sépare un chemin en (dossier parent, nom).
+    /// Splits a path into (parent folder, name).
     public static func split(_ path: String) -> (parent: String, name: String) {
         let norm = normalize(path)
         guard norm != "/" else { return ("/", "") }
@@ -38,27 +37,27 @@ public enum RemotePath {
         return (parent.isEmpty ? "/" : String(parent), name)
     }
 
-    /// Découpe un chemin en ses segments.
+    /// Breaks a path down into its segments.
     public static func components(_ path: String) -> [String] {
         normalize(path).split(separator: "/").map(String.init)
     }
 
-    /// Vrai si `name` est utilisable comme nom d'un élément unique.
+    /// True if `name` can be used as the name of a single item.
     ///
-    /// Les noms viennent du périphérique et ne sont donc pas fiables : MTP
-    /// n'interdit ni « .. », ni « / », ni les caractères de contrôle. Un tel
-    /// nom, concaténé à un dossier de destination, permettrait d'écrire hors
-    /// de ce dossier.
+    /// Names come from the device and are therefore untrusted: MTP forbids
+    /// neither "..", nor "/", nor control characters. Such a name, concatenated
+    /// onto a destination folder, would make it possible to write outside that
+    /// folder.
     public static func isSafeComponent(_ name: String) -> Bool {
         guard !name.isEmpty, name != ".", name != ".." else { return false }
         guard !name.contains("/"), !name.contains("\\") else { return false }
-        // Un octet nul tronquerait le nom au passage vers les API C.
+        // A null byte would truncate the name on its way into the C APIs.
         guard !name.unicodeScalars.contains(where: { $0.value == 0 }) else { return false }
         return true
     }
 }
 
-/// Fichiers parasites créés par macOS sur les volumes externes.
+/// Junk files macOS creates on external volumes.
 public enum MacJunk {
     static let names: Set<String> = [
         ".DS_Store", "._.DS_Store", ".Spotlight-V100", ".Trashes",

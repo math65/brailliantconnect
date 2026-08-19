@@ -1,8 +1,8 @@
-// Ce fichier est intentionnellement vide.
+// This file is intentionally empty.
 //
-// Une extension File Provider est un exécutable : il lui faut un point
-// d'entrée. Sans ce fichier, le binaire est produit sans amorce utilisable
-// par le système, qui ne peut alors pas instancier la classe principale —
-// il répond « Extension not registered » (FP -2014), puis providerNotFound.
+// A File Provider extension is an executable: it needs an entry point. Without
+// this file, the binary is produced with no bootstrap the system can use, and
+// the system is then unable to instantiate the principal class — it answers
+// "Extension not registered" (FP -2014), then providerNotFound.
 //
-// Le projet d'exemple d'Apple procède exactement ainsi.
+// Apple's sample project does exactly the same.

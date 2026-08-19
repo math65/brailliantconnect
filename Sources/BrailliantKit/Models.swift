@@ -1,6 +1,6 @@
 import Foundation
 
-/// Un fichier ou un dossier présent sur la plage.
+/// A file or a folder present on the braille display.
 public struct Entry: Sendable, Equatable {
     public let itemID: UInt32
     public let parentID: UInt32
@@ -11,22 +11,22 @@ public struct Entry: Sendable, Equatable {
     public let isDirectory: Bool
     public let path: String
 
-    public var humanSize: String { formatTaille(size) }
+    public var humanSize: String { formatSize(size) }
 
-    /// Nom débarrassé des caractères de contrôle, sûr à afficher.
+    /// Name stripped of control characters, safe to display.
     public var displayName: String { name.sanitizedForDisplay }
 
-    /// Chemin complet, sûr à afficher.
+    /// Full path, safe to display.
     public var displayPath: String { path.sanitizedForDisplay }
 
-    /// Vrai si le nom peut servir de composant de chemin sur le Mac.
+    /// True if the name can be used as a path component on the Mac.
     ///
-    /// Faux pour un nom contenant « / » ou valant « .. » : de tels noms sont
-    /// permis par MTP mais permettraient d'écrire hors du dossier cible.
+    /// False for a name containing "/" or equal to "..": MTP allows such names,
+    /// but they would make it possible to write outside the target folder.
     public var hasSafeName: Bool { RemotePath.isSafeComponent(name) }
 }
 
-/// Un volume de stockage : mémoire interne, carte SD ou clé USB.
+/// A storage volume: internal memory, SD card or USB stick.
 public struct Storage: Sendable, Equatable {
     public let id: UInt32
     public let description: String
@@ -41,14 +41,15 @@ public struct Storage: Sendable, Equatable {
     }
 }
 
-/// Résolution d'un stockage à partir de ce que l'utilisateur a tapé.
+/// Resolution of a storage from whatever the user typed.
 ///
-/// Isolé de la connexion MTP pour être vérifiable sans matériel branché.
+/// Kept apart from the MTP connection so it can be tested with no hardware
+/// plugged in.
 public enum StorageSelection {
 
-    /// Retrouve un stockage par son rang affiché (« 2 ») ou par un fragment de
-    /// son nom (« usb », « interne »), sans tenir compte de la casse ni des
-    /// accents — un nom de stockage est dicté au clavier, pas copié-collé.
+    /// Finds a storage by its displayed rank ("2") or by a fragment of its name
+    /// ("usb", "interne"), ignoring case and diacritics — a storage name gets
+    /// typed out on the keyboard, not copied and pasted.
     public static func resolve(selector: String, among storages: [Storage]) throws -> Storage {
         let trimmed = selector.trimmingCharacters(in: .whitespaces)
         let inventory = storages.enumerated().map { describe(index: $0, storage: $1) }
@@ -87,12 +88,12 @@ public enum StorageSelection {
     }
 }
 
-/// Taille lisible, en convention française (virgule décimale, unités « o »).
-public func humanSize(_ bytes: UInt64) -> String { formatTaille(bytes) }
+/// Human-readable size, using French conventions (decimal comma, "o" units).
+public func humanSize(_ bytes: UInt64) -> String { formatSize(bytes) }
 
-/// Implémentation, nommée distinctement pour rester appelable depuis un type
-/// qui expose lui-même une propriété « humanSize ».
-func formatTaille(_ bytes: UInt64) -> String {
+/// The implementation, given a distinct name so that it stays callable from a
+/// type that itself exposes a "humanSize" property.
+func formatSize(_ bytes: UInt64) -> String {
     if bytes < 1000 { return "\(bytes) o" }
     var value = Double(bytes)
     for unit in ["ko", "Mo", "Go", "To"] {

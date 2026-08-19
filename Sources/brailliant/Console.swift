@@ -1,21 +1,21 @@
 import Foundation
 
-/// Sorties du programme, isolées de celles de libmtp.
+/// The program's own output, kept isolated from libmtp's.
 ///
-/// libmtp écrit des messages parfaitement bénins (« Android device detected »,
-/// « … is UNKNOWN in libmtp ») directement sur les descripteurs 1 et 2 depuis
-/// le code C. Ils pollueraient une sortie destinée à être lue par un lecteur
-/// d'écran ou redirigée vers un autre programme.
+/// libmtp writes perfectly benign messages ("Android device detected",
+/// "… is UNKNOWN in libmtp") straight to file descriptors 1 and 2 from its C
+/// code. They would pollute output that is meant to be read by a screen reader
+/// or piped into another program.
 ///
-/// On détourne donc les descripteurs 1 et 2 vers un fichier temporaire pendant
-/// toute la session, en conservant des copies des originaux sur lesquelles le
-/// programme écrit ses propres sorties. À la fermeture, seules les lignes non
-/// reconnues comme bénignes sont réémises.
+/// Descriptors 1 and 2 are therefore redirected to a temporary file for the
+/// whole session, while copies of the originals are kept for the program to
+/// write its own output to. On shutdown, only the lines that are not recognised
+/// as benign are re-emitted.
 final class Console {
 
     static let shared = Console()
 
-    /// Messages de libmtp sans valeur pour l'utilisateur.
+    /// libmtp messages that carry no value for the user.
     private static let benign = [
         "is UNKNOWN in libmtp",
         "Please report this VID/PID",
@@ -31,20 +31,21 @@ final class Console {
     private var capturePath: String?
     private var active = false
 
-    /// Vrai si la sortie est un terminal interactif.
+    /// True when the output is an interactive terminal.
     private(set) var isInteractive = isatty(1) == 1
 
     private init() {}
 
-    /// Met en place le détournement. `debug` laisse tout passer tel quel.
+    /// Sets up the redirection. `debug` lets everything through untouched.
     func begin(debug: Bool) {
         guard !debug, !active else { return }
         isInteractive = isatty(1) == 1
 
-        // Nom imprévisible et création exclusive : un nom dérivé du PID
-        // serait devinable, et sans O_EXCL le programme suivrait un lien
-        // symbolique déposé à l'avance si TMPDIR venait à être partagé.
-        let path = NSTemporaryDirectory()
+        // Unpredictable name and exclusive creation: a name derived from the
+        // PID would be guessable, and without O_EXCL the program would follow
+        // a symbolic link planted ahead of time should TMPDIR ever be shared.
+        let path =
+            NSTemporaryDirectory()
             + "brailliant-libmtp-\(getpid())-\(UUID().uuidString).log"
         let fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
         guard fd >= 0 else { return }
@@ -60,13 +61,13 @@ final class Console {
         active = true
     }
 
-    /// Restaure les descripteurs et réémet les messages non bénins.
+    /// Restores the descriptors and re-emits the messages that are not benign.
     func end() {
         guard active else { return }
         active = false
 
-        // La libc tamponne ses écritures : sans ce vidage, les messages
-        // ressortiraient sur le terminal une fois les descripteurs restaurés.
+        // libc buffers its writes: without this flush, the messages would
+        // resurface on the terminal once the descriptors are restored.
         fflush(nil)
 
         dup2(realOut, 1)
@@ -81,7 +82,8 @@ final class Console {
             for line in captured.split(separator: "\n", omittingEmptySubsequences: true) {
                 let text = String(line)
                 guard !text.trimmingCharacters(in: .whitespaces).isEmpty,
-                      !Console.benign.contains(where: text.contains) else { continue }
+                    !Console.benign.contains(where: text.contains)
+                else { continue }
                 write(text + "\n", to: 2)
             }
             try? FileManager.default.removeItem(atPath: capturePath)
@@ -103,16 +105,16 @@ final class Console {
         }
     }
 
-    /// Écrit une ligne sur la sortie standard réelle.
+    /// Writes a line to the real standard output.
     func out(_ text: String = "") { write(text + "\n", to: realOut) }
 
-    /// Écrit une ligne sur la sortie d'erreur réelle.
+    /// Writes a line to the real standard error.
     func error(_ text: String) { write(text + "\n", to: realErr) }
 
-    /// Écrit sans passer à la ligne (progression).
+    /// Writes without a trailing newline (progress).
     func partial(_ text: String) { write(text, to: realOut) }
 }
 
-/// Raccourcis.
+/// Shorthands.
 func say(_ text: String = "") { Console.shared.out(text) }
 func complain(_ text: String) { Console.shared.error(text) }

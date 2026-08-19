@@ -1,27 +1,27 @@
 import BrailliantKit
 import Foundation
 
-/// Options communes à toutes les commandes.
+/// Options shared by every command.
 struct Options {
     var debug = false
     var showProgress = Console.shared.isInteractive
-    var showAll = false      // inclure les fichiers parasites macOS
-    var long = false         // afficher les tailles
+    var showAll = false  // include the macOS junk files
+    var long = false  // show sizes
     var recursive = false
     var dryRun = false
     var noOverwrite = false
-    var force = false    // saute les confirmations
-    var anyDevice = false    // accepte un appareil MTP non-HumanWare
-    var storage: String?     // stockage ciblé (numéro ou nom)
-    var scale = 0            // taille maximale pour bench --scale
+    var force = false  // skips the confirmations
+    var anyDevice = false  // accept a non-HumanWare MTP device
+    var storage: String?  // target storage (number or name)
+    var scale = 0  // maximum size for bench --scale
     var depth = 0
 }
 
-/// Progression affichée par paliers de 10 %.
+/// Progress reported in steps of 10 %.
 ///
-/// Un rafraîchissement continu serait pénible à suivre au lecteur d'écran, et
-/// illisible une fois la sortie redirigée : on n'affiche donc rien hors
-/// terminal interactif.
+/// A continuously refreshing display would be painful to follow with a screen
+/// reader, and unreadable once the output is redirected: nothing at all is
+/// printed outside an interactive terminal.
 func makeProgress(label: String, options: Options) -> ProgressHandler? {
     guard options.showProgress else { return nil }
     var lastStep = -1
@@ -36,14 +36,14 @@ func makeProgress(label: String, options: Options) -> ProgressHandler? {
     }
 }
 
-/// Rend une entrée affichable.
+/// Renders an entry for display.
 ///
-/// Le nom passe par `displayName` : venant de la plage, il pourrait contenir
-/// des séquences d'échappement capables de manipuler le terminal.
+/// The name goes through `displayName`: coming from the braille display, it
+/// could contain escape sequences able to drive the terminal.
 func describe(_ entry: Entry, long: Bool) -> String {
     var name = entry.displayName + (entry.isDirectory ? "/" : "")
-    // Un nom inutilisable comme chemin local est signalé : l'utilisateur doit
-    // savoir que l'élément existe, et pourquoi il ne peut pas être copié.
+    // A name that cannot be used as a local path is flagged: the user has to
+    // know that the item exists, and why it cannot be copied.
     if !entry.hasSafeName { name += "   [nom inutilisable — non copiable]" }
     guard long else { return name }
     let size = entry.isDirectory ? "dossier" : entry.humanSize
@@ -54,21 +54,23 @@ enum Commands {
 
     // MARK: info
 
-    static func info(_ plage: Brailliant, _ options: Options) throws {
-        say("Appareil : \(plage.model)")
-        if !plage.friendlyName.isEmpty && plage.friendlyName != plage.model {
-            say("Nom      : \(plage.friendlyName)")
+    static func info(_ display: Brailliant, _ options: Options) throws {
+        say("Appareil : \(display.model)")
+        if !display.friendlyName.isEmpty && display.friendlyName != display.model {
+            say("Nom      : \(display.friendlyName)")
         }
-        say("Série    : \(plage.serialNumber)")
-        say(String(format: "USB      : fabricant 0x%04x, produit 0x%04x",
-                   plage.vendorID, plage.productID))
+        say("Série    : \(display.serialNumber)")
+        say(
+            String(
+                format: "USB      : fabricant 0x%04x, produit 0x%04x",
+                display.vendorID, display.productID))
         say()
-        let storages = try plage.storages()
-        let current = try plage.defaultStorage()
+        let storages = try display.storages()
+        let current = try display.defaultStorage()
         for (index, storage) in storages.enumerated() {
-            // Le numéro affiché est celui à passer à -s.
-            let actif = storage.id == current.id ? "   [actif]" : ""
-            say("Stockage \(index + 1) « \(storage.description.sanitizedForDisplay) »\(actif)")
+            // The number shown is the one to pass to -s.
+            let active = storage.id == current.id ? "   [actif]" : ""
+            say("Stockage \(index + 1) « \(storage.description.sanitizedForDisplay) »\(active)")
             say("  capacité   : \(humanSize(storage.capacity))")
             say("  utilisé    : \(humanSize(storage.used)) (\(storage.usedPercent) %)")
             say("  disponible : \(humanSize(storage.free))")
@@ -81,8 +83,8 @@ enum Commands {
 
     // MARK: ls
 
-    static func list(_ plage: Brailliant, _ options: Options, path: String) throws {
-        var entries = try plage.listDirectory(path)
+    static func list(_ display: Brailliant, _ options: Options, path: String) throws {
+        var entries = try display.listDirectory(path)
         if !options.showAll { entries.removeAll { MacJunk.matches($0.name) } }
 
         guard !entries.isEmpty else {
@@ -98,29 +100,30 @@ enum Commands {
             say("\(entries.count) élément(s), \(files.count) fichier(s), \(humanSize(total))")
         }
 
-        // À la racine, signaler les stockages non affichés : sans cela, une
-        // carte SD ou une clé passerait inaperçue.
+        // At the root, point out the storages that are not being shown:
+        // without this, an SD card or a USB key would go unnoticed.
         if RemotePath.normalize(path) == "/", options.storage == nil {
-            let storages = try plage.storages()
+            let storages = try display.storages()
             if storages.count > 1 {
-                let current = try plage.defaultStorage()
-                let autres = storages.enumerated()
+                let current = try display.defaultStorage()
+                let others = storages.enumerated()
                     .filter { $0.element.id != current.id }
                     .map { "\($0.offset + 1) « \($0.element.description.sanitizedForDisplay) »" }
                 say()
-                say("Contenu de « \(current.description.sanitizedForDisplay) ». "
-                    + "Autre(s) stockage(s) : \(autres.joined(separator: ", ")) — "
-                    + "utilisez -s pour y accéder.")
+                say(
+                    "Contenu de « \(current.description.sanitizedForDisplay) ». "
+                        + "Autre(s) stockage(s) : \(others.joined(separator: ", ")) — "
+                        + "utilisez -s pour y accéder.")
             }
         }
     }
 
     // MARK: tree
 
-    static func tree(_ plage: Brailliant, _ options: Options, path: String) throws {
+    static func tree(_ display: Brailliant, _ options: Options, path: String) throws {
         func walk(_ current: String, _ level: Int) throws {
             if options.depth > 0 && level >= options.depth { return }
-            for entry in try plage.listDirectory(current) {
+            for entry in try display.listDirectory(current) {
                 if !options.showAll && MacJunk.matches(entry.name) { continue }
                 say(String(repeating: "  ", count: level) + describe(entry, long: false))
                 if entry.isDirectory { try walk(entry.path, level + 1) }
@@ -131,29 +134,31 @@ enum Commands {
 
     // MARK: get
 
-    static func get(_ plage: Brailliant, _ options: Options,
-                    remote: String, local: String?) throws {
-        guard let entry = try plage.resolve(remote) else {
+    static func get(
+        _ display: Brailliant, _ options: Options,
+        remote: String, local: String?
+    ) throws {
+        guard let entry = try display.resolve(remote) else {
             throw MTPError.notFound(path: remote)
         }
         let destination = local ?? "."
 
         if entry.isDirectory {
             let root = (destination as NSString).expandingTildeInPath
-            // Le nom du dossier vient lui aussi de la plage.
+            // The folder name comes from the braille display as well.
             let base = try LocalPath.confine(root: root, relative: entry.name)
             var count = 0
             var total: UInt64 = 0
             var refused = 0
 
-            for item in try plage.walk(entry.path) {
+            for item in try display.walk(entry.path) {
                 if !options.showAll && MacJunk.matches(item.name) { continue }
                 let relative = String(item.path.dropFirst(entry.path.count))
                     .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
-                // Chaque segment provient du périphérique : la cible est
-                // construite sous contrôle, et l'élément est ignoré — avec un
-                // avertissement — plutôt que d'interrompre toute la copie.
+                // Every segment comes from the device: the target is built
+                // under control, and the item is skipped — with a warning —
+                // rather than aborting the whole copy.
                 let target: String
                 do {
                     target = try LocalPath.confine(root: base, relative: relative)
@@ -164,13 +169,16 @@ enum Commands {
                 }
 
                 if item.isDirectory {
-                    try FileManager.default.createDirectory(atPath: target,
-                                                            withIntermediateDirectories: true)
+                    try FileManager.default.createDirectory(
+                        atPath: target,
+                        withIntermediateDirectories: true)
                     continue
                 }
-                try plage.download(item.path, to: target,
-                                   progress: makeProgress(label: item.displayName,
-                                                          options: options))
+                try display.download(
+                    item.path, to: target,
+                    progress: makeProgress(
+                        label: item.displayName,
+                        options: options))
                 count += 1
                 total += item.size
                 say("  reçu : \(relative.sanitizedForDisplay) (\(item.humanSize))")
@@ -182,17 +190,20 @@ enum Commands {
             return
         }
 
-        let written = try plage.download(remote, to: destination,
-                                         progress: makeProgress(
-                                            label: "Téléchargement de \(entry.displayName)",
-                                            options: options))
+        let written = try display.download(
+            remote, to: destination,
+            progress: makeProgress(
+                label: "Téléchargement de \(entry.displayName)",
+                options: options))
         say("Reçu : \(written) (\(entry.humanSize))")
     }
 
     // MARK: put
 
-    static func put(_ plage: Brailliant, _ options: Options,
-                    local: String, remote: String?) throws {
+    static func put(
+        _ display: Brailliant, _ options: Options,
+        local: String, remote: String?
+    ) throws {
         let source = (local as NSString).expandingTildeInPath
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: source, isDirectory: &isDirectory) else {
@@ -200,28 +211,32 @@ enum Commands {
         }
 
         if isDirectory.boolValue {
-            try putDirectory(plage, options, source: source, remote: remote)
+            try putDirectory(display, options, source: source, remote: remote)
             return
         }
 
         var target = remote ?? "/documents"
-        // Si la cible désigne un dossier existant, on y dépose le fichier.
-        let existing = try plage.resolve(target)
+        // If the target names an existing folder, the file is dropped inside it.
+        let existing = try display.resolve(target)
         if target.hasSuffix("/") || (existing?.isDirectory ?? false) {
             let name = (source as NSString).lastPathComponent
             target = RemotePath.join(RemotePath.normalize(target), name)
         }
 
         let name = (source as NSString).lastPathComponent
-        let entry = try plage.upload(source, to: target,
-                                     progress: makeProgress(label: "Envoi de \(name)",
-                                                            options: options),
-                                     overwrite: !options.noOverwrite)
+        let entry = try display.upload(
+            source, to: target,
+            progress: makeProgress(
+                label: "Envoi de \(name)",
+                options: options),
+            overwrite: !options.noOverwrite)
         say("Envoyé : \(entry.displayPath) (\(entry.humanSize))")
     }
 
-    private static func putDirectory(_ plage: Brailliant, _ options: Options,
-                                     source: String, remote: String?) throws {
+    private static func putDirectory(
+        _ display: Brailliant, _ options: Options,
+        source: String, remote: String?
+    ) throws {
         let folderName = (source as NSString).lastPathComponent
         let base = RemotePath.join(RemotePath.normalize(remote ?? "/documents"), folderName)
         var count = 0
@@ -230,7 +245,7 @@ enum Commands {
         guard let walker = FileManager.default.enumerator(atPath: source) else {
             throw MTPError.localFileMissing(path: source)
         }
-        try plage.createDirectory(base)
+        try display.createDirectory(base)
 
         for case let relative as String in walker {
             let fullPath = (source as NSString).appendingPathComponent(relative)
@@ -239,15 +254,17 @@ enum Commands {
 
             var isDirectory: ObjCBool = false
             FileManager.default.fileExists(atPath: fullPath, isDirectory: &isDirectory)
-            let remotePath = RemotePath.join(base, relative.replacingOccurrences(of: "\\", with: "/"))
+            let remotePath = RemotePath.join(
+                base, relative.replacingOccurrences(of: "\\", with: "/"))
 
             if isDirectory.boolValue {
-                try plage.createDirectory(remotePath)
+                try display.createDirectory(remotePath)
                 continue
             }
-            let entry = try plage.upload(fullPath, to: remotePath,
-                                         progress: makeProgress(label: name, options: options),
-                                         overwrite: !options.noOverwrite)
+            let entry = try display.upload(
+                fullPath, to: remotePath,
+                progress: makeProgress(label: name, options: options),
+                overwrite: !options.noOverwrite)
             count += 1
             total += entry.size
             say("  envoyé : \(entry.displayPath) (\(entry.humanSize))")
@@ -257,25 +274,26 @@ enum Commands {
 
     // MARK: rm / mkdir
 
-    static func remove(_ plage: Brailliant, _ options: Options, paths: [String]) throws {
+    static func remove(_ display: Brailliant, _ options: Options, paths: [String]) throws {
         for path in paths {
-            guard let entry = try plage.resolve(path) else {
+            guard let entry = try display.resolve(path) else {
                 complain("Ignoré (introuvable) : \(path.sanitizedForDisplay)")
                 continue
             }
 
-            // Une suppression récursive est irréversible et peut emporter
-            // beaucoup de fichiers : on annonce le volume exact avant d'agir.
-            // Hors terminal interactif on n'interroge pas, pour rester
-            // utilisable dans un script ; -f permet de sauter la question.
+            // A recursive delete is irreversible and can take a lot of files
+            // with it: the exact volume is announced before anything happens.
+            // Outside an interactive terminal no question is asked, so the tool
+            // stays usable from a script; -f skips the question.
             if entry.isDirectory && options.recursive && !options.force
-                && Console.shared.isInteractive {
-                let contents = try plage.walk(entry.path)
+                && Console.shared.isInteractive
+            {
+                let contents = try display.walk(entry.path)
                 if !contents.isEmpty {
                     let files = contents.filter { !$0.isDirectory }.count
                     Console.shared.partial(
                         "Supprimer « \(entry.displayPath) » et son contenu "
-                        + "(\(contents.count) élément(s), dont \(files) fichier(s)) ? [o/N] ")
+                            + "(\(contents.count) élément(s), dont \(files) fichier(s)) ? [o/N] ")
                     let answer = (readLine() ?? "").trimmingCharacters(in: .whitespaces)
                         .lowercased()
                     guard answer == "o" || answer == "oui" else {
@@ -285,22 +303,22 @@ enum Commands {
                 }
             }
 
-            try plage.remove(path, recursive: options.recursive)
+            try display.remove(path, recursive: options.recursive)
             say("Supprimé : \(entry.displayPath)")
         }
     }
 
-    static func makeDirectory(_ plage: Brailliant, _ options: Options, paths: [String]) throws {
+    static func makeDirectory(_ display: Brailliant, _ options: Options, paths: [String]) throws {
         for path in paths {
-            let entry = try plage.createDirectory(path)
+            let entry = try display.createDirectory(path)
             say("Dossier prêt : \(entry.displayPath)")
         }
     }
 
     // MARK: clean
 
-    static func clean(_ plage: Brailliant, _ options: Options) throws {
-        let victims = try plage.walk("/").filter { !$0.isDirectory && MacJunk.matches($0.name) }
+    static func clean(_ display: Brailliant, _ options: Options) throws {
+        let victims = try display.walk("/").filter { !$0.isDirectory && MacJunk.matches($0.name) }
         guard !victims.isEmpty else {
             say("Aucun fichier parasite macOS trouvé.")
             return
@@ -313,27 +331,28 @@ enum Commands {
             say("(simulation : rien n'a été supprimé — relancez sans -n)")
             return
         }
-        for entry in victims { try plage.remove(entry.path) }
+        for entry in victims { try display.remove(entry.path) }
         say()
         say("\(victims.count) fichier(s) supprimé(s).")
     }
 
     // MARK: doctor
 
-    static func doctor(_ plage: Brailliant, _ options: Options) throws {
+    static func doctor(_ display: Brailliant, _ options: Options) throws {
         say("Connexion  : OK")
-        say("Appareil   : \(plage.model) (série \(plage.serialNumber))")
-        let storages = try plage.storages()
-        let current = try plage.defaultStorage()
-        say("Stockages  : \(storages.count) détecté(s), "
-            + "actif : « \(current.description.sanitizedForDisplay) »")
+        say("Appareil   : \(display.model) (série \(display.serialNumber))")
+        let storages = try display.storages()
+        let current = try display.defaultStorage()
+        say(
+            "Stockages  : \(storages.count) détecté(s), "
+                + "actif : « \(current.description.sanitizedForDisplay) »")
 
-        let root = try plage.listDirectory("/")
+        let root = try display.listDirectory("/")
         say("Racine     : \(root.count) élément(s) lisibles")
 
-        // « Embarquée » signifie : livrée avec le programme — soit à côté du
-        // binaire (paquet distribué), soit dans Vendor/ (arbre de développement).
-        let path = plage.libraryPath
+        // "Embedded" means: shipped with the program — either next to the
+        // binary (distributed package), or in Vendor/ (development tree).
+        let path = display.libraryPath
         let libraryDirectory = (path as NSString).deletingLastPathComponent
         let executableDirectory = (Bundle.main.executablePath as NSString?)?
             .deletingLastPathComponent
@@ -351,8 +370,9 @@ enum Commands {
 
         let junk = root.filter { MacJunk.matches($0.name) }
         if !junk.isEmpty {
-            say("Parasites  : \(junk.count) fichier(s) macOS à la racine "
-                + "(commande « brailliant clean » pour les retirer)")
+            say(
+                "Parasites  : \(junk.count) fichier(s) macOS à la racine "
+                    + "(commande « brailliant clean » pour les retirer)")
         }
         say()
         say("Tout fonctionne. Aucun macFUSE ni extension noyau n'est utilisé.")

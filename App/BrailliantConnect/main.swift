@@ -1,179 +1,188 @@
 import FileProvider
 import Foundation
 
-// Agent BrailliantConnect — sans interface.
+// BrailliantConnect agent — headless.
 //
-// Lancé sans argument, il reste en tâche de fond et suit l'état de la plage :
-// branchée, l'emplacement apparaît dans le Finder ; débranchée, il disparaît
-// avec son raccourci. L'utilisateur n'a rien à faire.
+// Launched without arguments, it stays in the background and follows the state
+// of the display: connected, the location shows up in the Finder; disconnected,
+// it goes away along with its shortcut. The user has nothing to do.
 //
-// Il accepte aussi des commandes ponctuelles, utilisées par « brailliant » :
-//   --publish     publie l'emplacement
-//   --unpublish   le retire
-//   --status      indique s'il est publié
-//   --watch       reste en tâche de fond (comportement par défaut)
+// It also accepts one-off commands, used by `brailliant`:
+//   --publish     publishes the location
+//   --unpublish   removes it
+//   --status      reports whether it is published
+//   --watch       stays in the background (default behaviour)
 
-let identifiantDomaine = NSFileProviderDomainIdentifier("brailliant-principal")
-let nomAffiché = "Brailliant"
+let domainIdentifier = NSFileProviderDomainIdentifier("brailliant-principal")
+let displayName = "Brailliant"
 
-var emplacementDomaine: URL {
+var domainLocation: URL {
     FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/CloudStorage")
-        .appendingPathComponent("BrailliantConnect-\(nomAffiché)")
+        .appendingPathComponent("BrailliantConnect-\(displayName)")
 }
 
-/// Raccourci visible directement dans le dossier maison.
+/// Shortcut visible directly in the home folder.
 ///
-/// Sans lui, l'accès dépendrait de la barre latérale du Finder — que l'on peut
-/// masquer — ou d'un chemin situé sous ~/Library, dossier caché par défaut.
-var raccourci: URL {
+/// Without it, access would depend on the Finder sidebar — which can be
+/// hidden — or on a path under ~/Library, a folder hidden by default.
+var shortcut: URL {
     FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(nomAffiché)
+        .appendingPathComponent(displayName)
 }
 
-func créerRaccourci() {
+func createShortcut() {
     let fm = FileManager.default
     for _ in 0..<20 {
-        if fm.fileExists(atPath: emplacementDomaine.path) { break }
+        if fm.fileExists(atPath: domainLocation.path) { break }
         Thread.sleep(forTimeInterval: 0.25)
     }
-    guard fm.fileExists(atPath: emplacementDomaine.path) else { return }
-    try? fm.removeItem(at: raccourci)
-    try? fm.createSymbolicLink(at: raccourci, withDestinationURL: emplacementDomaine)
+    guard fm.fileExists(atPath: domainLocation.path) else { return }
+    try? fm.removeItem(at: shortcut)
+    try? fm.createSymbolicLink(at: shortcut, withDestinationURL: domainLocation)
 }
 
-func retirerRaccourci() {
-    // Ne retirer que s'il s'agit bien de notre lien : jamais un vrai dossier
-    // que l'utilisateur aurait créé sous le même nom.
+func removeShortcut() {
+    // Only remove it if it really is our link: never a real folder the user
+    // may have created under the same name.
     let fm = FileManager.default
-    guard let cible = try? fm.destinationOfSymbolicLink(atPath: raccourci.path),
-          cible.contains("BrailliantConnect-") else { return }
-    try? fm.removeItem(at: raccourci)
+    guard let target = try? fm.destinationOfSymbolicLink(atPath: shortcut.path),
+        target.contains("BrailliantConnect-")
+    else { return }
+    try? fm.removeItem(at: shortcut)
 }
 
-func journal(_ message: String) {
-    // La sortie standard part dans le journal du LaunchAgent : c'est là qu'on
-    // relit ce qui s'est passé quand l'agent tourne sans terminal.
-    let horodatage = ISO8601DateFormatter().string(from: Date())
-    FileHandle.standardOutput.write(Data("[\(horodatage)] \(message)\n".utf8))
+func log(_ message: String) {
+    // Standard output goes to the LaunchAgent log: that is where we read back
+    // what happened while the agent was running without a terminal.
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    FileHandle.standardOutput.write(Data("[\(timestamp)] \(message)\n".utf8))
 }
 
-// MARK: - Actions sur le domaine
+// MARK: - Domain actions
 
-func publier(_ terminé: @escaping (Error?) -> Void) {
-    let domaine = NSFileProviderDomain(identifier: identifiantDomaine, displayName: nomAffiché)
-    NSFileProviderManager.add(domaine) { erreur in
-        if erreur == nil { créerRaccourci() }
-        terminé(erreur)
+func publish(_ completion: @escaping (Error?) -> Void) {
+    let domain = NSFileProviderDomain(identifier: domainIdentifier, displayName: displayName)
+    NSFileProviderManager.add(domain) { error in
+        if error == nil { createShortcut() }
+        completion(error)
     }
 }
 
-func retirer(_ terminé: @escaping (Error?) -> Void) {
-    let domaine = NSFileProviderDomain(identifier: identifiantDomaine, displayName: nomAffiché)
-    NSFileProviderManager.remove(domaine) { erreur in
-        // Le raccourci part avec le domaine : le laisser pointerait dans le vide.
-        retirerRaccourci()
-        terminé(erreur)
+func unpublish(_ completion: @escaping (Error?) -> Void) {
+    let domain = NSFileProviderDomain(identifier: domainIdentifier, displayName: displayName)
+    NSFileProviderManager.remove(domain) { error in
+        // The shortcut goes with the domain: leaving it would point nowhere.
+        removeShortcut()
+        completion(error)
     }
 }
 
-func estPublié(_ terminé: @escaping (Bool) -> Void) {
-    NSFileProviderManager.getDomainsWithCompletionHandler { domaines, _ in
-        terminé(domaines.contains { $0.identifier == identifiantDomaine })
+func isPublished(_ completion: @escaping (Bool) -> Void) {
+    NSFileProviderManager.getDomainsWithCompletionHandler { domains, _ in
+        completion(domains.contains { $0.identifier == domainIdentifier })
     }
 }
 
-func terminer(_ message: String, code: Int32 = 0) -> Never {
-    let flux = code == 0 ? FileHandle.standardOutput : FileHandle.standardError
-    flux.write(Data((message + "\n").utf8))
+func finish(_ message: String, code: Int32 = 0) -> Never {
+    let stream = code == 0 ? FileHandle.standardOutput : FileHandle.standardError
+    stream.write(Data((message + "\n").utf8))
     exit(code)
 }
 
-/// Aligne l'état publié sur la présence physique de la plage.
-func synchroniserAvecLeMatériel() {
-    let branchée = USBWatcher.nombreDePlagesBranchées() > 0
-    estPublié { publié in
-        switch (branchée, publié) {
+/// Brings the published state in line with the physical presence of the display.
+func syncWithHardware() {
+    let connected = USBWatcher.connectedDisplayCount() > 0
+    isPublished { published in
+        switch (connected, published) {
         case (true, false):
-            publier { erreur in
-                journal(erreur == nil
-                        ? "plage branchée — emplacement publié dans ~/\(nomAffiché)"
-                        : "plage branchée mais publication impossible : \(erreur!.localizedDescription)")
+            publish { error in
+                log(
+                    error == nil
+                        ? "plage branchée — emplacement publié dans ~/\(displayName)"
+                        : "plage branchée mais publication impossible : \(error!.localizedDescription)"
+                )
             }
         case (false, true):
-            retirer { erreur in
-                journal(erreur == nil
+            unpublish { error in
+                log(
+                    error == nil
                         ? "plage débranchée — emplacement retiré"
-                        : "plage débranchée mais retrait impossible : \(erreur!.localizedDescription)")
+                        : "plage débranchée mais retrait impossible : \(error!.localizedDescription)"
+                )
             }
         default:
-            break  // déjà dans l'état voulu
+            break  // already in the desired state
         }
     }
 }
 
-// MARK: - Point d'entrée
+// MARK: - Entry point
 
 let arguments = Array(CommandLine.arguments.dropFirst())
-let attente = DispatchSemaphore(value: 0)
-var codeSortie: Int32 = 0
-var messageFinal = ""
+let waiter = DispatchSemaphore(value: 0)
+var exitCode: Int32 = 0
+var finalMessage = ""
 
 switch arguments.first ?? "--watch" {
 
 case "--publish":
-    publier { erreur in
-        messageFinal = erreur == nil
-            ? "Emplacement publié. Accessible dans « ~/\(nomAffiché) »."
-            : "Échec de la publication : \(erreur!.localizedDescription)"
-        codeSortie = erreur == nil ? 0 : 1
-        attente.signal()
+    publish { error in
+        finalMessage =
+            error == nil
+            ? "Emplacement publié. Accessible dans « ~/\(displayName) »."
+            : "Échec de la publication : \(error!.localizedDescription)"
+        exitCode = error == nil ? 0 : 1
+        waiter.signal()
     }
-    if attente.wait(timeout: .now() + 60) == .timedOut {
-        terminer("Le système n'a pas répondu dans le délai imparti.", code: 1)
+    if waiter.wait(timeout: .now() + 60) == .timedOut {
+        finish("Le système n'a pas répondu dans le délai imparti.", code: 1)
     }
-    terminer(messageFinal, code: codeSortie)
+    finish(finalMessage, code: exitCode)
 
 case "--unpublish":
-    retirer { erreur in
-        messageFinal = erreur == nil
+    unpublish { error in
+        finalMessage =
+            error == nil
             ? "Emplacement retiré du Finder."
-            : "Échec du retrait : \(erreur!.localizedDescription)"
-        codeSortie = erreur == nil ? 0 : 1
-        attente.signal()
+            : "Échec du retrait : \(error!.localizedDescription)"
+        exitCode = error == nil ? 0 : 1
+        waiter.signal()
     }
-    if attente.wait(timeout: .now() + 60) == .timedOut {
-        terminer("Le système n'a pas répondu dans le délai imparti.", code: 1)
+    if waiter.wait(timeout: .now() + 60) == .timedOut {
+        finish("Le système n'a pas répondu dans le délai imparti.", code: 1)
     }
-    terminer(messageFinal, code: codeSortie)
+    finish(finalMessage, code: exitCode)
 
 case "--status":
-    let branchée = USBWatcher.nombreDePlagesBranchées() > 0
-    estPublié { publié in
-        messageFinal = (publié ? "publié — ~/\(nomAffiché)" : "non publié")
-            + (branchée ? " · plage branchée" : " · aucune plage branchée")
-        codeSortie = publié ? 0 : 2
-        attente.signal()
+    let connected = USBWatcher.connectedDisplayCount() > 0
+    isPublished { published in
+        finalMessage =
+            (published ? "publié — ~/\(displayName)" : "non publié")
+            + (connected ? " · plage branchée" : " · aucune plage branchée")
+        exitCode = published ? 0 : 2
+        waiter.signal()
     }
-    if attente.wait(timeout: .now() + 30) == .timedOut {
-        terminer("Le système n'a pas répondu.", code: 1)
+    if waiter.wait(timeout: .now() + 30) == .timedOut {
+        finish("Le système n'a pas répondu.", code: 1)
     }
-    terminer(messageFinal, code: codeSortie)
+    finish(finalMessage, code: exitCode)
 
 case "--watch":
-    journal("agent démarré")
-    // Aligner l'état dès le lancement : la plage peut déjà être branchée, ou
-    // un emplacement peut subsister d'une session précédente.
-    synchroniserAvecLeMatériel()
+    log("agent démarré")
+    // Align the state as soon as we start: the display may already be
+    // connected, or a location may be left over from a previous session.
+    syncWithHardware()
 
-    let observateur = USBWatcher { synchroniserAvecLeMatériel() }
-    observateur.démarrer()
-    // L'agent vit dans sa boucle d'exécution : IOKit le réveille aux
-    // branchements et débranchements, et il ne consomme rien entre-temps.
+    let watcher = USBWatcher { syncWithHardware() }
+    watcher.start()
+    // The agent lives in its run loop: IOKit wakes it up on connections and
+    // disconnections, and it consumes nothing in between.
     CFRunLoopRun()
 
 default:
-    terminer("""
+    finish(
+        """
         BrailliantConnect — agent de l'emplacement Finder (sans interface).
 
           (sans argument)   surveille la plage et publie ou retire l'emplacement
