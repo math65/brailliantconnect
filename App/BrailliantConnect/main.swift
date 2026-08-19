@@ -181,7 +181,7 @@ func syncWithHardware() {
                 case .asleep:
                     reason = L.t("display asleep — location removed until it wakes up")
                 case .brailleTerminal:
-                    reason = L.t("file transfer turned off on the display — location removed")
+                    reason = L.t("MTP turned off on the display — location removed")
                 default:
                     reason = L.t("display disconnected — location removed")
                 }

@@ -82,8 +82,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(disabled(L.t("Display asleep")))
             menu.addItem(disabled(L.t("Press a key on the display to wake it")))
         case .brailleTerminal:
-            menu.addItem(disabled(L.t("File transfer not turned on")))
-            menu.addItem(disabled(L.t("Turn it on in the display's own menu")))
+            menu.addItem(disabled(L.t("MTP is off on the display")))
+            menu.addItem(disabled(L.t("On the display: Options, User settings, MTP")))
         case .absent:
             menu.addItem(disabled(L.t("No display connected")))
         }

@@ -61,12 +61,12 @@ public enum L {
         "No HumanWare braille display detected.":
             "Aucune plage braille HumanWare détectée.",
         "No braille display detected.": "Aucune plage braille détectée.",
-        "Check that the USB cable is connected, the display is switched on, and that file transfer is turned on in its own menu.":
-            "Vérifiez que le câble USB est branché, que la plage est allumée, et que le transfert de fichiers est activé dans son menu.",
+        "Check that the USB cable is connected, the display is switched on, and that MTP is enabled on it (Options, User settings, MTP).":
+            "Vérifiez que le câble USB est branché, que la plage est allumée, et que le MTP y est activé (Options, Paramètres de l'utilisateur, MTP).",
         "The display was detected but the MTP connection failed.":
             "La plage a été détectée mais la connexion MTP a échoué.",
-        "Common causes: file transfer is not turned on in the display's own menu, or another application is already using the display.":
-            "Causes fréquentes : le transfert de fichiers n'est pas activé dans le menu de la plage, ou une autre application occupe déjà le périphérique.",
+        "Common causes: MTP is disabled on the display (Options, User settings, MTP), or another application is already using it.":
+            "Causes fréquentes : le MTP est désactivé sur la plage (Options, Paramètres de l'utilisateur, MTP), ou une autre application occupe déjà le périphérique.",
         "No HumanWare braille display detected, but %@ other MTP device(s) are plugged in:":
             "Aucune plage braille HumanWare détectée, mais %@ autre(s) appareil(s) MTP sont branchés :",
         "It is probably a phone or a music player. To avoid acting on the wrong device, such devices are ignored by default.":
@@ -173,8 +173,8 @@ public enum L {
         "display connected but publishing failed: %@":
             "plage branchée mais publication impossible : %@",
         "display disconnected — location removed": "plage débranchée — emplacement retiré",
-        "file transfer turned off on the display — location removed":
-            "transfert de fichiers désactivé sur la plage — emplacement retiré",
+        "MTP turned off on the display — location removed":
+            "MTP désactivé sur la plage — emplacement retiré",
         "display disconnected but removal failed: %@":
             "plage débranchée mais retrait impossible : %@",
         "Publishing failed: %@": "Échec de la publication : %@",
@@ -231,8 +231,9 @@ public enum L {
 
         "Display connected": "Plage branchée",
         "Display asleep": "Plage en veille",
-        "File transfer not turned on": "Transfert de fichiers non activé",
-        "Turn it on in the display's own menu": "Activez-le dans le menu de la plage",
+        "MTP is off on the display": "MTP désactivé sur la plage",
+        "On the display: Options, User settings, MTP":
+            "Sur la plage : Options, Paramètres de l'utilisateur, MTP",
         "Display in braille terminal mode": "Plage en mode terminal braille",
         "Transferring — %@ of %@": "Transfert en cours — %@ sur %@",
         "Transferring — %@": "Transfert en cours — %@",
@@ -279,28 +280,32 @@ public enum L {
             + "branchez, et disparaît quand vous la débranchez. Il n'y a rien à "
             + "lancer : un programme d'arrière-plan s'en charge et revient à chaque "
             + "ouverture de session.",
-        "1. Turn on file transfer on the display":
-            "1. Activez le transfert de fichiers sur la plage",
-        "This is the one thing to know. In the display's own menu, turn on "
-            + "file transfer: the location appears within a second or two. You "
-            + "can go on using the display as a braille terminal at the same "
-            + "time — the two work together. Until file transfer is on, the "
-            + "computer only sees the braille side and no files at all.":
-            "C'est la seule chose à savoir. Dans le menu de la plage, activez le "
-            + "transfert de fichiers : l'emplacement apparaît en une seconde ou deux. "
-            + "Vous pouvez continuer à vous servir de la plage comme afficheur "
-            + "braille en même temps — les deux fonctionnent ensemble. Tant que le "
-            + "transfert de fichiers n'est pas activé, l'ordinateur ne voit que le "
-            + "braille et aucun fichier.",
+        "1. Check that MTP is on": "1. Vérifiez que le MTP est activé",
+        "Only once, and probably already done: MTP is on by default since "
+            + "version 2.5 of the display's software. On the display, press O "
+            + "from the main menu for Options, then User settings, then MTP.":
+            "Une seule fois, et c'est probablement déjà fait : le MTP est activé "
+            + "par défaut depuis la version 2.5 du logiciel de la plage. Sur la "
+            + "plage, appuyez sur O depuis le menu principal pour ouvrir Options, "
+            + "puis Paramètres de l'utilisateur, puis MTP.",
+        "It is what lets the computer see the files. The display stays usable "
+            + "as a braille terminal at the same time — the two work together, "
+            + "and nothing has to be switched off.":
+            "C'est ce qui permet à l'ordinateur de voir les fichiers. La plage "
+            + "reste utilisable comme afficheur braille en même temps — les deux "
+            + "fonctionnent ensemble, il n'y a rien à désactiver.",
         "2. Your files are in %@": "2. Vos fichiers sont dans %@",
-        "Inside, one folder per storage: \"mémoire interne\" for the display "
-            + "itself, and \"usb\" for a stick plugged into it. Your documents are "
-            + "therefore one level down, in \"mémoire interne\". The top level "
-            + "holds only these storages and accepts no files.":
-            "À l'intérieur, un dossier par stockage : « mémoire interne » pour la "
-            + "plage elle-même, et « usb » pour une clé branchée dessus. Vos "
-            + "documents sont donc un niveau plus bas, dans « mémoire interne ». Le "
-            + "premier niveau ne contient que ces stockages et n'accepte aucun fichier.",
+        "Inside, one folder per storage:": "À l'intérieur, un dossier par stockage :",
+        "mémoire interne — the display's own storage, holding your documents, "
+            + "notes and books.":
+            "mémoire interne — le stockage de la plage, avec vos documents, vos "
+            + "notes et vos livres.",
+        "usb — a stick plugged into the display, when there is one.":
+            "usb — la clé branchée sur la plage, quand il y en a une.",
+        "So your documents are one level down. The top level holds these "
+            + "storages and accepts no files of its own.":
+            "Vos documents sont donc un niveau plus bas. Le premier niveau ne "
+            + "contient que ces stockages et n'accepte aucun fichier.",
         "3. Wait before unplugging": "3. Attendez avant de débrancher",
         "The Finder hands control back immediately, long before a copy is "
             + "finished. Three gigabytes take about seven minutes, during which "
