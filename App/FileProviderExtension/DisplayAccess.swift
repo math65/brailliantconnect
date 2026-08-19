@@ -106,19 +106,31 @@ final class DisplayAccess {
         }
     }
 
+    /// Looks up an entry, re-reading the tree if the index does not know it.
+    ///
+    /// The system stops and restarts the extension freely, and every instance
+    /// starts with an empty index. The Finder still refers to items by an
+    /// identifier it obtained earlier, so any lookup has to be able to rebuild
+    /// what it needs — failing outright would make a file unreadable purely
+    /// because the process was recycled since it was listed.
+    ///
+    /// Callers must already hold `queue`.
+    private func entry(withID itemID: UInt32, identifier: String) throws -> Entry {
+        if let entry = index[itemID] { return entry }
+        let display = try connection()
+        for entry in try display.walk("/") { index[entry.itemID] = entry }
+        guard let entry = index[itemID] else {
+            throw MTPError.notFound(path: identifier)
+        }
+        return entry
+    }
+
     func item(for identifier: NSFileProviderItemIdentifier) throws -> NSFileProviderItem {
         if identifier == .rootContainer { return DisplayItem(root: true) }
         return try queue.sync {
-            let itemID = mtpIdentifier(identifier)
-            if let entry = index[itemID] { return DisplayItem(entry: entry) }
-            // Unknown item: the Finder may have asked for it after a restart.
-            // We read the root again to prime the index.
-            let display = try connection()
-            for entry in try display.walk("/") { index[entry.itemID] = entry }
-            guard let entry = index[itemID] else {
-                throw MTPError.notFound(path: identifier.rawValue)
-            }
-            return DisplayItem(entry: entry)
+            DisplayItem(
+                entry: try entry(
+                    withID: mtpIdentifier(identifier), identifier: identifier.rawValue))
         }
     }
 
@@ -129,10 +141,8 @@ final class DisplayAccess {
         throws -> (URL, NSFileProviderItem)
     {
         try queue.sync {
-            let itemID = mtpIdentifier(identifier)
-            guard let entry = index[itemID] else {
-                throw MTPError.notFound(path: identifier.rawValue)
-            }
+            let entry = try entry(
+                withID: mtpIdentifier(identifier), identifier: identifier.rawValue)
             // The system expects a temporary file that it will copy itself.
             let destination = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
