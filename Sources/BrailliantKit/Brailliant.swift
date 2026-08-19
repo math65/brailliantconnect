@@ -480,10 +480,10 @@ public final class Brailliant {
     /// la plage si un incident interrompait l'opération.
     private static func temporaryName(for name: String) -> String {
         let token = UUID().uuidString.prefix(8)
-        let candidate = ".bc-\(token)-\(name)"
+        let candidate = ".brailliant-\(token)-\(name)"
         // Certains appareils MTP limitent la longueur des noms : on tronque en
         // préservant le jeton, qui garantit l'unicité.
-        return candidate.count <= 200 ? candidate : ".bc-\(token)"
+        return candidate.count <= 200 ? candidate : ".brailliant-\(token)"
     }
 
     /// Supprime un fichier ou un dossier distant.

@@ -28,17 +28,17 @@ Aucune extension noyau, aucun redémarrage, aucune autorisation de sécurité.
 Aucune. Téléchargez l'archive, décompressez-la, et lancez :
 
 ```bash
-./bc doctor
+./brailliant doctor
 ```
 
 Le dossier contient le programme et les deux bibliothèques dont il a besoin :
 600 Ko à télécharger, 1,9 Mo une fois décompressé. Ni Homebrew, ni libmtp, ni
 Python, ni runtime à installer.
 
-Pour taper simplement `bc` depuis n'importe où :
+Pour taper simplement `brailliant` depuis n'importe où :
 
 ```bash
-sudo ln -s "$PWD/bc" /usr/local/bin/bc
+sudo ln -s "$PWD/brailliant" /usr/local/bin/brailliant
 ```
 
 Le lien symbolique fonctionne : le programme retrouve ses bibliothèques par
@@ -51,34 +51,34 @@ Brancher la plage en USB et la mettre en mode **transfert de fichiers**
 
 | Commande | Effet |
 |---|---|
-| `bc info` | modèle, numéro de série, espace disponible |
-| `bc ls [chemin]` | liste un dossier (`-l` avec les tailles) |
-| `bc tree [chemin]` | affiche l'arborescence (`-d` pour limiter la profondeur) |
-| `bc get <distant> [local]` | copie de la plage vers le Mac (fichier ou dossier) |
-| `bc put <local> [distant]` | copie du Mac vers la plage (fichier ou dossier) |
-| `bc rm <chemin>` | supprime (`-r` pour un dossier avec son contenu) |
-| `bc mkdir <chemin>` | crée un dossier |
-| `bc clean` | retire les fichiers parasites macOS (`.DS_Store`…) |
-| `bc doctor` | vérifie que tout fonctionne |
+| `brailliant info` | modèle, numéro de série, espace disponible |
+| `brailliant ls [chemin]` | liste un dossier (`-l` avec les tailles) |
+| `brailliant tree [chemin]` | affiche l'arborescence (`-d` pour limiter la profondeur) |
+| `brailliant get <distant> [local]` | copie de la plage vers le Mac (fichier ou dossier) |
+| `brailliant put <local> [distant]` | copie du Mac vers la plage (fichier ou dossier) |
+| `brailliant rm <chemin>` | supprime (`-r` pour un dossier avec son contenu) |
+| `brailliant mkdir <chemin>` | crée un dossier |
+| `brailliant clean` | retire les fichiers parasites macOS (`.DS_Store`…) |
+| `brailliant doctor` | vérifie que tout fonctionne |
 
 Une plage expose souvent **plusieurs stockages** : mémoire interne, et clé USB
 ou carte mémoire quand il y en a une. Les opérations portent sur le premier
 (la mémoire interne) sauf indication contraire :
 
 ```bash
-bc -s usb ls /
+brailliant -s usb ls /
 ```
 
-`-s` accepte le numéro affiché par `bc info` ou un fragment du nom, sans tenir
+`-s` accepte le numéro affiché par `brailliant info` ou un fragment du nom, sans tenir
 compte de la casse ni des accents (`-s 2`, `-s usb`, `-s memoire`). Sans cette
 option, `ls /` rappelle quels autres stockages existent.
 
 ```bash
-bc put ~/Documents/roman.txt /documents
+brailliant put ~/Documents/roman.txt /documents
 ```
 
 ```bash
-bc get /notes ~/Bureau
+brailliant get /notes ~/Bureau
 ```
 
 Le dossier distant par défaut pour `put` est `/documents`. Les dossiers
@@ -121,7 +121,7 @@ renvoyer ce qu'il veut.
 - **Pas de privilèges.** Aucun setuid, aucun entitlement, aucun accès réseau.
   PIE et protections de pile actives.
 - **Filtrage du fabricant.** Un téléphone Android est un appareil MTP comme un
-  autre : sans filtre, `bc rm` pourrait s'appliquer à lui. Seuls les appareils
+  autre : sans filtre, `brailliant rm` pourrait s'appliquer à lui. Seuls les appareils
   HumanWare (`0x1C71`) sont retenus par défaut, et le message d'erreur nomme
   les appareils écartés. `--any-device` lève la restriction.
 - **Validation de bibliothèque.** Signé avec une identité Developer ID, le

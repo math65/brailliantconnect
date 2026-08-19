@@ -74,7 +74,7 @@ enum Commands {
         }
         if storages.count > 1 {
             say()
-            say("Pour travailler sur un autre stockage : bc -s <numéro ou nom> …")
+            say("Pour travailler sur un autre stockage : brailliant -s <numéro ou nom> …")
         }
     }
 
@@ -351,7 +351,7 @@ enum Commands {
         let junk = root.filter { MacJunk.matches($0.name) }
         if !junk.isEmpty {
             say("Parasites  : \(junk.count) fichier(s) macOS à la racine "
-                + "(commande « bc clean » pour les retirer)")
+                + "(commande « brailliant clean » pour les retirer)")
         }
         say()
         say("Tout fonctionne. Aucun macFUSE ni extension noyau n'est utilisé.")

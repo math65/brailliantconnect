@@ -22,14 +22,14 @@ let package = Package(
     name: "BrailliantConnect",
     platforms: [.macOS(.v11)],
     products: [
-        .executable(name: "bc", targets: ["bc"]),
+        .executable(name: "brailliant", targets: ["brailliant"]),
         .library(name: "BrailliantKit", targets: ["BrailliantKit"]),
     ],
     targets: [
         .systemLibrary(name: "CMTP", path: "Sources/CMTP"),
         .target(name: "BrailliantKit", dependencies: ["CMTP"]),
         .executableTarget(
-            name: "bc",
+            name: "brailliant",
             dependencies: ["BrailliantKit"],
             linkerSettings: mtpLinkage
         ),

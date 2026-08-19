@@ -45,7 +45,7 @@ final class Console {
         // serait devinable, et sans O_EXCL le programme suivrait un lien
         // symbolique déposé à l'avance si TMPDIR venait à être partagé.
         let path = NSTemporaryDirectory()
-            + "bc-libmtp-\(getpid())-\(UUID().uuidString).log"
+            + "brailliant-libmtp-\(getpid())-\(UUID().uuidString).log"
         let fd = open(path, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
         guard fd >= 0 else { return }
 

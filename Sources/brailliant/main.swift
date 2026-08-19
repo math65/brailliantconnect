@@ -5,10 +5,10 @@ import Foundation
 // à télécharger pour compiler et rien à installer pour exécuter.
 
 let usage = """
-bc — accès aux plages braille Brailliant depuis macOS, sans macFUSE.
+brailliant — accès aux plages braille Brailliant depuis macOS, sans macFUSE.
 
 USAGE
-  bc <commande> [arguments] [options]
+  brailliant <commande> [arguments] [options]
 
 COMMANDES
   info                     modèle, numéro de série, espace disponible
@@ -37,10 +37,10 @@ OPTIONS
   -h, --help               affiche cette aide
 
 EXEMPLES
-  bc put ~/Documents/roman.txt /documents
-  bc get /notes ~/Desktop
-  bc clean --dry-run
-  bc -s usb ls /
+  brailliant put ~/Documents/roman.txt /documents
+  brailliant get /notes ~/Desktop
+  brailliant clean --dry-run
+  brailliant -s usb ls /
 
 Le dossier distant par défaut pour « put » est /documents. Les dossiers
 manquants sont créés automatiquement.
@@ -104,7 +104,7 @@ func run() -> Int32 {
     let known = ["info", "ls", "tree", "get", "put", "rm", "mkdir", "clean", "doctor"]
     guard known.contains(command) else {
         FileHandle.standardError.write(
-            Data("Erreur : commande inconnue « \(command) ».\nUtilisez « bc --help ».\n".utf8))
+            Data("Erreur : commande inconnue « \(command) ».\nUtilisez « brailliant --help ».\n".utf8))
         return 2
     }
     switch command {

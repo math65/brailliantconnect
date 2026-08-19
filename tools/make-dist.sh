@@ -36,7 +36,7 @@ fi
 log "Compilation du binaire universel (arm64 + x86_64)"
 swift build -c release --arch arm64 --arch x86_64
 
-BINARY="$ROOT/.build/apple/Products/Release/bc"
+BINARY="$ROOT/.build/apple/Products/Release/brailliant"
 [ -f "$BINARY" ] || { echo "ERREUR : binaire introuvable ($BINARY)" >&2; exit 1; }
 
 log "Assemblage"
@@ -45,10 +45,10 @@ mkdir -p "$STAGE"
 
 # Les bibliothèques sont placées À CÔTÉ du binaire : son rpath
 # @executable_path les y trouve, où que le dossier soit déplacé.
-cp "$BINARY" "$STAGE/bc"
+cp "$BINARY" "$STAGE/brailliant"
 cp "$VENDOR/libmtp.9.dylib" "$VENDOR/libusb-1.0.0.dylib" "$STAGE/"
 cp "$VENDOR/LICENSE-libmtp.txt" "$VENDOR/LICENSE-libusb.txt" "$STAGE/"
-chmod 755 "$STAGE/bc" "$STAGE"/*.dylib
+chmod 755 "$STAGE/brailliant" "$STAGE"/*.dylib
 
 cat > "$STAGE/LISEZMOI.txt" <<'EOF'
 BrailliantConnect
@@ -63,26 +63,26 @@ DÉMARRAGE
 2. Mettez-la en mode « transfert de fichiers » (et non en mode terminal braille).
 3. Dans le Terminal, placez-vous dans ce dossier et lancez :
 
-       ./bc doctor
+       ./brailliant doctor
 
 COMMANDES
 ---------
-   ./bc info                     état de la plage et espace disponible
-   ./bc ls /documents            liste un dossier
-   ./bc put mon-fichier.txt      envoie un fichier (dans /documents)
-   ./bc get /notes ~/Bureau      récupère un dossier
-   ./bc --help                   aide complète
+   ./brailliant info                     état de la plage et espace disponible
+   ./brailliant ls /documents            liste un dossier
+   ./brailliant put mon-fichier.txt      envoie un fichier (dans /documents)
+   ./brailliant get /notes ~/Bureau      récupère un dossier
+   ./brailliant --help                   aide complète
 
-POUR TAPER SIMPLEMENT « bc » DEPUIS N'IMPORTE OÙ
-------------------------------------------------
-       sudo ln -s "$PWD/bc" /usr/local/bin/bc
+POUR TAPER SIMPLEMENT « brailliant » DEPUIS N'IMPORTE OÙ
+--------------------------------------------------------
+       sudo ln -s "$PWD/brailliant" /usr/local/bin/brailliant
 
 Le lien symbolique fonctionne : le programme retrouve ses bibliothèques
 par son propre chemin, pas par le répertoire courant.
 
 CONTENU
 -------
-   bc                    le programme (universel : Apple Silicon et Intel)
+   brailliant            le programme (universel : Apple Silicon et Intel)
    libmtp.9.dylib        bibliothèque MTP        (LGPL-2.1)
    libusb-1.0.0.dylib    bibliothèque USB        (LGPL-2.1)
    LICENSE-*.txt         texte des licences
@@ -93,8 +93,8 @@ EOF
 
 log "Réécriture des chemins et signature"
 # Le binaire cherche les bibliothèques via @executable_path ; on s'en assure.
-if ! otool -l "$STAGE/bc" | grep -q "@executable_path"; then
-  install_name_tool -add_rpath "@executable_path" "$STAGE/bc"
+if ! otool -l "$STAGE/brailliant" | grep -q "@executable_path"; then
+  install_name_tool -add_rpath "@executable_path" "$STAGE/brailliant"
 fi
 
 IDENTITY="${CODESIGN_IDENTITY:--}"
@@ -102,21 +102,21 @@ IDENTITY="${CODESIGN_IDENTITY:--}"
 codesign --force --timestamp --sign "$IDENTITY" "$STAGE/libusb-1.0.0.dylib"
 codesign --force --timestamp --sign "$IDENTITY" "$STAGE/libmtp.9.dylib"
 if [ "$IDENTITY" = "-" ]; then
-  codesign --force --sign - "$STAGE/bc"
+  codesign --force --sign - "$STAGE/brailliant"
 else
   # --options runtime : le « hardened runtime », exigé pour la notarisation.
-  codesign --force --timestamp --options runtime --sign "$IDENTITY" "$STAGE/bc"
+  codesign --force --timestamp --options runtime --sign "$IDENTITY" "$STAGE/brailliant"
 fi
 
 log "Vérification"
-lipo -info "$STAGE/bc"
+lipo -info "$STAGE/brailliant"
 echo "Dépendances :"
-otool -L "$STAGE/bc" | grep '^[[:space:]]' | sed 's/^	/    /'
-if otool -L "$STAGE/bc" | grep -qE "/opt/homebrew|/usr/local/opt|$ROOT/\.build"; then
+otool -L "$STAGE/brailliant" | grep '^[[:space:]]' | sed 's/^	/    /'
+if otool -L "$STAGE/brailliant" | grep -qE "/opt/homebrew|/usr/local/opt|$ROOT/\.build"; then
   echo "ERREUR : le binaire référence un chemin de compilation." >&2
   exit 1
 fi
-codesign --verify --verbose=1 "$STAGE/bc" 2>&1 | sed 's/^/    /'
+codesign --verify --verbose=1 "$STAGE/brailliant" 2>&1 | sed 's/^/    /'
 
 log "Archive"
 cd "$DIST"
