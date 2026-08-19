@@ -1,0 +1,65 @@
+# Génère le projet Xcode : xcodegen generate --spec App/project.yml
+#
+# Le projet est décrit ici plutôt que dans un .xcodeproj versionné : le
+# project.pbxproj est illisible en diff et provoque des conflits à la moindre
+# modification. Ce fichier est la source de vérité, le .xcodeproj un artefact.
+#
+# Étape en cours : valider la plomberie système (App Group, entitlements,
+# enregistrement du domaine) avec une extension qui sert des données factices.
+# BrailliantKit sera branché dessous une fois cette base confirmée.
+
+name: BrailliantConnect
+options:
+  bundleIdPrefix: com.mathieumartin
+  deploymentTarget:
+    macOS: "11.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: "633EG76YX5"
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+
+  # --- Application hôte -------------------------------------------------------
+  # Une extension File Provider ne peut pas exister seule : elle est livrée dans
+  # une app, qui est aussi le seul endroit d'où l'on peut déclarer le domaine
+  # via NSFileProviderManager.
+  BrailliantConnect:
+    type: application
+    platform: macOS
+    sources:
+      - path: BrailliantConnect
+    dependencies:
+      - target: FileProviderExtension
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mathieumartin.BrailliantConnect
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_LSUIElement: NO
+        CODE_SIGN_ENTITLEMENTS: BrailliantConnect/BrailliantConnect.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: YES
+
+  # --- Extension File Provider ------------------------------------------------
+  FileProviderExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: FileProviderExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mathieumartin.BrailliantConnect.FileProvider
+        CODE_SIGN_ENTITLEMENTS: FileProviderExtension/FileProviderExtension.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: FileProviderExtension/Info.plist
+        # Le sandbox est obligatoire pour une extension. Xcode le retire parfois
+        # en propageant les entitlements de l'app hôte au moment de l'embarquement :
+        # à revérifier après chaque build (voir tools/check-extension.sh).
+        ENABLE_APP_SANDBOX: YES
