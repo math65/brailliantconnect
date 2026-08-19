@@ -39,14 +39,17 @@ enum Installer {
             home.appendingPathComponent(
                 "Library/Application Scripts/com.mathieumartin.BrailliantConnect.FileProvider"),
             home.appendingPathComponent("Library/Caches/com.mathieumartin.BrailliantConnect"),
-            // The two Containers folders are attempted rather than expected.
-            // containermanagerd owns them, and the system refuses their removal
-            // to everyone, root included — what survives is a metadata plist
-            // holding no data of the user's. Left in the list so the day macOS
-            // allows it, uninstalling gets cleaner on its own.
             home.appendingPathComponent("Library/Containers/com.mathieumartin.BrailliantConnect"),
             home.appendingPathComponent(
                 "Library/Containers/com.mathieumartin.BrailliantConnect.FileProvider"),
+            // Written by the web view in the welcome window — 200 KB of website
+            // data for a page that never touches the network.
+            home.appendingPathComponent("Library/WebKit/com.mathieumartin.BrailliantConnect"),
+            // The app group, under both the names the system files it by.
+            home.appendingPathComponent(
+                "Library/Group Containers/633EG76YX5.group.com.mathieumartin.brailliantconnect"),
+            home.appendingPathComponent(
+                "Library/Group Containers/group.com.mathieumartin.brailliantconnect"),
         ]
     }
 
@@ -127,7 +130,7 @@ enum Installer {
             removeDomainFolder()
 
             for path in ownedPaths {
-                try? FileManager.default.removeItem(at: path)
+                remove(path)
             }
 
             // Before the bundle moves: deregistering it once it is in the Trash
@@ -153,6 +156,18 @@ enum Installer {
             _ = run("/bin/launchctl", ["bootout", jobTarget])
             completion(binned)
         }
+    }
+
+    /// Removes a path, falling back to the Trash when deleting is refused.
+    ///
+    /// The container folders answer "Operation not permitted" to `removeItem`,
+    /// even as root — but the Finder moves them to the Trash without
+    /// complaint, and `trashItem` goes through the same privileged path. Being
+    /// told this was impossible was wrong; it only needed asking differently.
+    private static func remove(_ path: URL) {
+        guard FileManager.default.fileExists(atPath: path.path) else { return }
+        if (try? FileManager.default.removeItem(at: path)) != nil { return }
+        _ = try? FileManager.default.trashItem(at: path, resultingItemURL: nil)
     }
 
     /// Deregisters every copy of the extension the system knows about.

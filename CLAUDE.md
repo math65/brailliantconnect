@@ -22,10 +22,19 @@ KeepAlive forever. The resident copy owns the single piece of UI: a menu bar
 item (state, open in Finder, open at login, uninstall).
 
 `Installer.uninstall` removes everything the app wrote — `ownedPaths` is the
-list, and it is the same list installing works from. Two exceptions, both real:
-`~/Library/Containers/…` is owned by containermanagerd and cannot be deleted by
-anyone, root included; and `pluginkit -r` takes one path at a time, so the
-registrations are listed first and removed individually.
+list, and it is the same list installing works from. Three things it is easy to
+get wrong:
+
+- `~/Library/Containers/…` refuses `removeItem` with "Operation not permitted",
+  even as root. It was documented here as impossible; it is not. The Finder
+  moves those folders to the Trash without difficulty, and `trashItem` takes
+  the same privileged route — hence the fallback.
+- the app also writes outside the obvious places: `~/Library/WebKit/<bundle id>`
+  (200 KB, from the welcome window's web view) and **two** Group Containers,
+  with and without the team prefix. None of them were in the list until a user
+  found them by hand.
+- `pluginkit -r` takes one path at a time, so the registrations are listed
+  first and removed individually.
 
 ## Language conventions
 

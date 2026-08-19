@@ -88,9 +88,9 @@ download).
 location, the shortcut and every file the app wrote, then moves the app to the
 Trash. The braille display is not touched.
 
-Two folders survive under `~/Library/Containers`, holding a few kilobytes of
-system metadata and none of your data: macOS refuses their deletion to every
-process, root included.
+Nothing is left behind. The container folders refuse a plain delete, even as
+root, so they go to the Trash instead — which is what the Finder does with them
+too.
 
 ### The command-line tool
 
