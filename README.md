@@ -10,18 +10,26 @@ Apple Silicon. Binaire universel : Apple Silicon et Intel.
 
 La Brailliant s'expose en **MTP** (Media Transfer Protocol), le protocole
 d'Android. macOS ne sait pas monter un volume MTP : rien n'apparaît dans le
-Finder quand on branche la plage. L'utilitaire officiel s'appuie sur
-**macFUSE**, qui exige une extension noyau — à autoriser en mode de
-récupération, avec redémarrage, et qui casse à chaque mise à jour majeure
-de macOS.
+Finder quand on branche la plage.
+
+L'utilitaire officiel empile donc deux couches : un pilote pour atteindre le
+matériel, puis **macFUSE** pour présenter la plage comme un volume montable.
+macFUSE est un bon logiciel, activement maintenu (5.3.3, juillet 2026), et son
+backend FSKit lui évite même l'extension noyau sur macOS 26. Le problème n'est
+pas macFUSE : c'est l'empilement. En pratique, plusieurs utilisateurs se
+retrouvent avec un dossier vide et aucun volume monté, et HumanWare a annoncé
+en avril 2026 ne plus pouvoir en assurer le support.
 
 ## Le contournement
 
-MTP ne nécessite en réalité **aucun pilote noyau** : c'est un protocole qui
-passe entièrement par USB en espace utilisateur. `libmtp` (au-dessus de
-`libusb`) sait lui parler directement.
+Ces couches sont **supprimées plutôt que remplacées**. Transférer un fichier
+en MTP ne demande pas de monter un volume : le protocole passe entièrement par
+USB en espace utilisateur, et `libmtp` (au-dessus de `libusb`) sait lui parler
+directement.
 
-Aucune extension noyau, aucun redémarrage, aucune autorisation de sécurité.
+Il n'y a donc rien à installer — ni pilote, ni couche de montage — et rien qui
+puisse se désynchroniser d'une mise à jour de macOS. En contrepartie, la plage
+n'apparaît pas dans le Finder : c'est un outil en ligne de commande.
 
 ## Installation
 
