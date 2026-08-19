@@ -88,6 +88,14 @@ func finish(_ message: String, code: Int32 = 0) -> Never {
 }
 
 /// Brings the published state in line with the physical presence of the display.
+/// Last state acted upon, so an unchanged one is not logged again.
+///
+/// A single unplug fires several IOKit notifications — one per interface, plus
+/// the device itself — and each one triggers a reconciliation. Acting is
+/// idempotent, but writing the same line three times makes the log unreadable
+/// exactly when it is being consulted.
+var lastKnownAvailability: Bool?
+
 func syncWithHardware() {
     // "Available" means reachable over MTP, not merely plugged in: a sleeping
     // display stays enumerated but answers nothing.
@@ -95,9 +103,16 @@ func syncWithHardware() {
     let pluggedIn = USBWatcher.pluggedDisplayCount() > 0
     let connected = available
     isPublished { published in
-        switch FinderLocation.action(displayConnected: connected, locationPublished: published) {
+        let action = FinderLocation.action(
+            displayConnected: connected, locationPublished: published)
+        // Report a transition once, not once per notification.
+        let worthLogging = lastKnownAvailability != available
+        lastKnownAvailability = available
+
+        switch action {
         case .publish:
             publish { error in
+                guard worthLogging || error != nil else { return }
                 log(
                     error == nil
                         ? L.t("display connected — location published in ~/%@", displayName)
@@ -108,6 +123,7 @@ func syncWithHardware() {
             }
         case .unpublish:
             unpublish { error in
+                guard worthLogging || error != nil else { return }
                 log(
                     error == nil
                         ? (pluggedIn
