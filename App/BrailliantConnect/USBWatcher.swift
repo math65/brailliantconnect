@@ -39,36 +39,74 @@ final class USBWatcher {
         return kIOMasterPortDefault
     }
 
-    /// Number of HumanWare displays currently connected and awake.
+    /// How reachable the display is, from MTP's point of view.
+    ///
+    /// The three failing cases look identical to `libmtp` — nothing answers —
+    /// but they call for three different things from the person holding the
+    /// display, so they are told apart here rather than collapsed into
+    /// "not connected".
+    enum Availability {
+        /// Nothing plugged in.
+        case absent
+        /// Enumerated, but publishing no interface at all: the display is
+        /// asleep and a keypress brings it back.
+        case asleep
+        /// Publishing interfaces, none of which speaks MTP: the display is in
+        /// braille terminal mode and has to be switched to file transfer.
+        case brailleTerminal
+        /// An MTP interface is there; the extension can serve the location.
+        case ready
+    }
+
+    /// USB class of the "Still Image" interface, which is what PTP and MTP are
+    /// carried over.
+    private static let stillImageInterfaceClass = 6
+
+    /// USB class meaning "the vendor defines it". Android devices — and the
+    /// Brailliant runs on an Android base — expose MTP this way, naming the
+    /// interface "MTP" rather than declaring a standard class.
+    private static let vendorSpecificInterfaceClass = 255
+
+    /// State of the first HumanWare display found on the bus.
     ///
     /// Devices are enumerated and then filtered by reading their "idVendor"
     /// property. Filtering directly in the matching dictionary would be more
     /// concise, but it depends on the encoding IOKit expects and turns out to
     /// silently do nothing at the slightest deviation.
-    ///
-    /// A sleeping display is not counted: it stays enumerated on USB but stops
-    /// exposing its interfaces, and MTP is then unreachable. Counting it would
-    /// publish a Finder location the extension cannot serve — the user would
-    /// see a folder that hangs instead of an absent one.
-    static func connectedDisplayCount() -> Int {
-        guard let criteria = IOServiceMatching(usbClass) else { return 0 }
+    static func availability() -> Availability {
+        guard let criteria = IOServiceMatching(usbClass) else { return .absent }
         var iterator: io_iterator_t = 0
         guard IOServiceGetMatchingServices(mainPort, criteria, &iterator) == KERN_SUCCESS
-        else { return 0 }
+        else { return .absent }
         defer { IOObjectRelease(iterator) }
 
-        var total = 0
+        var best = Availability.absent
         while case let service = IOIteratorNext(iterator), service != 0 {
-            if vendorID(of: service) == humanwareVendorID, hasInterfaces(service) { total += 1 }
+            if vendorID(of: service) == humanwareVendorID {
+                let state = availability(of: service)
+                // Best case wins: someone with two displays plugged in should
+                // get the one that works, not the first one enumerated.
+                if state == .ready { IOObjectRelease(service); return .ready }
+                if state == .brailleTerminal || best == .absent { best = state }
+            }
             IOObjectRelease(service)
         }
-        return total
+        return best
     }
 
-    /// Number of HumanWare displays plugged in, awake or not.
+    /// Number of HumanWare displays reachable over MTP.
     ///
-    /// Lets the agent tell "no display" from "a display that is asleep", which
-    /// are the same thing to MTP but not to the person holding it.
+    /// A display that is asleep or in braille terminal mode is not counted.
+    /// Counting it would publish a Finder location the extension cannot serve,
+    /// and the user would get a folder that hangs rather than an absent one.
+    static func connectedDisplayCount() -> Int {
+        availability() == .ready ? 1 : 0
+    }
+
+    /// Number of HumanWare displays plugged in, whatever state they are in.
+    ///
+    /// Lets the agent tell "no display" from "a display that cannot answer",
+    /// which are the same thing to MTP but not to the person holding it.
     static func pluggedDisplayCount() -> Int {
         guard let criteria = IOServiceMatching(usbClass) else { return 0 }
         var iterator: io_iterator_t = 0
@@ -84,21 +122,50 @@ final class USBWatcher {
         return total
     }
 
-    /// True if the device currently publishes any child in the IOKit registry.
+    /// Reads a single device's state from the interfaces it publishes.
     ///
-    /// An awake display hangs a composite device — and its interfaces — under
-    /// itself. Asleep, it drops them all while remaining enumerated, which is
-    /// exactly what makes it look present but answer nothing.
-    private static func hasInterfaces(_ device: io_service_t) -> Bool {
+    /// Presence of interfaces was the first criterion tried here, and it was
+    /// wrong: in braille terminal mode the display publishes two HID interfaces
+    /// and no MTP one. It looked connected, the location was published, and the
+    /// Finder showed a folder that hung — the exact failure this is meant to
+    /// prevent.
+    private static func availability(of device: io_service_t) -> Availability {
         var children: io_iterator_t = 0
         guard IORegistryEntryGetChildIterator(device, kIOServicePlane, &children) == KERN_SUCCESS
-        else { return false }
+        else { return .asleep }
         defer { IOObjectRelease(children) }
 
-        let first = IOIteratorNext(children)
-        guard first != 0 else { return false }
-        IOObjectRelease(first)
-        return true
+        var sawInterface = false
+        var sawMTP = false
+        while case let child = IOIteratorNext(children), child != 0 {
+            if IOObjectConformsTo(child, usbInterfaceClass) != 0 {
+                sawInterface = true
+                if speaksMTP(child) { sawMTP = true }
+            }
+            IOObjectRelease(child)
+        }
+        if sawMTP { return .ready }
+        return sawInterface ? .brailleTerminal : .asleep
+    }
+
+    /// True if an interface carries MTP.
+    ///
+    /// Two forms are accepted because two exist: the standard still-image class
+    /// used by PTP and MTP, and the vendor-specific interface named "MTP" that
+    /// Android exposes — which is also what makes `libmtp`'s generic detection
+    /// recognise this display, absent from its device table.
+    private static func speaksMTP(_ interface: io_service_t) -> Bool {
+        let interfaceClass =
+            (IORegistryEntryCreateCFProperty(
+                interface, "bInterfaceClass" as CFString, kCFAllocatorDefault, 0
+            )?.takeRetainedValue() as? NSNumber)?.intValue
+
+        if interfaceClass == stillImageInterfaceClass { return true }
+        guard interfaceClass == vendorSpecificInterfaceClass else { return false }
+
+        var name = [CChar](repeating: 0, count: Int(128))
+        guard IORegistryEntryGetName(interface, &name) == KERN_SUCCESS else { return false }
+        return String(cString: name).uppercased().contains("MTP")
     }
 
     /// Reads the vendor identifier of an IOKit service.

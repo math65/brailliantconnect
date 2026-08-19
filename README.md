@@ -34,24 +34,55 @@ space, needs no kernel extension, and works from macOS 11.
 
 ## Install
 
-Download the archive, unpack it, then:
+Unpack the archive, drag **BrailliantConnect** into Applications, and open it
+once. That is the entire procedure — no terminal, no configuration.
 
-```bash
-./brailliant finder on
-```
+Opening it registers a background agent and quits. From then on the agent starts
+with every session, and the display shows up in `~/Brailliant` whenever it is
+connected. An item in the menu bar says whether the display is there, opens it
+in the Finder, and can uninstall everything.
 
-That is all. The display now shows up in `~/Brailliant` whenever it is
-connected, and a background agent keeps that in step with what is plugged in —
-including across restarts.
+### Copying takes longer than the Finder lets on
+
+Dropping a file into `~/Brailliant` returns instantly: macOS writes a local copy
+and hands control back long before anything reaches the display. The transfer
+runs at about 7 MB/s, so three gigabytes take roughly seven minutes — during
+which everything *looks* finished. Unplugging then truncates the file.
+
+Three things say otherwise. While a transfer runs, the menu bar leads with
+**Transferring — 3 GB** and **Do not unplug the display**. Quitting or
+uninstalling asks for confirmation, with *Wait* as the default answer. And when
+it ends, a notification announces that the display can be unplugged — the only
+signal that reaches you without having to go and look, which is why permission
+to notify is requested at first launch.
+
+Progress is credited a whole file at a time, not continuously: on several files
+the figure climbs, on a single large one it stays put. The size alone is shown
+in that case rather than a counter frozen at zero.
 
 Nothing else is required: no Homebrew, no macFUSE, no Python, no runtime.
-`libmtp` and `libusb` ship inside the bundle as universal binaries (600 KB to
-download, 1.9 MB unpacked).
+`libmtp` and `libusb` ship inside the bundle as universal binaries (1.5 MB to
+download).
 
-To type `brailliant` from anywhere:
+### Uninstall
+
+**Uninstall BrailliantConnect…** in the menu bar removes the agent, the Finder
+location, the shortcut and every file the app wrote, then moves the app to the
+Trash. The braille display is not touched.
+
+Two folders survive under `~/Library/Containers`, holding a few kilobytes of
+system metadata and none of your data: macOS refuses their deletion to every
+process, root included.
+
+### The command-line tool
+
+`brailliant` ships inside the app, at
+`/Applications/BrailliantConnect.app/Contents/MacOS/brailliant`. It is an
+instrument for probing the protocol, not something the display needs in order to
+work. To reach it from anywhere:
 
 ```bash
-sudo ln -s "$PWD/brailliant" /usr/local/bin/brailliant
+sudo ln -s /Applications/BrailliantConnect.app/Contents/MacOS/brailliant /usr/local/bin/brailliant
 ```
 
 The symlink works: the program finds its libraries through its own path, not the
@@ -65,6 +96,7 @@ terminal mode).
 | Command | What it does |
 |---|---|
 | `brailliant finder on\|off\|status` | watch the display and show it in the Finder |
+| `brailliant uninstall` | remove BrailliantConnect entirely |
 | `brailliant info` | model, serial number, free space |
 | `brailliant ls [path]` | list a folder (`-l` for sizes) |
 | `brailliant tree [path]` | show the tree (`-d` to limit depth) |
@@ -182,10 +214,11 @@ Three parts:
 
 - **`BrailliantKit`** — the MTP layer, compiled into both the CLI and the
   extension.
-- **The agent** (`BrailliantConnect.app`, no interface) — watches USB through
-  IOKit and publishes or removes the Finder location. It exists only because an
-  extension must be hosted by an app bundle, and only that bundle may register a
-  File Provider domain. `brailliant finder on` installs it as a LaunchAgent.
+- **The agent** (`BrailliantConnect.app`) — watches USB through IOKit and
+  publishes or removes the Finder location. It exists only because an extension
+  must be hosted by an app bundle, and only that bundle may register a File
+  Provider domain. Opening the app registers it as a LaunchAgent and hands over;
+  the resident copy is the one launchd starts, and it holds the menu bar item.
 - **The extension** — serves the content to the Finder. Sandboxed, with USB
   access.
 

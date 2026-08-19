@@ -77,7 +77,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 Bool, Error?
             ) -> Void
     ) -> Progress {
-        let progress = Progress(totalUnitCount: 100)
+        let progress = uploadProgress()
         do {
             let item = try access.create(
                 name: itemTemplate.filename,
@@ -85,8 +85,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 isFolder: itemTemplate.contentType == .folder,
                 localContents: url,
                 progress: { sent, total in
-                    guard total > 0 else { return }
-                    progress.completedUnitCount = Int64(sent * 100 / total)
+                    Self.report(sent, of: total, to: progress)
                 })
             // No field is left pending and nothing remains to upload: the
             // display holds the definitive copy already.
@@ -110,7 +109,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 Bool, Error?
             ) -> Void
     ) -> Progress {
-        let progress = Progress(totalUnitCount: 100)
+        let progress = uploadProgress()
         do {
             let modified = try access.modify(
                 item.itemIdentifier,
@@ -119,8 +118,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                     ? item.parentItemIdentifier : nil,
                 localContents: changedFields.contains(.contents) ? newContents : nil,
                 progress: { sent, total in
-                    guard total > 0 else { return }
-                    progress.completedUnitCount = Int64(sent * 100 / total)
+                    Self.report(sent, of: total, to: progress)
                 })
             completionHandler(modified, [], false, nil)
         } catch {
@@ -143,6 +141,32 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             completionHandler(translate(error))
         }
         return Progress()
+    }
+
+    /// A progress object the system can aggregate into the domain's global
+    /// upload progress, which is what the menu bar reads.
+    ///
+    /// Counting in bytes rather than in percent is what makes the aggregate
+    /// meaningful: the system sums several transfers, and a percentage carries
+    /// no size to sum. Declaring the operation kind is what files it under
+    /// "uploading" rather than nowhere.
+    private func uploadProgress() -> Progress {
+        let progress = Progress(totalUnitCount: 0)
+        progress.kind = .file
+        progress.fileOperationKind = .uploading
+        return progress
+    }
+
+    /// Reports transferred bytes, setting the total the first time it is known.
+    ///
+    /// libmtp only reveals the size once the transfer starts, so the total is
+    /// filled in on the first callback rather than up front.
+    private static func report(_ sent: UInt64, of total: UInt64, to progress: Progress) {
+        guard total > 0 else { return }
+        if progress.totalUnitCount != Int64(total) {
+            progress.totalUnitCount = Int64(total)
+        }
+        progress.completedUnitCount = Int64(min(sent, total))
     }
 
     /// Maps a protocol error onto what the Finder understands.

@@ -1,3 +1,4 @@
+import AppKit
 import FileProvider
 import Foundation
 
@@ -7,11 +8,22 @@ import Foundation
 // of the display: connected, the location shows up in the Finder; disconnected,
 // it goes away along with its shortcut. The user has nothing to do.
 //
+// Two roles, deliberately kept apart:
+//
+//   (no argument)  what a double-click runs. It registers the agent with
+//                  launchd and exits at once.
+//   --watch        what launchd then runs, and keeps running: the resident
+//                  process that watches USB and holds the menu bar item.
+//
+// Splitting them is what keeps a single copy alive. Were the double-clicked
+// process to stay resident, the one launchd starts would find it there and
+// exit — and KeepAlive would restart it, forever.
+//
 // It also accepts one-off commands, used by `brailliant`:
 //   --publish     publishes the location
 //   --unpublish   removes it
 //   --status      reports whether it is published
-//   --watch       stays in the background (default behaviour)
+//   --uninstall   removes every trace of the app
 
 let domainIdentifier = NSFileProviderDomainIdentifier(FinderLocation.domainIdentifier)
 let displayName = FinderLocation.displayName
@@ -58,10 +70,18 @@ func log(_ message: String) {
 
 // MARK: - Domain actions
 
+/// Reads how much is still on its way to the display, for the menu bar.
+let transfers = TransferMonitor()
+
 func publish(_ completion: @escaping (Error?) -> Void) {
     let domain = NSFileProviderDomain(identifier: domainIdentifier, displayName: displayName)
     NSFileProviderManager.add(domain) { error in
-        if error == nil { createShortcut() }
+        if error == nil {
+            createShortcut()
+            // A domain removed and re-added is a new one, so its progress has
+            // to be picked up again rather than kept from last time.
+            transfers.follow(domain: domainIdentifier)
+        }
         completion(error)
     }
 }
@@ -71,6 +91,7 @@ func unpublish(_ completion: @escaping (Error?) -> Void) {
     NSFileProviderManager.remove(domain) { error in
         // The shortcut goes with the domain: leaving it would point nowhere.
         removeShortcut()
+        transfers.stop()
         completion(error)
     }
 }
@@ -97,10 +118,11 @@ func finish(_ message: String, code: Int32 = 0) -> Never {
 var lastKnownAvailability: Bool?
 
 func syncWithHardware() {
-    // "Available" means reachable over MTP, not merely plugged in: a sleeping
-    // display stays enumerated but answers nothing.
-    let available = USBWatcher.connectedDisplayCount() > 0
-    let pluggedIn = USBWatcher.pluggedDisplayCount() > 0
+    // "Available" means reachable over MTP, not merely plugged in: a display
+    // that is asleep, or in braille terminal mode, stays enumerated and answers
+    // nothing.
+    let state = USBWatcher.availability()
+    let available = state == .ready
     let connected = available
     isPublished { published in
         let action = FinderLocation.action(
@@ -124,30 +146,77 @@ func syncWithHardware() {
         case .unpublish:
             unpublish { error in
                 guard worthLogging || error != nil else { return }
+                let reason: String
+                switch state {
+                case .asleep:
+                    reason = L.t("display asleep — location removed until it wakes up")
+                case .brailleTerminal:
+                    reason = L.t(
+                        "display in braille terminal mode — location removed until it "
+                            + "is switched to file transfer")
+                default:
+                    reason = L.t("display disconnected — location removed")
+                }
                 log(
                     error == nil
-                        ? (pluggedIn
-                            ? L.t("display asleep — location removed until it wakes up")
-                            : L.t("display disconnected — location removed"))
+                        ? reason
                         : L.t(
                             "display disconnected but removal failed: %@",
                             error!.localizedDescription)
                 )
             }
         case .nothing:
-            break
+            // Already in the right state — but if that state is "published",
+            // this may be the first pass after a restart, and the transfer
+            // progress still has to be picked up.
+            if published { transfers.follow(domain: domainIdentifier) }
         }
     }
 }
 
 // MARK: - Entry point
 
+/// Takes an exclusive lock held for as long as the process lives, so that only
+/// one resident agent can exist.
+///
+/// `NSRunningApplication` looked like the obvious way, and was wrong: it counts
+/// the short-lived process that a double-click runs to install the agent. The
+/// agent launchd starts a moment later would then find itself "already
+/// running", exit, and come back only after KeepAlive's ten-second delay —
+/// exactly when the user is watching to see whether anything happened.
+///
+/// The kernel releases the lock when the process dies, however it dies, which a
+/// pid file would not.
+enum SingleInstance {
+    private static var descriptor: Int32 = -1
+
+    static var lockFolder: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Caches/com.mathieumartin.BrailliantConnect")
+    }
+
+    static func claim() -> Bool {
+        try? FileManager.default.createDirectory(
+            at: lockFolder, withIntermediateDirectories: true)
+        descriptor = open(
+            lockFolder.appendingPathComponent("agent.lock").path, O_CREAT | O_WRONLY, 0o644)
+        // Unable to take a lock at all: better a possible duplicate than no
+        // agent, since a duplicate is visible and an absence is not.
+        guard descriptor >= 0 else { return true }
+        return flock(descriptor, LOCK_EX | LOCK_NB) == 0
+    }
+}
+
+/// Retained for the lifetime of the process: `NSMenu` holds its delegate
+/// weakly, and a released controller would leave an icon with an empty menu.
+var menuBar: MenuBarController?
+
 let arguments = Array(CommandLine.arguments.dropFirst())
 let waiter = DispatchSemaphore(value: 0)
 var exitCode: Int32 = 0
 var finalMessage = ""
 
-switch arguments.first ?? "--watch" {
+switch arguments.first ?? "--install" {
 
 case "--publish":
     publish { error in
@@ -191,28 +260,98 @@ case "--status":
     }
     finish(finalMessage, code: exitCode)
 
+case "--uninstall":
+    // The headless path to the same thing the menu bar offers. There is one
+    // implementation of the removal, so the two cannot fall out of step.
+    Installer.uninstall(removeApp: true) { binned in
+        finalMessage =
+            binned
+            ? L.t("BrailliantConnect has been removed. The app is in the Trash.")
+            : L.t(
+                "BrailliantConnect has been removed, but the app itself could not "
+                    + "be moved to the Trash. Drag it there by hand:") + "\n  "
+                + Bundle.main.bundleURL.path
+        waiter.signal()
+    }
+    if waiter.wait(timeout: .now() + 60) == .timedOut {
+        finish(L.t("The system did not answer within the allotted time."), code: 1)
+    }
+    finish(finalMessage)
+
+case "--install":
+    // A double-click lands here, and this is the whole installation: register
+    // the agent, then hand over. Nothing is left running from this process.
+    //
+    // Without it, the display would come back only until the next logout, and
+    // making it permanent would mean typing a command into a path nobody would
+    // guess — which is precisely what this project exists not to require.
+    if Installer.register() { exit(0) }
+
+    // Only worth reporting when it fails, and worth reporting visibly: whoever
+    // just double-clicked an app has no terminal to read.
+    let message = L.t(
+        "BrailliantConnect could not register itself to start automatically. "
+            + "Make sure the app is in the Applications folder, then open it again.")
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    let reporter = NSApplication.shared
+    reporter.setActivationPolicy(.accessory)
+    let alert = NSAlert()
+    alert.messageText = L.t("Installation failed")
+    alert.informativeText = message
+    alert.alertStyle = .warning
+    reporter.activate(ignoringOtherApps: true)
+    alert.runModal()
+    exit(1)
+
 case "--watch":
+    // launchd already runs a single copy of the job; this guards against a
+    // second one started by hand.
+    guard SingleInstance.claim() else { exit(0) }
+
     log(L.t("agent started"))
+
+    transfers.onCompletion = { total in
+        TransferNotice.announceCompletion(of: total)
+        log(L.t("transfer finished — %@", humanBytes(total)))
+    }
+
+    let application = NSApplication.shared
+    // .accessory: an item in the menu bar, no Dock icon and no window.
+    application.setActivationPolicy(.accessory)
+    menuBar = MenuBarController(onChange: { syncWithHardware() })
+
+    // Only once the app is a running application does the notification centre
+    // have anything to attach a permission dialog to. Asked for before that,
+    // the request is dropped and the status stays "not determined" — silently,
+    // which is how it went unnoticed the first time.
+    TransferNotice.delivery = { log($0) }
+    DispatchQueue.main.async { TransferNotice.requestPermission(report: { log($0) }) }
+
     // Align the state as soon as we start: the display may already be
     // connected, or a location may be left over from a previous session.
     syncWithHardware()
 
     let watcher = USBWatcher { syncWithHardware() }
     watcher.start()
-    // The agent lives in its run loop: IOKit wakes it up on connections and
-    // disconnections, and it consumes nothing in between.
-    CFRunLoopRun()
+
+    // AppKit's run loop rather than CFRunLoopRun: the menu needs it, and IOKit
+    // delivers its notifications to the same run loop either way. The agent
+    // consumes nothing between two events.
+    application.run()
 
 default:
     finish(
         L.t(
             """
-            BrailliantConnect — Finder location agent (headless).
+            BrailliantConnect — Finder location agent.
 
-              (no argument)     watch the display and publish or remove the location
+              (no argument)     register the agent to start at login, then exit
+              --watch           watch the display, publish or remove the location,
+                                and hold the menu bar item
               --publish         publish the location
               --unpublish       remove it
               --status          report the current state
+              --uninstall       remove every trace of the app
 
             This agent is normally driven by the "brailliant" command.
             """), code: 2)

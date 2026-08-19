@@ -167,6 +167,10 @@ public enum L {
         "display connected but publishing failed: %@":
             "plage branchée mais publication impossible : %@",
         "display disconnected — location removed": "plage débranchée — emplacement retiré",
+        "display in braille terminal mode — location removed until it "
+            + "is switched to file transfer":
+            "plage en mode terminal braille — emplacement retiré jusqu'au passage "
+            + "en mode transfert de fichiers",
         "display disconnected but removal failed: %@":
             "plage débranchée mais retrait impossible : %@",
         "Publishing failed: %@": "Échec de la publication : %@",
@@ -175,25 +179,94 @@ public enum L {
             "Le système n'a pas répondu dans le délai imparti.",
         "The system did not answer.": "Le système n'a pas répondu.",
         """
-        BrailliantConnect — Finder location agent (headless).
+        BrailliantConnect — Finder location agent.
 
-          (no argument)     watch the display and publish or remove the location
+          (no argument)     register the agent to start at login, then exit
+          --watch           watch the display, publish or remove the location,
+                            and hold the menu bar item
           --publish         publish the location
           --unpublish       remove it
           --status          report the current state
+          --uninstall       remove every trace of the app
 
         This agent is normally driven by the "brailliant" command.
         """:
             """
-        BrailliantConnect — agent de l'emplacement Finder (sans interface).
+        BrailliantConnect — agent de l'emplacement Finder.
 
-          (sans argument)   surveille la plage et publie ou retire l'emplacement
+          (sans argument)   installe l'agent au démarrage de la session, puis quitte
+          --watch           surveille la plage, publie ou retire l'emplacement,
+                            et tient l'élément de la barre des menus
           --publish         publie l'emplacement
           --unpublish       le retire
           --status          indique l'état
+          --uninstall       supprime toute trace de l'application
 
         Cet agent est normalement piloté par la commande « brailliant ».
         """,
+
+        "Installation failed": "Échec de l'installation",
+        "BrailliantConnect could not register itself to start automatically. "
+            + "Make sure the app is in the Applications folder, then open it again.":
+            "BrailliantConnect n'a pas pu s'installer pour démarrer automatiquement. "
+            + "Vérifiez que l'application se trouve dans le dossier Applications, "
+            + "puis ouvrez-la de nouveau.",
+
+        "BrailliantConnect has been removed. The app is in the Trash.":
+            "BrailliantConnect a été supprimé. L'application est dans la corbeille.",
+        "BrailliantConnect has been removed, but the app itself could not "
+            + "be moved to the Trash. Drag it there by hand:":
+            "BrailliantConnect a été supprimé, mais l'application elle-même n'a pas "
+            + "pu être placée dans la corbeille. Faites-la glisser à la main :",
+        "The app could not be moved to the Trash":
+            "L'application n'a pas pu être placée dans la corbeille",
+        "Everything else has been removed. Drag the app to the Trash:":
+            "Tout le reste a été supprimé. Faites glisser l'application vers la corbeille :",
+
+        // MARK: Menu bar
+
+        "Display connected": "Plage branchée",
+        "Display asleep": "Plage en veille",
+        "Display in braille terminal mode": "Plage en mode terminal braille",
+        "Transferring — %@ of %@": "Transfert en cours — %@ sur %@",
+        "Transferring — %@": "Transfert en cours — %@",
+        "Do not unplug the display": "Ne débranchez pas la plage",
+        "Transfer complete": "Transfert terminé",
+        "%@ sent. You can unplug the display.":
+            "%@ envoyés. Vous pouvez débrancher la plage.",
+        "transfer finished — %@": "transfert terminé — %@",
+        "less than 1 MB": "moins de 1 Mo",
+        "MB": "Mo",
+        "GB": "Go",
+        "A transfer is still running": "Un transfert est encore en cours",
+        "%@ of %@ have been sent. Stopping now leaves the file incomplete "
+            + "on the display.":
+            "%@ sur %@ ont été envoyés. Arrêter maintenant laisse le fichier "
+            + "incomplet sur la plage.",
+        "%@ are still on their way. Stopping now leaves the file incomplete "
+            + "on the display.":
+            "%@ sont encore en cours d'envoi. Arrêter maintenant laisse le fichier "
+            + "incomplet sur la plage.",
+        "Wait": "Attendre",
+        "Stop anyway": "Arrêter quand même",
+        "Switch it to file transfer mode": "Passez-la en mode transfert de fichiers",
+        "No display connected": "Aucune plage branchée",
+        "Open in Finder": "Ouvrir dans le Finder",
+        "Press a key on the display to wake it":
+            "Appuyez sur une touche de la plage pour la réveiller",
+        "Open at Login": "Ouvrir à l'ouverture de session",
+        "Uninstall BrailliantConnect…": "Désinstaller BrailliantConnect…",
+        "Quit": "Quitter",
+        "Uninstall BrailliantConnect?": "Désinstaller BrailliantConnect ?",
+        "The Finder location, the background agent, and every file this app "
+            + "wrote will be removed, and the app itself moved to the Trash. "
+            + "Nothing on the braille display is touched.":
+            "L'emplacement Finder, l'agent d'arrière-plan et tous les fichiers "
+            + "écrits par cette application seront supprimés, et l'application "
+            + "elle-même placée dans la corbeille. "
+            + "Rien n'est touché sur la plage braille.",
+        "Uninstall": "Désinstaller",
+        "Cancel": "Annuler",
 
         // MARK: Listings
 
@@ -280,6 +353,9 @@ public enum L {
         "Error: the \"%@\" command expects at least one argument.":
             "Erreur : la commande « %@ » attend au moins un argument.",
         "Usage: brailliant finder on|off|status": "Usage : brailliant finder on|off|status",
+        "This copy of \"brailliant\" is not inside the app; remove it by hand:":
+            "Cette copie de « brailliant » n'est pas dans l'application ; "
+            + "supprimez-la à la main :",
 
         // MARK: Help
 
@@ -297,9 +373,11 @@ public enum L {
           put <local> [remote]     copy from the Mac to the display (file or folder)
           rm <path>...             delete from the display
           mkdir <path>...          create a folder on the display
+          mv <source> <dest>       rename or move an item on the display
           clean                    remove macOS clutter files from the display
           doctor                   check that everything works
           finder on|off|status     watch the display and show it in the Finder
+          uninstall                remove BrailliantConnect entirely
           bench [path]             measure protocol latencies (diagnostic)
           bench --scale [n]        measure how it scales (creates then deletes
                                    test files on the display)
@@ -343,9 +421,11 @@ public enum L {
           put <local> [distant]    copie du Mac vers la plage (fichier ou dossier)
           rm <chemin>...           supprime de la plage
           mkdir <chemin>...        crée un dossier sur la plage
+          mv <source> <dest>       renomme ou déplace un élément sur la plage
           clean                    retire les fichiers parasites macOS de la plage
           doctor                   vérifie que tout fonctionne
           finder on|off|status     surveille la plage et l'affiche dans le Finder
+          uninstall                supprime entièrement BrailliantConnect
           bench [chemin]           mesure les latences du protocole (diagnostic)
           bench --scale [n]        mesure la montée en charge (crée puis supprime
                                    des fichiers de test sur la plage)

@@ -11,9 +11,21 @@ without macFUSE. Three parts:
   Finder extension.
 - `brailliant` — the command-line tool. It is an instrument for probing the
   protocol and driving the agent, **not** the product shipped to end users.
-- `App/` — a headless agent plus a File Provider extension. The app has no UI;
-  it exists only because an extension must be hosted by an app bundle, and only
-  that bundle may register a File Provider domain.
+- `App/` — a background agent plus a File Provider extension. The extension
+  exists in an app bundle because it must be, and because only that bundle may
+  register a File Provider domain.
+
+Opening the app registers the agent with launchd and **exits**; the resident
+copy is the one launchd starts, with `--watch`. Keeping the double-clicked
+process alive instead makes launchd's copy find it, exit, and be restarted by
+KeepAlive forever. The resident copy owns the single piece of UI: a menu bar
+item (state, open in Finder, open at login, uninstall).
+
+`Installer.uninstall` removes everything the app wrote — `ownedPaths` is the
+list, and it is the same list installing works from. Two exceptions, both real:
+`~/Library/Containers/…` is owned by containermanagerd and cannot be deleted by
+anyone, root included; and `pluginkit -r` takes one path at a time, so the
+registrations are listed first and removed individually.
 
 ## Language conventions
 
@@ -89,18 +101,49 @@ Each of these produces an error that points somewhere other than its cause.
   property** — filtering through the matching dictionary fails silently.
 - A `main.swift`, even empty, is required in the extension target as its entry
   point.
+- `UNUserNotificationCenter.requestAuthorization` called **before**
+  `NSApplication.shared` exists is dropped without an error: the status stays
+  *not determined* and nothing is ever delivered. The agent logs the resulting
+  status at every start, because a refused permission and a working one are
+  otherwise indistinguishable until a transfer ends in silence.
+- Reading a permission or a notification status from a second executable
+  dropped into `Contents/MacOS/` reports the wrong answer — it is not the
+  application, whatever its path suggests. Measure from the agent itself.
 
 ## Hardware behaviour
 
 - **MTP allows one session at a time.** While the extension holds the
   connection, the CLI fails with `libusb_claim_interface = -3`, and vice versa.
-- **The display sleeps.** It stays enumerated on USB but stops exposing its MTP
-  interface (`ioreg` shows no child interfaces). Detection currently keys on
-  device presence, so the agent publishes a location the extension cannot
-  serve. When MTP calls fail while the device is visible, **ask the user to wake
-  the display** rather than reporting a fault.
+- **A visible display is not a reachable one.** Three states are told apart by
+  `USBWatcher.availability()`, by inspecting the device's child interfaces on
+  the **IOService plane** (`ioreg -p IOUSB` shows a different tree and will not
+  answer this):
+  - no interfaces → asleep, a keypress brings it back;
+  - HID interfaces only → braille terminal mode, the user must switch it to
+    file transfer;
+  - an interface of class 6, or vendor-specific and named `MTP` → reachable.
+
+  Only the last one publishes the location. "Has children" was the first
+  criterion here and was wrong: in braille terminal mode the device publishes
+  two HID interfaces, so it looked connected and the Finder showed a folder
+  that hung.
 - **MTP emits no change notifications.** Anything edited on the display itself
   goes unnoticed until re-enumeration.
+
+## Transfers
+
+Writing is asynchronous and the Finder hides it: `cp` into the location returns
+in 0,02 s whatever the size, and the upload follows at ~7 MB/s. The agent reads
+`NSFileProviderManager.globalProgress(for: .uploading)` — available from macOS
+11.3, and readable by the host app, which avoids an App Group the extension
+cannot have. Two traps in it:
+
+- the aggregate is credited **one whole file at a time**. The bytes our
+  extension reports are ignored, so a single large file shows no movement at
+  all. The menu shows the size alone in that case rather than a counter stuck
+  at zero.
+- it emits no reliable final change when the last file lands, so a one-second
+  timer is armed **only while a transfer runs** to catch the end.
 
 ## Accessibility
 
@@ -111,7 +154,10 @@ way.
 
 ## Documentation drift
 
-`README.md` predates the current state: it omits the `finder` command, never
-mentions `xcodegen` or `App/`, and still presents Finder integration as future
-work. `Vendor/README.txt` claims the libraries are loaded "par ctypes" — a
-leftover from the retired Python prototype.
+`Vendor/README.txt` claims the libraries are loaded "par ctypes" — a leftover
+from the retired Python prototype.
+
+The `usage` string in `Sources/brailliant/main.swift` is a single translation
+key: **editing it without editing the matching key in `Localization.swift`
+silently drops the whole help back to English.** That is exactly how the French
+help was lost when `mv` was added.

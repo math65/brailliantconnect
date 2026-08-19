@@ -23,6 +23,7 @@ let usage = L.t(
       clean                    remove macOS clutter files from the display
       doctor                   check that everything works
       finder on|off|status     watch the display and show it in the Finder
+      uninstall                remove BrailliantConnect entirely
       bench [path]             measure protocol latencies (diagnostic)
       bench --scale [n]        measure how it scales (creates then deletes
                                test files on the display)
@@ -120,7 +121,7 @@ func run() -> Int32 {
     // display up for a typo.
     let known = [
         "info", "ls", "tree", "get", "put", "rm", "mkdir", "clean",
-        "doctor", "bench", "finder", "mv",
+        "doctor", "bench", "finder", "mv", "uninstall",
     ]
     guard known.contains(command) else {
         FileHandle.standardError.write(
@@ -144,8 +145,21 @@ func run() -> Int32 {
     Console.shared.begin(debug: options.debug)
     defer { Console.shared.end() }
 
-    // This command acts on the system, not on the display: there is no reason
+    // These commands act on the system, not on the display: there is no reason
     // to require it to be plugged in.
+    if command == "uninstall" {
+        do {
+            try Finder.uninstall()
+            return 0
+        } catch let error as MTPError {
+            complain(L.t("Error: %@", error.description))
+            return 1
+        } catch {
+            complain(L.t("Error: %@", error.localizedDescription))
+            return 1
+        }
+    }
+
     if command == "finder" {
         do {
             switch rest.first ?? "status" {

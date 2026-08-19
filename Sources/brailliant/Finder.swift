@@ -109,6 +109,29 @@ enum Finder {
         say(L.t("Watching disabled. The agent will no longer restart."))
     }
 
+    // MARK: - Removing everything
+
+    /// Removes BrailliantConnect entirely.
+    ///
+    /// The removal itself lives in the application: it is the only side that
+    /// knows every path it wrote, and duplicating that list here is how the two
+    /// would end up disagreeing about what "everything" means.
+    static func uninstall() throws {
+        let binary = try hostExecutable()
+        let (output, code) = run(binary, ["--uninstall"])
+        if !output.isEmpty { say(output) }
+        guard code == 0 else {
+            throw MTPError.agentFailedToStart(detail: output.isEmpty ? "code \(code)" : output)
+        }
+        // A copy of this tool placed on the PATH by hand is outside the app and
+        // outside its bookkeeping, so it can only be pointed out.
+        let executable = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        if !executable.path.contains("BrailliantConnect.app") {
+            say(L.t("This copy of \"brailliant\" is not inside the app; remove it by hand:"))
+            say("  " + executable.path)
+        }
+    }
+
     static func status() throws {
         let binary = try hostExecutable()
         let (output, _) = run(binary, ["--status"])
