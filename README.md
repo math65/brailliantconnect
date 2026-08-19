@@ -68,6 +68,7 @@ Brancher la plage en USB et la mettre en mode **transfert de fichiers**
 | `brailliant mkdir <chemin>` | crée un dossier |
 | `brailliant clean` | retire les fichiers parasites macOS (`.DS_Store`…) |
 | `brailliant doctor` | vérifie que tout fonctionne |
+| `brailliant bench` | mesure les latences du protocole (`--scale` pour la montée en charge) |
 
 Une plage expose souvent **plusieurs stockages** : mémoire interne, et clé USB
 ou carte mémoire quand il y en a une. Les opérations portent sur le premier
