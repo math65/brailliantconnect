@@ -514,6 +514,107 @@ public final class Brailliant {
     }
 
     /// Deletes a remote file or folder.
+    /// Renames an item, keeping it in place.
+    ///
+    /// - Returns: the entry as it stands after the rename.
+    @discardableResult
+    public func rename(_ path: String, to newName: String) throws -> Entry {
+        guard RemotePath.isSafeComponent(newName) else {
+            throw MTPError.unsafeRemoteName(newName)
+        }
+        guard let entry = try resolve(path) else { throw MTPError.notFound(path: path) }
+
+        let parent = RemotePath.split(entry.path).parent
+        let destination = RemotePath.join(parent, newName)
+        if destination != entry.path, try resolve(destination) != nil {
+            throw MTPError.alreadyExists(path: destination)
+        }
+
+        let status = rename(entry.itemID, to: newName)
+        guard status == 0 else {
+            dumpErrorStack()
+            throw MTPError.renameFailed(from: entry.name, to: newName, code: status)
+        }
+        guard let renamed = try resolve(destination) else {
+            throw MTPError.notFound(path: destination)
+        }
+        return renamed
+    }
+
+    /// Moves an item into another folder, keeping its name.
+    ///
+    /// MTP moves an object by reparenting it, so nothing is transferred: the
+    /// operation is immediate whatever the file's size.
+    @discardableResult
+    public func move(_ path: String, toFolder folderPath: String) throws -> Entry {
+        guard let entry = try resolve(path) else { throw MTPError.notFound(path: path) }
+
+        let destinationFolder = RemotePath.normalize(folderPath)
+        let (parentID, storageID): (UInt32, UInt32)
+        if destinationFolder == "/" {
+            (parentID, storageID) = (filesAndFoldersRoot, try defaultStorage().id)
+        } else {
+            let folder = try createDirectory(destinationFolder)
+            (parentID, storageID) = (folder.itemID, folder.storageID)
+        }
+
+        let destination = RemotePath.join(destinationFolder, entry.name)
+        if destination != entry.path, try resolve(destination) != nil {
+            throw MTPError.alreadyExists(path: destination)
+        }
+
+        // Reparenting is the cheap way — nothing is transferred whatever the
+        // file's size — but the Brailliant answers "Operation Not Supported",
+        // as many MTP devices do. Its failure is not fatal: we fall back to
+        // copying through the Mac.
+        let status = LIBMTP_Move_Object(try requireDevice(), entry.itemID, storageID, parentID)
+        if status == 0, let moved = try resolve(destination) {
+            return moved
+        }
+        clearErrorStack()
+        return try relocateByCopying(entry, to: destination)
+    }
+
+    /// Moves an item by copying it to its destination and deleting the original.
+    ///
+    /// Used when the device refuses to reparent objects. A file makes a round
+    /// trip through the Mac, so the cost is that of two transfers — unavoidable
+    /// here, and the reason a move is not instantaneous on this hardware.
+    ///
+    /// The original is deleted only once the copy is in place: an interruption
+    /// leaves a duplicate, never a loss.
+    private func relocateByCopying(_ entry: Entry, to destination: String) throws -> Entry {
+        if entry.isDirectory {
+            let folder = try createDirectory(destination)
+            for child in try children(
+                storageID: entry.storageID, parentID: entry.itemID, base: entry.path)
+            {
+                _ = try relocateByCopying(child, to: RemotePath.join(destination, child.name))
+            }
+            try remove(entry.path, recursive: true)
+            guard let moved = try resolve(folder.path) else {
+                throw MTPError.notFound(path: destination)
+            }
+            return moved
+        }
+
+        let scratch =
+            NSTemporaryDirectory()
+            + "brailliant-move-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: scratch) }
+
+        _ = try download(entry.path, to: scratch)
+        let copied = try upload(scratch, to: destination)
+        try remove(entry.path)
+        return copied
+    }
+
+    /// Discards a failed operation's errors so they do not surface later.
+    private func clearErrorStack() {
+        guard let device else { return }
+        LIBMTP_Clear_Errorstack(device)
+    }
+
     public func remove(_ path: String, recursive: Bool = false) throws {
         guard let entry = try resolve(path) else { throw MTPError.notFound(path: path) }
         if entry.isDirectory {

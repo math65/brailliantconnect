@@ -19,6 +19,7 @@ let usage = L.t(
       put <local> [remote]     copy from the Mac to the display (file or folder)
       rm <path>...             delete from the display
       mkdir <path>...          create a folder on the display
+      mv <source> <dest>       rename or move an item on the display
       clean                    remove macOS clutter files from the display
       doctor                   check that everything works
       finder on|off|status     watch the display and show it in the Finder
@@ -119,7 +120,7 @@ func run() -> Int32 {
     // display up for a typo.
     let known = [
         "info", "ls", "tree", "get", "put", "rm", "mkdir", "clean",
-        "doctor", "bench", "finder",
+        "doctor", "bench", "finder", "mv",
     ]
     guard known.contains(command) else {
         FileHandle.standardError.write(
@@ -190,6 +191,12 @@ func run() -> Int32 {
                 remote: rest.count > 1 ? rest[1] : nil)
         case "rm": try Commands.remove(display, options, paths: rest)
         case "mkdir": try Commands.makeDirectory(display, options, paths: rest)
+        case "mv":
+            guard rest.count >= 2 else {
+                complain(L.t("Usage: brailliant mv <source> <destination>"))
+                return 2
+            }
+            try Commands.move(display, options, from: rest[0], to: rest[1])
         case "clean": try Commands.clean(display, options)
         case "doctor": try Commands.doctor(display, options)
         case "bench":

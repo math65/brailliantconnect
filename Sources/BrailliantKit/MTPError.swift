@@ -28,6 +28,7 @@ public enum MTPError: Error, CustomStringConvertible {
     case pathEscapesDestination(attempted: String, root: String)
     case notEnoughSpace(needed: UInt64, available: UInt64)
     case renameFailed(from: String, to: String, code: Int32)
+    case moveFailed(from: String, to: String, code: Int32)
     case interruptedAfterDelete(temporary: String, target: String)
 
     public var description: String {
@@ -133,6 +134,8 @@ public enum MTPError: Error, CustomStringConvertible {
             return L.t(
                 "Not enough space on the display: %@ needed, %@ available.",
                 humanSize(needed), humanSize(available))
+        case .moveFailed(let from, let to, let code):
+            return L.t("Moving \"%@\" to \"%@\" failed (code %@).", from, to, String(code))
         case .renameFailed(let from, let to, let code):
             return L.t(
                 "Renaming \"%@\" to \"%@\" failed (code %@).",

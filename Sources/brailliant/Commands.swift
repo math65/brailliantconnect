@@ -345,6 +345,37 @@ enum Commands {
         }
     }
 
+    // MARK: mv
+
+    /// Renames or moves an item on the display.
+    ///
+    /// MTP reparents an object rather than transferring it, so moving a large
+    /// file within the display is immediate.
+    static func move(
+        _ display: Brailliant, _ options: Options, from source: String, to destination: String
+    ) throws {
+        guard let entry = try display.resolve(source) else {
+            throw MTPError.notFound(path: source)
+        }
+        let target = RemotePath.normalize(destination)
+
+        // A destination that is an existing folder means "move into it";
+        // anything else is a rename, possibly combined with a move.
+        let intoFolder = (try display.resolve(target))?.isDirectory ?? false
+        let moved: Entry
+        if intoFolder || target == "/" {
+            moved = try display.move(entry.path, toFolder: target)
+        } else {
+            let (parent, name) = RemotePath.split(target)
+            let afterMove =
+                parent == RemotePath.split(entry.path).parent
+                ? entry
+                : try display.move(entry.path, toFolder: parent)
+            moved = try display.rename(afterMove.path, to: name)
+        }
+        say(L.t("Moved: %@ → %@", entry.displayPath, moved.displayPath))
+    }
+
     // MARK: clean
 
     static func clean(_ display: Brailliant, _ options: Options) throws {

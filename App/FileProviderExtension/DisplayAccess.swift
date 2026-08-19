@@ -156,4 +156,101 @@ final class DisplayAccess {
             }
         }
     }
+
+    // MARK: - Writing
+
+    /// Remote path of the folder designated by an identifier.
+    ///
+    /// Callers must already hold `queue`.
+    private func folderPath(for identifier: NSFileProviderItemIdentifier) throws -> String {
+        let itemID = mtpIdentifier(identifier)
+        if itemID == Self.root { return "/" }
+        return try entry(withID: itemID, identifier: identifier.rawValue).path
+    }
+
+    /// Forgets what was cached about a folder, so the next listing is read again.
+    ///
+    /// Callers must already hold `queue`.
+    private func invalidate(folder itemID: UInt32) {
+        contents.removeValue(forKey: itemID)
+    }
+
+    /// Creates a file or a folder.
+    func create(
+        name: String,
+        inParent parent: NSFileProviderItemIdentifier,
+        isFolder: Bool,
+        localContents: URL?,
+        progress: @escaping (UInt64, UInt64) -> Void
+    ) throws -> NSFileProviderItem {
+        try queue.sync {
+            guard RemotePath.isSafeComponent(name) else {
+                throw MTPError.unsafeRemoteName(name)
+            }
+            let destination = RemotePath.join(try folderPath(for: parent), name)
+            let display = try connection()
+
+            let created: Entry
+            if isFolder {
+                created = try display.createDirectory(destination)
+            } else {
+                guard let localContents else {
+                    throw MTPError.localFileMissing(path: name)
+                }
+                created = try display.upload(
+                    localContents.path, to: destination, progress: progress)
+            }
+            index[created.itemID] = created
+            invalidate(folder: mtpIdentifier(parent))
+            return DisplayItem(entry: created)
+        }
+    }
+
+    /// Renames an item, moves it, or replaces its contents.
+    func modify(
+        _ identifier: NSFileProviderItemIdentifier,
+        newName: String?,
+        newParent: NSFileProviderItemIdentifier?,
+        localContents: URL?,
+        progress: @escaping (UInt64, UInt64) -> Void
+    ) throws -> NSFileProviderItem {
+        try queue.sync {
+            let itemID = mtpIdentifier(identifier)
+            var current = try entry(withID: itemID, identifier: identifier.rawValue)
+            let display = try connection()
+            let originalParent = current.parentID
+
+            // Contents first: replacing them goes through a temporary name, so
+            // doing it after a rename would undo that rename.
+            if let localContents {
+                current = try display.upload(
+                    localContents.path, to: current.path, progress: progress)
+            }
+            if let newParent {
+                current = try display.move(current.path, toFolder: try folderPath(for: newParent))
+            }
+            if let newName, newName != current.name {
+                current = try display.rename(current.path, to: newName)
+            }
+
+            index[current.itemID] = current
+            invalidate(folder: originalParent)
+            invalidate(folder: current.parentID)
+            return DisplayItem(entry: current)
+        }
+    }
+
+    /// Deletes an item, folders included.
+    func delete(_ identifier: NSFileProviderItemIdentifier) throws {
+        try queue.sync {
+            let itemID = mtpIdentifier(identifier)
+            let target = try entry(withID: itemID, identifier: identifier.rawValue)
+            // The display has no trash: the Finder asking for a deletion means
+            // the item goes for good.
+            try connection().remove(target.path, recursive: true)
+            index.removeValue(forKey: itemID)
+            invalidate(folder: target.parentID)
+            invalidate(folder: itemID)
+        }
+    }
 }

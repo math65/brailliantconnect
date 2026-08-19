@@ -63,7 +63,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         Enumerator(access: access, container: containerItemIdentifier)
     }
 
-    // MARK: - Writing (not supported yet)
+    // MARK: - Writing
 
     func createItem(
         basedOn itemTemplate: NSFileProviderItem,
@@ -77,8 +77,24 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 Bool, Error?
             ) -> Void
     ) -> Progress {
-        completionHandler(nil, [], false, NSFileProviderError(.noSuchItem))
-        return Progress()
+        let progress = Progress(totalUnitCount: 100)
+        do {
+            let item = try access.create(
+                name: itemTemplate.filename,
+                inParent: itemTemplate.parentItemIdentifier,
+                isFolder: itemTemplate.contentType == .folder,
+                localContents: url,
+                progress: { sent, total in
+                    guard total > 0 else { return }
+                    progress.completedUnitCount = Int64(sent * 100 / total)
+                })
+            // No field is left pending and nothing remains to upload: the
+            // display holds the definitive copy already.
+            completionHandler(item, [], false, nil)
+        } catch {
+            completionHandler(nil, [], false, translate(error))
+        }
+        return progress
     }
 
     func modifyItem(
@@ -94,8 +110,23 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 Bool, Error?
             ) -> Void
     ) -> Progress {
-        completionHandler(nil, [], false, NSFileProviderError(.noSuchItem))
-        return Progress()
+        let progress = Progress(totalUnitCount: 100)
+        do {
+            let modified = try access.modify(
+                item.itemIdentifier,
+                newName: changedFields.contains(.filename) ? item.filename : nil,
+                newParent: changedFields.contains(.parentItemIdentifier)
+                    ? item.parentItemIdentifier : nil,
+                localContents: changedFields.contains(.contents) ? newContents : nil,
+                progress: { sent, total in
+                    guard total > 0 else { return }
+                    progress.completedUnitCount = Int64(sent * 100 / total)
+                })
+            completionHandler(modified, [], false, nil)
+        } catch {
+            completionHandler(nil, [], false, translate(error))
+        }
+        return progress
     }
 
     func deleteItem(
@@ -105,8 +136,37 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         request: NSFileProviderRequest,
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
-        completionHandler(NSFileProviderError(.noSuchItem))
+        do {
+            try access.delete(identifier)
+            completionHandler(nil)
+        } catch {
+            completionHandler(translate(error))
+        }
         return Progress()
+    }
+
+    /// Maps a protocol error onto what the Finder understands.
+    ///
+    /// The Finder only acts sensibly on NSFileProviderError values: anything
+    /// else surfaces as an opaque failure, so the cases worth distinguishing
+    /// are mapped explicitly.
+    private func translate(_ error: Error) -> Error {
+        guard let mtp = error as? MTPError else {
+            return NSFileProviderError(.serverUnreachable)
+        }
+        switch mtp {
+        case .notFound:
+            return NSFileProviderError(.noSuchItem)
+        case .alreadyExists:
+            return NSFileProviderError(.filenameCollision)
+        case .notEnoughSpace:
+            return NSFileProviderError(.insufficientQuota)
+        case .unsafeRemoteName, .pathEscapesDestination, .invalidRemotePath:
+            return NSFileProviderError(.noSuchItem)
+        default:
+            // Display unplugged, asleep, or held by another program.
+            return NSFileProviderError(.serverUnreachable)
+        }
     }
 }
 
@@ -202,11 +262,27 @@ final class DisplayItem: NSObject, NSFileProviderItem {
     }
 
     var capabilities: NSFileProviderItemCapabilities {
-        // Read-only: writing will come in a second step.
-        guard let entry else { return [.allowsContentEnumerating, .allowsReading] }
-        return entry.isDirectory
-            ? [.allowsContentEnumerating, .allowsReading]
-            : [.allowsReading]
+        // The root accepts new items but cannot itself be renamed, moved or
+        // deleted — it is the storage, not a folder on it.
+        guard let entry else {
+            return [.allowsContentEnumerating, .allowsReading, .allowsAddingSubItems]
+        }
+        var capabilities: NSFileProviderItemCapabilities = [
+            .allowsReading, .allowsRenaming, .allowsReparenting, .allowsDeleting,
+        ]
+        if entry.isDirectory {
+            capabilities.insert(.allowsContentEnumerating)
+            capabilities.insert(.allowsAddingSubItems)
+        } else {
+            capabilities.insert(.allowsWriting)
+        }
+        // A name the file system cannot represent is left read-only: renaming
+        // or moving it would mean writing that name to disk.
+        if !entry.hasSafeName {
+            capabilities.remove(.allowsRenaming)
+            capabilities.remove(.allowsReparenting)
+        }
+        return capabilities
     }
 
     var documentSize: NSNumber? {
