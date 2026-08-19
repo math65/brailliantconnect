@@ -152,7 +152,20 @@ plugged into the display invisible with no way to reach it. Consequences:
   shows and the display never received, which is the trap here: the refusal
   looks handled and silently is not. `allowsAddingSubItems` alone does not
   stop it; the Finder still copies into the root, and the Terminal always
-  did. Both barriers are needed.
+  did. Both barriers are needed. The refusal is also silent, so the extension
+  posts a notification — it inherits the host app's permission, measured on
+  the device (`authorization = 2`, `add: accepted`).
+
+**No log from the extension reaches `log show`**, at any level, for any
+predicate. Diagnosing it means writing to a file in its own container, which
+is sandbox-writable and readable from outside.
+
+## Deleting is not slow
+
+Measured: ~13 ms per object, independent of size — 100 files in 1,46 s, one
+file in 0,19 s including connection. Uploading is ~43 ms per object plus
+~7 MB/s. Deletion therefore needs none of the "do not unplug" machinery that
+copying does; there is no window in which unplugging can truncate anything.
 
 ## Transfers
 

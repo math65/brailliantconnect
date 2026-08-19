@@ -18,7 +18,11 @@ import os.log
 /// a failure: refusing an import means returning no item **and no error**, so
 /// that the system removes its local copy. Reporting an error instead leaves a
 /// file the Finder shows and the display never received.
-struct RootNotWritable: Error {}
+struct RootNotWritable: Error {
+    /// Names of the storages, so the message can point at the real ones rather
+    /// than at names hard-coded here that the display may not use.
+    let storages: [String]
+}
 
 final class DisplayAccess {
 
@@ -263,7 +267,8 @@ final class DisplayAccess {
         case .root:
             // The root lists storages and holds nothing of its own: a file put
             // there names no storage to go to.
-            throw RootNotWritable()
+            throw RootNotWritable(
+                storages: try storages().map { StorageIdentifier.folderName(for: $0) })
         case .storage(let storageID):
             return ("/", storageID)
         case .folder(let entry):

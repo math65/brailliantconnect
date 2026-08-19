@@ -90,10 +90,12 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             // No field is left pending and nothing remains to upload: the
             // display holds the definitive copy already.
             completionHandler(item, [], false, nil)
-        } catch is RootNotWritable {
+        } catch let refusal as RootNotWritable {
             // No item and no error: Apple's documented way of refusing an
             // import. The system then deletes what it wrote locally, instead of
-            // keeping a file it will never manage to send.
+            // keeping a file it will never manage to send — but it deletes it
+            // without saying anything, hence the notification.
+            RootRefusal.announce(storages: refusal.storages)
             completionHandler(nil, [], false, nil)
         } catch {
             completionHandler(nil, [], false, translate(error))

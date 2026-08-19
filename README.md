@@ -49,8 +49,9 @@ interne**, and **usb** when a stick is plugged into the display. Files live one
 level down — `~/Brailliant/mémoire interne/documents`.
 
 The root itself takes nothing: a file put there names no storage to go to, so
-it is refused and removed rather than left as a copy the display never got.
-Drop into `mémoire interne` or `usb` instead. Dragging between two storages
+it is refused and removed rather than left as a copy the display never got. A
+notification says so and names the storages to use, because the system's way of
+refusing an import is silent — the file would otherwise simply vanish. Dragging between two storages
 works and goes through the Mac, since MTP cannot move an object across storages
 by itself.
 

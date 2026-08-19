@@ -231,6 +231,13 @@ public enum L {
         "Transferring — %@ of %@": "Transfert en cours — %@ sur %@",
         "Transferring — %@": "Transfert en cours — %@",
         "Do not unplug the display": "Ne débranchez pas la plage",
+        "Put the file in a storage": "Rangez le fichier dans un stockage",
+        "The top level of the display holds its storages and nothing else. "
+            + "Open %@ and drop the file in there.":
+            "Le premier niveau de la plage ne contient que ses stockages. "
+            + "Ouvrez %@ et déposez le fichier dedans.",
+        "a storage": "un stockage",
+        " or ": " ou ",
         "Transfer complete": "Transfert terminé",
         "%@ sent. You can unplug the display.":
             "%@ envoyés. Vous pouvez débrancher la plage.",
