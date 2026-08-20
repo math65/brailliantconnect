@@ -275,8 +275,9 @@ Notable details:
 - **The display sleeps.** It stays enumerated on USB but stops exposing its MTP
   interface, so the location is published while the extension cannot serve it.
   Wake the display and it works again.
-- **Read-only in the Finder.** Writing to the display goes through
-  `brailliant put`.
+- **Nothing can be created at the top level.** That level holds one folder per
+  storage and belongs to none of them, so an import there is refused — silently
+  by the system, which is why the app raises a notification instead.
 - **One session at a time.** MTP allows a single connection: while the extension
   holds it, the CLI reports `libusb_claim_interface = -3`, and the other way
   round.
