@@ -193,23 +193,30 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             guard confirmInterruption(transfer, then: .quit) else { return }
         }
 
+        // Both paths below end here, and only the first of them may act. The
+        // flag is safe to read unguarded because both are funnelled onto the
+        // main queue for that single purpose: `unpublish` calls back on a queue
+        // of the system's choosing.
+        var left = false
         let leave = {
+            guard !left else { return }
+            left = true
             // Not `NSApp.terminate` alone: KeepAlive would bring the agent back
             // ten seconds later, which is not what anyone means by "Quit".
             // Booting out normally kills us here, so what follows only runs
             // when the agent was started by hand rather than by launchd.
             Installer.stopAgent()
-            DispatchQueue.main.async { NSApp.terminate(nil) }
+            NSApp.terminate(nil)
         }
         // The location goes with the agent. Left published, it would keep a
         // folder in the Finder with nothing behind it watching the display: the
         // display could be unplugged a minute later and the folder would still
         // be sitting there, hanging on the first click.
-        unpublish { _ in leave() }
+        unpublish { _ in DispatchQueue.main.async(execute: leave) }
         // Whichever gets there first wins. Removing a domain has no deadline of
         // its own, and a "Quit" that appears to do nothing while the system
         // thinks it over is worse than a location that leaves a moment late.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { leave() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: leave)
     }
 
     /// What the user is about to do, when a transfer is still running.
