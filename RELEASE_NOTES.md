@@ -74,6 +74,12 @@ colour or by an icon alone.
 - **Anything you change on the display itself goes unnoticed** until the folder
   is read again: the display does not announce its own changes.
 
+### Reporting a problem
+- **`brailliant --version` says which version you have**, and `brailliant doctor`
+  repeats it at the top of its report. It is the first thing to include when
+  something goes wrong: without it, a described behaviour belongs to no
+  particular build.
+
 ### Hardware
 Built and verified on a **Brailliant BI 40X**. Nothing in the code depends on the
 model, but that remains to be confirmed on the others. If you own a different

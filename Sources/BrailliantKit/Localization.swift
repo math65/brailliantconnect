@@ -398,6 +398,7 @@ public enum L {
 
         // MARK: doctor
 
+        "Version:    %@": "Version    : %@",
         "Connection: OK": "Connexion  : OK",
         "Device:     %@ (serial %@)": "Appareil   : %@ (série %@)",
         "Storages:   %@ detected, active: \"%@\"":
@@ -467,6 +468,7 @@ public enum L {
               --any-device         accept an MTP device from another manufacturer
               --debug              show libmtp's internal messages
           -h, --help               show this help
+          -v, --version            show the version
 
         EXAMPLES
           brailliant put ~/Documents/novel.txt /documents
@@ -515,6 +517,7 @@ public enum L {
               --any-device         accepte un appareil MTP d'un autre fabricant
               --debug              affiche les messages internes de libmtp
           -h, --help               affiche cette aide
+          -v, --version            affiche la version
 
         EXEMPLES
           brailliant put ~/Documents/roman.txt /documents

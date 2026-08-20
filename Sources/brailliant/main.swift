@@ -42,6 +42,7 @@ let usage = L.t(
           --any-device         accept an MTP device from another manufacturer
           --debug              show libmtp's internal messages
       -h, --help               show this help
+      -v, --version            show the version
 
     EXAMPLES
       brailliant put ~/Documents/novel.txt /documents
@@ -65,6 +66,11 @@ func run() -> Int32 {
         switch argument {
         case "-h", "--help":
             print(usage)
+            return 0
+        case "-v", "--version":
+            // Asked for before anything else is tried: it must answer with no
+            // display attached, which is exactly when someone reports a bug.
+            print("brailliant \(Version.current)")
             return 0
         case "--debug": options.debug = true
         case "--progress": options.showProgress = true

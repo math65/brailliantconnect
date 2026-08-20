@@ -400,6 +400,9 @@ enum Commands {
     // MARK: doctor
 
     static func doctor(_ display: Brailliant, _ options: Options) throws {
+        // First line: whoever reads a report needs to know which build produced
+        // it before anything else in it means much.
+        say(L.t("Version:    %@", Version.current))
         say(L.t("Connection: OK"))
         say(L.t("Device:     %@ (serial %@)", display.model, display.serialNumber))
         let storages = try display.storages()

@@ -136,6 +136,7 @@ adds access to the files rather than replacing anything.
 | `brailliant clean` | remove macOS clutter files (`.DS_Store`…) |
 | `brailliant doctor` | check that everything works |
 | `brailliant bench` | measure protocol latency (diagnostics) |
+| `brailliant --version` | the version you are running |
 
 ```bash
 brailliant put ~/Documents/novel.txt /documents

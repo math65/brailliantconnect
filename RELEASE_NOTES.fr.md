@@ -77,6 +77,12 @@ un état signalé par une couleur ou par une icône seule.
 - **Ce que vous modifiez depuis la plage elle-même passe inaperçu** jusqu'à ce
   que le dossier soit relu : la plage n'annonce pas ses changements.
 
+### Signaler un problème
+- **`brailliant --version` dit quelle version vous avez**, et `brailliant doctor`
+  la reprend en tête de son rapport. C'est la première chose à joindre quand
+  quelque chose ne va pas : sans elle, un comportement décrit ne se rattache à
+  aucune version précise.
+
 ### Matériel
 Développé et vérifié sur une **Brailliant BI 40X**. Rien dans le code ne dépend
 du modèle, mais cela reste à confirmer sur les autres. Si vous en possédez un
