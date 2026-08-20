@@ -105,8 +105,12 @@ instrument for probing the protocol, not something the display needs in order to
 work. To reach it from anywhere:
 
 ```bash
-sudo ln -s /Applications/BrailliantConnect.app/Contents/MacOS/brailliant /usr/local/bin/brailliant
+sudo mkdir -p /usr/local/bin && sudo ln -s /Applications/BrailliantConnect.app/Contents/MacOS/brailliant /usr/local/bin/brailliant
 ```
+
+`/usr/local/bin` is in the default `PATH` (`/etc/paths`) but is **not created by
+macOS** — on a machine where Homebrew never made it, and on Apple Silicon it
+does not, `ln` alone fails with "No such file or directory".
 
 The symlink works: the program finds its libraries through its own path, not the
 current directory.
