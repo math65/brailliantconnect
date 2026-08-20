@@ -61,7 +61,6 @@ CLI="$ROOT/.build/apple/Products/Release/brailliant"
 # --- App, agent and extension -------------------------------------------------
 
 log "Building the app and the Finder extension"
-xcodegen generate --spec App/project.yml >/dev/null
 
 if [ "$NOTARIZE" -eq 1 ]; then
   # Developer ID requires archiving with manual signing, then exporting: an

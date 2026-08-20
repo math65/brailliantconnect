@@ -80,8 +80,9 @@ first and refuses to package if anything fails. `CODESIGN_IDENTITY="Developer ID
 Application: NAME (TEAMID)"` adds the hardened runtime for notarisation.
 
 `./tools/build-vendor.sh` rebuilds libmtp and libusb as universal binaries into
-`Vendor/`. Rarely needed — only to change versions. Neither script touches
-`App/`.
+`Vendor/`. Rarely needed — only to change versions, and the one script here that
+leaves `App/` alone: `make-dist.sh` builds the app through `xcodebuild` and
+signs it against the entitlements in the tree.
 
 ## Xcode project settings
 
