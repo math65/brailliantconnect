@@ -193,17 +193,16 @@ no errors.
 
 ```bash
 swift build -c release   # CLI — run from the repository root
-swift test               # 32 tests
+swift test               # 51 tests
 ```
 
 `Package.swift` links libmtp through a **relative** path, so builds must run
 from the repository root.
 
-The Finder integration lives in `App/`. Its Xcode project is generated, not
-committed — `App/project.yml` is the source of truth:
+The Finder integration lives in `App/`, and its Xcode project is committed with
+it — opening `App/BrailliantConnect.xcodeproj` is the whole setup:
 
 ```bash
-xcodegen generate --spec App/project.yml
 xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
   -configuration Debug -allowProvisioningUpdates build
 ```

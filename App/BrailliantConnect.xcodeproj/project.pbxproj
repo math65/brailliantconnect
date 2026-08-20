@@ -1,0 +1,581 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		002A19D13A55F5F37E4D6B74 /* TransferMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E80EF061C908BD7421206248 /* TransferMonitor.swift */; };
+		05FDE50D8C1532CA0CC8CF4C /* RootRefusal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6B598681FAEAB1616AAD6 /* RootRefusal.swift */; };
+		0E455DAB4D91EDB1A3EBDA5E /* Welcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 157ED0DE86C73B2CB96F406C /* Welcome.swift */; };
+		16211149DCE9D7AE86A48342 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B71AE26C3A5EE40C47C8C4 /* Models.swift */; };
+		29874F23F0E19AEDEB9FF212 /* FinderLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F12EA780A28B5605D9AA41D /* FinderLocation.swift */; };
+		36DA4F5D6750673F9D111D20 /* LocalPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C69B578B5DB6A5FFB284E63 /* LocalPath.swift */; };
+		403B5737419633BCE25D4A06 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD7754FB3857056D3AF2839F /* Localization.swift */; };
+		69312D26B11E702E2BFB3925 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BD58195308FCA37B7A92A9 /* main.swift */; };
+		69D6FB8CB1B597F4C3C4DD46 /* FinderLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F12EA780A28B5605D9AA41D /* FinderLocation.swift */; };
+		6EE8D0E2559E71A44787AD34 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD7754FB3857056D3AF2839F /* Localization.swift */; };
+		7BC3DD43DF775DAEF979D43F /* TransferNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F03888E9C8A71445A2EB9A /* TransferNotice.swift */; };
+		8AE79B52CE3D194BC4D3BDFF /* FileProviderExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB80359D223A4C0180C76AA /* FileProviderExtension.swift */; };
+		9A6DFDD504B2679C247C78F9 /* USBWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C818E46A4F403AF7BC702B5 /* USBWatcher.swift */; };
+		AA651AFF3B223422501FBF8D /* Brailliant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C353C1D57722E64D2A82BD8 /* Brailliant.swift */; };
+		B1965EB159D521F618C7696B /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EC76DB0FEE5EB191F7CC71 /* MenuBarController.swift */; };
+		CE6063B7CD2F7461FB40DE24 /* MTPError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77C857E31CCA0B3409A387AE /* MTPError.swift */; };
+		D6924B118A8EB97E2FF16FF9 /* FileProviderExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6530976CBBFECCBCD13150DC /* FileProviderExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DC5CC0A458EA627140DE53F6 /* DisplayAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC5D359EE20BEA36D88E842 /* DisplayAccess.swift */; };
+		E84735362E67F2FCC8E4B58C /* Installer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05EC8B312499EBB3890E549A /* Installer.swift */; };
+		F22C1E278032372ABCD919B2 /* RemotePath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A669216EF3A8B0083C304A /* RemotePath.swift */; };
+		FC8F974486D8CB344A8D0149 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BFA9B9E6698769ADD45A54 /* main.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9615B4522AA5FE00E7C05CCC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9B07CB9A0ABDD3DA207F9A40 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6434B9FCBF73E100A737DE17;
+			remoteInfo = FileProviderExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		27F719D04CA9CA26597B1DC2 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D6924B118A8EB97E2FF16FF9 /* FileProviderExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		05EC8B312499EBB3890E549A /* Installer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Installer.swift; sourceTree = "<group>"; };
+		071C27C780A8B5E15A524601 /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		0BC9644AB568273EC86B51B0 /* BrailliantConnect.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BrailliantConnect.entitlements; sourceTree = "<group>"; };
+		0F12EA780A28B5605D9AA41D /* FinderLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderLocation.swift; sourceTree = "<group>"; };
+		12A669216EF3A8B0083C304A /* RemotePath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemotePath.swift; sourceTree = "<group>"; };
+		157ED0DE86C73B2CB96F406C /* Welcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Welcome.swift; sourceTree = "<group>"; };
+		1974255A03AF58FE6880D9F7 /* BrailliantConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BrailliantConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		25F03888E9C8A71445A2EB9A /* TransferNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferNotice.swift; sourceTree = "<group>"; };
+		2C818E46A4F403AF7BC702B5 /* USBWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USBWatcher.swift; sourceTree = "<group>"; };
+		4C69B578B5DB6A5FFB284E63 /* LocalPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPath.swift; sourceTree = "<group>"; };
+		53B6B598681FAEAB1616AAD6 /* RootRefusal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootRefusal.swift; sourceTree = "<group>"; };
+		6530976CBBFECCBCD13150DC /* FileProviderExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FileProviderExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C353C1D57722E64D2A82BD8 /* Brailliant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brailliant.swift; sourceTree = "<group>"; };
+		77C857E31CCA0B3409A387AE /* MTPError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTPError.swift; sourceTree = "<group>"; };
+		7EC5D359EE20BEA36D88E842 /* DisplayAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayAccess.swift; sourceTree = "<group>"; };
+		AAB80359D223A4C0180C76AA /* FileProviderExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileProviderExtension.swift; sourceTree = "<group>"; };
+		AD7754FB3857056D3AF2839F /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		B6EC76DB0FEE5EB191F7CC71 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		BB15A8BBAE2F970F723BE6B7 /* libmtp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libmtp.h; sourceTree = "<group>"; };
+		C1B71AE26C3A5EE40C47C8C4 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		C1EB9821B4D95A85BFDA2722 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D1BD58195308FCA37B7A92A9 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		D1BFA9B9E6698769ADD45A54 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		E80EF061C908BD7421206248 /* TransferMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferMonitor.swift; sourceTree = "<group>"; };
+		F587D5E0E4E79E35FF7DBB01 /* FileProviderExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FileProviderExtension.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1FF7BB266143BBDB601EED5D /* BrailliantKit */ = {
+			isa = PBXGroup;
+			children = (
+				6C353C1D57722E64D2A82BD8 /* Brailliant.swift */,
+				0F12EA780A28B5605D9AA41D /* FinderLocation.swift */,
+				AD7754FB3857056D3AF2839F /* Localization.swift */,
+				4C69B578B5DB6A5FFB284E63 /* LocalPath.swift */,
+				C1B71AE26C3A5EE40C47C8C4 /* Models.swift */,
+				77C857E31CCA0B3409A387AE /* MTPError.swift */,
+				12A669216EF3A8B0083C304A /* RemotePath.swift */,
+			);
+			path = BrailliantKit;
+			sourceTree = "<group>";
+		};
+		232F0BEA806DCCCB4ABB1364 /* BrailliantConnect */ = {
+			isa = PBXGroup;
+			children = (
+				0BC9644AB568273EC86B51B0 /* BrailliantConnect.entitlements */,
+				05EC8B312499EBB3890E549A /* Installer.swift */,
+				D1BD58195308FCA37B7A92A9 /* main.swift */,
+				B6EC76DB0FEE5EB191F7CC71 /* MenuBarController.swift */,
+				E80EF061C908BD7421206248 /* TransferMonitor.swift */,
+				25F03888E9C8A71445A2EB9A /* TransferNotice.swift */,
+				2C818E46A4F403AF7BC702B5 /* USBWatcher.swift */,
+				157ED0DE86C73B2CB96F406C /* Welcome.swift */,
+			);
+			path = BrailliantConnect;
+			sourceTree = "<group>";
+		};
+		4F9BE07E69DF1963BBB1BD63 /* FileProviderExtension */ = {
+			isa = PBXGroup;
+			children = (
+				7EC5D359EE20BEA36D88E842 /* DisplayAccess.swift */,
+				F587D5E0E4E79E35FF7DBB01 /* FileProviderExtension.entitlements */,
+				AAB80359D223A4C0180C76AA /* FileProviderExtension.swift */,
+				C1EB9821B4D95A85BFDA2722 /* Info.plist */,
+				D1BFA9B9E6698769ADD45A54 /* main.swift */,
+				53B6B598681FAEAB1616AAD6 /* RootRefusal.swift */,
+			);
+			path = FileProviderExtension;
+			sourceTree = "<group>";
+		};
+		6B55FFAA2E5C9BCCBB7C8919 = {
+			isa = PBXGroup;
+			children = (
+				232F0BEA806DCCCB4ABB1364 /* BrailliantConnect */,
+				C231C288671E398B9A60EECC /* brailliantconnect */,
+				4F9BE07E69DF1963BBB1BD63 /* FileProviderExtension */,
+				DDDA65A7A551161E1950BC9D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9162238846F3F03AB678AF9E /* include */ = {
+			isa = PBXGroup;
+			children = (
+				BB15A8BBAE2F970F723BE6B7 /* libmtp.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		C231C288671E398B9A60EECC /* brailliantconnect */ = {
+			isa = PBXGroup;
+			children = (
+				FEFE161D4788D1056F198C70 /* Sources */,
+			);
+			name = brailliantconnect;
+			path = ..;
+			sourceTree = "<group>";
+		};
+		D43C9F1EEC12F1EFD008ED4E /* CMTP */ = {
+			isa = PBXGroup;
+			children = (
+				071C27C780A8B5E15A524601 /* module.modulemap */,
+				9162238846F3F03AB678AF9E /* include */,
+			);
+			path = CMTP;
+			sourceTree = "<group>";
+		};
+		DDDA65A7A551161E1950BC9D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1974255A03AF58FE6880D9F7 /* BrailliantConnect.app */,
+				6530976CBBFECCBCD13150DC /* FileProviderExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FEFE161D4788D1056F198C70 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				1FF7BB266143BBDB601EED5D /* BrailliantKit */,
+				D43C9F1EEC12F1EFD008ED4E /* CMTP */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6434B9FCBF73E100A737DE17 /* FileProviderExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3F4448E3CC386ABE83DD7FC4 /* Build configuration list for PBXNativeTarget "FileProviderExtension" */;
+			buildPhases = (
+				130FA8E49F3ECE01DAE8E88F /* Sources */,
+				C573A6C53CBA130B2FCD20FC /* Embarquer libmtp et libusb */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FileProviderExtension;
+			packageProductDependencies = (
+			);
+			productName = FileProviderExtension;
+			productReference = 6530976CBBFECCBCD13150DC /* FileProviderExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		B3FD65695FC40256143281AA /* BrailliantConnect */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E0298B7E96A61BAE8AB22601 /* Build configuration list for PBXNativeTarget "BrailliantConnect" */;
+			buildPhases = (
+				BE924285A27D8040BF16EC57 /* Sources */,
+				27F719D04CA9CA26597B1DC2 /* Embed Foundation Extensions */,
+				2F2871272A98AB03FB8554C2 /* Embarquer libmtp et libusb */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				72FE29DA7155F482934D9189 /* PBXTargetDependency */,
+			);
+			name = BrailliantConnect;
+			packageProductDependencies = (
+			);
+			productName = BrailliantConnect;
+			productReference = 1974255A03AF58FE6880D9F7 /* BrailliantConnect.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9B07CB9A0ABDD3DA207F9A40 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6434B9FCBF73E100A737DE17 = {
+						DevelopmentTeam = 633EG76YX5;
+						ProvisioningStyle = Automatic;
+					};
+					B3FD65695FC40256143281AA = {
+						DevelopmentTeam = 633EG76YX5;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 32D371DA2D657434944B9ABC /* Build configuration list for PBXProject "BrailliantConnect" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6B55FFAA2E5C9BCCBB7C8919;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DDDA65A7A551161E1950BC9D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B3FD65695FC40256143281AA /* BrailliantConnect */,
+				6434B9FCBF73E100A737DE17 /* FileProviderExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		2F2871272A98AB03FB8554C2 /* Embarquer libmtp et libusb */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embarquer libmtp et libusb";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "DEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  # Signer chaque bibliothèque séparément. Une signature « --deep »\n  # appliquée à l'application entière écraserait les entitlements de\n  # l'extension, qui refuserait alors de se charger.\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n";
+		};
+		C573A6C53CBA130B2FCD20FC /* Embarquer libmtp et libusb */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embarquer libmtp et libusb";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "DEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  # Signer chaque bibliothèque séparément. Une signature « --deep »\n  # appliquée à l'application entière écraserait les entitlements de\n  # l'extension, qui refuserait alors de se charger.\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		130FA8E49F3ECE01DAE8E88F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA651AFF3B223422501FBF8D /* Brailliant.swift in Sources */,
+				DC5CC0A458EA627140DE53F6 /* DisplayAccess.swift in Sources */,
+				8AE79B52CE3D194BC4D3BDFF /* FileProviderExtension.swift in Sources */,
+				29874F23F0E19AEDEB9FF212 /* FinderLocation.swift in Sources */,
+				36DA4F5D6750673F9D111D20 /* LocalPath.swift in Sources */,
+				6EE8D0E2559E71A44787AD34 /* Localization.swift in Sources */,
+				CE6063B7CD2F7461FB40DE24 /* MTPError.swift in Sources */,
+				16211149DCE9D7AE86A48342 /* Models.swift in Sources */,
+				F22C1E278032372ABCD919B2 /* RemotePath.swift in Sources */,
+				05FDE50D8C1532CA0CC8CF4C /* RootRefusal.swift in Sources */,
+				FC8F974486D8CB344A8D0149 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BE924285A27D8040BF16EC57 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69D6FB8CB1B597F4C3C4DD46 /* FinderLocation.swift in Sources */,
+				E84735362E67F2FCC8E4B58C /* Installer.swift in Sources */,
+				403B5737419633BCE25D4A06 /* Localization.swift in Sources */,
+				B1965EB159D521F618C7696B /* MenuBarController.swift in Sources */,
+				002A19D13A55F5F37E4D6B74 /* TransferMonitor.swift in Sources */,
+				7BC3DD43DF775DAEF979D43F /* TransferNotice.swift in Sources */,
+				9A6DFDD504B2679C247C78F9 /* USBWatcher.swift in Sources */,
+				0E455DAB4D91EDB1A3EBDA5E /* Welcome.swift in Sources */,
+				69312D26B11E702E2BFB3925 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		72FE29DA7155F482934D9189 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6434B9FCBF73E100A737DE17 /* FileProviderExtension */;
+			targetProxy = 9615B4522AA5FE00E7C05CCC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		03663DB76CB01DBE9C0EBD37 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 633EG76YX5;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		179C8C23856FA808DE8BE3C5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BrailliantConnect/BrailliantConnect.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathieumartin.BrailliantConnect;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		4C8D0F320A218840D2DE3AA7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FileProviderExtension/FileProviderExtension.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FileProviderExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
+				OTHER_LDFLAGS = "$(SRCROOT)/../Vendor/libmtp.9.dylib";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathieumartin.BrailliantConnect.FileProvider;
+				SDKROOT = macosx;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/../Sources/CMTP";
+			};
+			name = Debug;
+		};
+		B1D8042935E723788BFCB250 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 633EG76YX5;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		B752E28A3C70542B8A5F2938 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FileProviderExtension/FileProviderExtension.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FileProviderExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../../../../Frameworks";
+				OTHER_LDFLAGS = "$(SRCROOT)/../Vendor/libmtp.9.dylib";
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathieumartin.BrailliantConnect.FileProvider;
+				SDKROOT = macosx;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/../Sources/CMTP";
+			};
+			name = Release;
+		};
+		E9846D63BC4DF951C4B0E3C3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BrailliantConnect/BrailliantConnect.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.mathieumartin.BrailliantConnect;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		32D371DA2D657434944B9ABC /* Build configuration list for PBXProject "BrailliantConnect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1D8042935E723788BFCB250 /* Debug */,
+				03663DB76CB01DBE9C0EBD37 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3F4448E3CC386ABE83DD7FC4 /* Build configuration list for PBXNativeTarget "FileProviderExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C8D0F320A218840D2DE3AA7 /* Debug */,
+				B752E28A3C70542B8A5F2938 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E0298B7E96A61BAE8AB22601 /* Build configuration list for PBXNativeTarget "BrailliantConnect" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				179C8C23856FA808DE8BE3C5 /* Debug */,
+				E9846D63BC4DF951C4B0E3C3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9B07CB9A0ABDD3DA207F9A40 /* Project object */;
+}

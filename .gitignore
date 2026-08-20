@@ -13,8 +13,9 @@ __pycache__/
 # Les bibliothèques de Vendor/ SONT versionnées : elles constituent le cœur
 # de la distribution (l'utilisateur final n'installe rien).
 
-# Projet Xcode : artefact régénéré par « xcodegen generate --spec App/project.yml ».
-# La source de vérité est App/project.yml ; un project.pbxproj versionné serait
-# illisible en diff et provoquerait des conflits constants.
-App/*.xcodeproj/
+# The Xcode project is committed: cloning the repository is enough to open and
+# build it. Only the per-machine state inside it is ignored — window positions,
+# open tabs, local breakpoints — which differs for everyone and would conflict
+# for no reason.
+xcuserdata/
 DerivedData/

@@ -54,18 +54,16 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 32 tests
+swift test                    # 51 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
 `Vendor/libmtp.9.dylib`, so builds must run from the repository root.
 
-The Xcode project is a build artifact, ignored by git. `App/project.yml` is the
-source of truth — **regenerate after editing it**, or the build will fail on
-files it cannot see:
+The Xcode project is **committed**: cloning the repository is enough to open it
+and build. Nothing to install, nothing to generate.
 
 ```bash
-xcodegen generate --spec App/project.yml
 xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
   -configuration Debug -allowProvisioningUpdates build
 ```
@@ -78,12 +76,62 @@ Application: NAME (TEAMID)"` adds the hardened runtime for notarisation.
 `Vendor/`. Rarely needed — only to change versions. Neither script touches
 `App/`.
 
+## Xcode project settings
+
+The project was described by an `App/project.yml` until 20 Aug 2026, and
+XcodeGen turned that into the `.xcodeproj`. The YAML is gone. What it could
+carry and a `project.pbxproj` cannot is a comment beside each setting saying why
+it is there, so those reasons live here — every one of them is a setting whose
+loss produces an error pointing somewhere other than its cause.
+
+**Two targets.** `BrailliantConnect` — the app, which is also the agent —
+embeds `FileProviderExtension` **without signing it**: "Embed Without Signing",
+as Apple's own sample does. Re-signing the extension as it is embedded replaces
+its entitlements with the host app's, and it then refuses to load. Same cause as
+the `codesign --deep` trap below, at a different moment.
+
+**The agent compiles two files out of `BrailliantKit`**, not the whole of it:
+`FinderLocation.swift` and `Localization.swift`. It shares the location paths
+and the translation table with the extension and nothing else — which is what
+keeps libmtp out of the process that is not sandboxed (see **Security
+properties**).
+
+**The extension:**
+
+- `ENABLE_APP_SANDBOX: YES` — mandatory for an extension, and worth re-checking
+  after Xcode has touched the project: it sometimes drops it while propagating
+  the host app's entitlements.
+- `ENABLE_DEBUG_DYLIB: NO` — see **Traps**.
+- `GENERATE_INFOPLIST_FILE: NO`, with an explicit `INFOPLIST_FILE`, because the
+  `NSExtension` dictionary is written by hand (see **Traps**).
+- `SWIFT_INCLUDE_PATHS: $(SRCROOT)/../Sources/CMTP` — headers of the C shim that
+  exposes libmtp to Swift.
+- `OTHER_LDFLAGS: $(SRCROOT)/../Vendor/libmtp.9.dylib` — the library is linked
+  by its path: its file name does not follow the `-lmtp` convention the linker
+  expects.
+- `LD_RUNPATH_SEARCH_PATHS: @executable_path/../../../../Frameworks` — four
+  levels up, because the libraries travel in the *app's* `Contents/Frameworks`
+  and the extension sits inside the app.
+
+**Both targets** run a post-build script that copies `libmtp.9.dylib` and
+`libusb-1.0.0.dylib` into `Contents/Frameworks` and signs each one
+**separately**, never the bundle as a whole.
+
+**The app** is `LSUIElement: YES` — a menu bar item, no Dock icon, no window.
+Both targets are hardened-runtime, automatically signed, team `633EG76YX5`,
+deployment target macOS 11.0.
+
+Adding a source file now means adding it in Xcode, which writes it into
+`project.pbxproj`. A file dropped into the folder alone is invisible to the
+build, and the error says `cannot find '<Type>' in scope` for code that is
+plainly there.
+
 ## Testing the Finder extension
 
 Use `/extension`. Every step is required — skipping one silently tests a stale
 build:
 
-1. rebuild via `xcodegen` + `xcodebuild`
+1. rebuild via `xcodebuild`
 2. copy the app to `/Applications` — the system will not load an extension from
    `DerivedData`
 3. `pluginkit -r <old .appex>` then `-a <new>`, then `-e use -i <bundle id>`

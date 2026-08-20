@@ -11,19 +11,21 @@ keeps serving the previous build and you debug a version that no longer exists.
 
 Run every step. Report what each one produced.
 
-## 1. Regenerate and build
+## 1. Build
 
 ```bash
 cd /Users/mathieumartin/dev/brailliantconnect/App
-xcodegen generate --spec project.yml
 xcodebuild -project BrailliantConnect.xcodeproj -scheme BrailliantConnect \
   -configuration Debug -allowProvisioningUpdates build 2>&1 \
   | grep -E "error:|BUILD" | head -5
 ```
 
-`xcodegen` is required whenever `project.yml` changed — including added or
-removed source files. Skipping it yields `cannot find '<Type>' in scope` for
-code that is plainly present on disk.
+`xcodebuild` exits through a pipe here, so its own status is lost: read the
+`** BUILD` line, never `$?`.
+
+A source file added on disk but never added to the project is invisible to the
+build, and the error says `cannot find '<Type>' in scope` for code that is
+plainly there. Files are added in Xcode; `project.pbxproj` is what decides.
 
 ## 2. Stop what is running
 

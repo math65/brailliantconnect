@@ -6,12 +6,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; case \"$f\" in */App/project.yml) cd \"$(dirname \"$f\")\" && xcodegen generate --spec project.yml >/dev/null 2>&1 && echo '{\"systemMessage\":\"Projet Xcode régénéré (App/project.yml a changé).\"}' ;; esac; } 2>/dev/null || true",
-            "timeout": 60,
-            "statusMessage": "Régénération du projet Xcode…"
-          },
-          {
-            "type": "command",
             "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; case \"$f\" in *.swift) swift format --in-place --configuration .swift-format \"$f\" ;; esac; } 2>/dev/null || true",
             "timeout": 30,
             "statusMessage": "Formatage Swift…"
