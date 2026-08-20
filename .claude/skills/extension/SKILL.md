@@ -14,7 +14,7 @@ Run every step. Report what each one produced.
 ## 1. Build
 
 ```bash
-cd /Users/mathieumartin/dev/brailliantconnect/App
+cd "$(git rev-parse --show-toplevel)/App"
 xcodebuild -project BrailliantConnect.xcodeproj -scheme BrailliantConnect \
   -configuration Debug -allowProvisioningUpdates build 2>&1 \
   | grep -E "error:|BUILD" | head -5
@@ -30,7 +30,7 @@ plainly there. Files are added in Xcode; `project.pbxproj` is what decides.
 ## 2. Stop what is running
 
 ```bash
-cd /Users/mathieumartin/dev/brailliantconnect
+cd "$(git rev-parse --show-toplevel)"
 ./.build/release/brailliant finder off 2>/dev/null
 pkill -f "BrailliantConnect.app/Contents/MacOS" 2>/dev/null
 ```

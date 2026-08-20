@@ -234,7 +234,6 @@ public enum L {
         "MTP is off on the display": "MTP désactivé sur la plage",
         "On the display: Options, User settings, MTP":
             "Sur la plage : Options, Paramètres de l'utilisateur, MTP",
-        "Display in braille terminal mode": "Plage en mode terminal braille",
         "Transferring — %@ of %@": "Transfert en cours — %@ sur %@",
         "Transferring — %@": "Transfert en cours — %@",
         "Do not unplug the display": "Ne débranchez pas la plage",
@@ -264,7 +263,6 @@ public enum L {
         "Wait": "Attendre",
         "Quit anyway": "Quitter quand même",
         "Uninstall anyway": "Désinstaller quand même",
-        "Switch it to file transfer mode": "Passez-la en mode transfert de fichiers",
         "No display connected": "Aucune plage branchée",
         "Open in Finder": "Ouvrir dans le Finder",
         "Press a key on the display to wake it":
