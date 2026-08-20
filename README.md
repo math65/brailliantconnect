@@ -302,3 +302,9 @@ and French translations alongside.
 If you own a Brailliant that is **not** a BI 40X, running `brailliant doctor`
 and reporting the output would genuinely help: nothing in the code is tied to a
 model, but that has yet to be verified on other hardware.
+
+## Licence
+
+BrailliantConnect is released under the **MIT licence** — see [LICENSE](LICENSE).
+The bundled libraries keep their own: libmtp and libusb are LGPL-2.1, as set out
+under **Bundled libraries** above.
