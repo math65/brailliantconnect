@@ -216,8 +216,12 @@ xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
 and refuses to package if any fail. For public distribution:
 
 ```bash
-CODESIGN_IDENTITY="Developer ID Application: NAME (TEAMID)" ./tools/make-dist.sh
+./tools/make-dist.sh --notarize
 ```
+
+Without `--notarize` the bundle is signed ad-hoc: fine to test on the machine
+that built it, refused by Gatekeeper anywhere else. The Developer ID identity
+and the notary profile are named at the top of the script.
 
 `tools/build-vendor.sh` rebuilds libmtp and libusb from upstream sources as
 universal binaries — only needed to change versions.

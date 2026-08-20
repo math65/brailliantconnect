@@ -76,8 +76,11 @@ xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
 ```
 
 `./tools/make-dist.sh` produces the distributable bundle. It runs the test suite
-first and refuses to package if anything fails. `CODESIGN_IDENTITY="Developer ID
-Application: NAME (TEAMID)"` adds the hardened runtime for notarisation.
+first and refuses to package if anything fails. Add **`--notarize`** for anything
+leaving this machine: without it the bundle is signed ad-hoc and Gatekeeper
+refuses it everywhere else. The identity and the notary profile are constants at
+the top of the script — there is no `CODESIGN_IDENTITY` variable, whatever this
+file said until 20 Aug 2026.
 
 `./tools/build-vendor.sh` rebuilds libmtp and libusb as universal binaries into
 `Vendor/`. Rarely needed — only to change versions, and the one script here that
