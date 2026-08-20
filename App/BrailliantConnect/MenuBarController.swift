@@ -161,7 +161,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // itself; without this the alert would open behind everything else.
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if let transfer = transfers.state, confirmInterruption(transfer) == false { return }
+        if let transfer = transfers.state {
+            guard confirmInterruption(transfer, then: .uninstall) else { return }
+        }
 
         Installer.uninstall(removeApp: true) { binned in
             DispatchQueue.main.async {
@@ -184,28 +186,77 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func quit() {
-        // Quitting mid-transfer leaves a truncated file on the display and no
-        // way to finish it, so it is worth one question.
-        if let transfer = transfers.state, confirmInterruption(transfer) == false { return }
-        NSApp.terminate(nil)
+        // Quitting takes the location down with it, so a transfer still running
+        // is cut short: a truncated file on the display, and no way to finish
+        // it. Worth one question.
+        if let transfer = transfers.state {
+            guard confirmInterruption(transfer, then: .quit) else { return }
+        }
+
+        let leave = {
+            // Not `NSApp.terminate` alone: KeepAlive would bring the agent back
+            // ten seconds later, which is not what anyone means by "Quit".
+            // Booting out normally kills us here, so what follows only runs
+            // when the agent was started by hand rather than by launchd.
+            Installer.stopAgent()
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+        // The location goes with the agent. Left published, it would keep a
+        // folder in the Finder with nothing behind it watching the display: the
+        // display could be unplugged a minute later and the folder would still
+        // be sitting there, hanging on the first click.
+        unpublish { _ in leave() }
+        // Whichever gets there first wins. Removing a domain has no deadline of
+        // its own, and a "Quit" that appears to do nothing while the system
+        // thinks it over is worse than a location that leaves a moment late.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { leave() }
+    }
+
+    /// What the user is about to do, when a transfer is still running.
+    ///
+    /// Both actions remove the location and cut the transfer, but they do not
+    /// leave the same thing behind, and an alert that says "stop" while the
+    /// button says "uninstall" makes the reader work out which one is true.
+    private enum Interruption {
+        case quit
+        case uninstall
+
+        var consequence: String {
+            switch self {
+            case .quit:
+                return L.t(
+                    "Quitting removes the location from the Finder and leaves the file "
+                        + "incomplete on the display.")
+            case .uninstall:
+                return L.t("Uninstalling leaves the file incomplete on the display.")
+            }
+        }
+
+        var confirmation: String {
+            switch self {
+            case .quit: return L.t("Quit anyway")
+            case .uninstall: return L.t("Uninstall anyway")
+            }
+        }
     }
 
     /// Asks before cutting a transfer short. Returns whether to go ahead.
-    private func confirmInterruption(_ transfer: TransferMonitor.State) -> Bool {
+    private func confirmInterruption(
+        _ transfer: TransferMonitor.State, then action: Interruption
+    ) -> Bool {
         let alert = NSAlert()
         alert.messageText = L.t("A transfer is still running")
         // The sent figure is only meaningful once a file has landed whole, so
         // the wording drops it rather than reporting "less than 1 MB of 3 GB".
-        alert.informativeText =
+        let progress =
             transfer.sent > 0
             ? L.t(
-                "%@ of %@ have been sent. Stopping now leaves the file incomplete "
-                    + "on the display.", humanBytes(transfer.sent), humanBytes(transfer.total))
-            : L.t(
-                "%@ are still on their way. Stopping now leaves the file incomplete "
-                    + "on the display.", humanBytes(transfer.total))
+                "%@ of %@ have been sent.", humanBytes(transfer.sent),
+                humanBytes(transfer.total))
+            : L.t("%@ are still on their way.", humanBytes(transfer.total))
+        alert.informativeText = progress + " " + action.consequence
         alert.addButton(withTitle: L.t("Wait"))
-        alert.addButton(withTitle: L.t("Stop anyway"))
+        alert.addButton(withTitle: action.confirmation)
         alert.alertStyle = .warning
         NSApp.activate(ignoringOtherApps: true)
         // "Wait" is the first button, so Return — the reflex answer — is the

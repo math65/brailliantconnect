@@ -47,6 +47,10 @@ with every session, and the display shows up in `~/Brailliant` whenever it is
 connected. An item in the menu bar says whether the display is there, opens it
 in the Finder, and can uninstall everything.
 
+**Quit** stops it for this session and takes the location out of the Finder with
+it — nothing is left watching a folder nobody is behind. It comes back at the
+next login, unless **Open at Login** has been unticked.
+
 ### One folder per storage
 
 `~/Brailliant` lists what the display exposes, one folder each: **mémoire

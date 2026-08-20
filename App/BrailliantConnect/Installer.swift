@@ -104,6 +104,25 @@ enum Installer {
         try? FileManager.default.removeItem(at: agentPlist)
     }
 
+    /// Stops the resident agent for this session.
+    ///
+    /// Terminating the process is not the same thing: the job is registered
+    /// with `KeepAlive`, so a copy that exits on its own is brought back ten
+    /// seconds later — long enough for whoever chose "Quit" to have believed
+    /// it. Booting the job out is what makes quitting mean anything.
+    ///
+    /// The plist is deliberately left in place: whether the agent returns at
+    /// the next login stays the business of "Open at Login", and quitting is
+    /// not a way of answering that question.
+    ///
+    /// This terminates the calling process when launchd is the one that started
+    /// it, so nothing queued after it is guaranteed to run. Started by hand
+    /// there is no job to boot out, the command fails harmlessly, and the
+    /// caller carries on.
+    static func stopAgent() {
+        _ = run("/bin/launchctl", ["bootout", jobTarget])
+    }
+
     // MARK: - Uninstalling
 
     /// Removes every trace: published location, shortcut, registration,
@@ -153,7 +172,7 @@ enum Installer {
             // Last, because it terminates us. Launched by hand rather than by
             // launchd there is no job to boot out, the command fails
             // harmlessly, and `completion` runs as normal.
-            _ = run("/bin/launchctl", ["bootout", jobTarget])
+            stopAgent()
             completion(binned)
         }
     }

@@ -253,16 +253,17 @@ public enum L {
         "MB": "Mo",
         "GB": "Go",
         "A transfer is still running": "Un transfert est encore en cours",
-        "%@ of %@ have been sent. Stopping now leaves the file incomplete "
-            + "on the display.":
-            "%@ sur %@ ont été envoyés. Arrêter maintenant laisse le fichier "
+        "%@ of %@ have been sent.": "%@ sur %@ ont été envoyés.",
+        "%@ are still on their way.": "%@ sont encore en cours d'envoi.",
+        "Quitting removes the location from the Finder and leaves the file "
+            + "incomplete on the display.":
+            "Quitter retire l'emplacement du Finder et laisse le fichier "
             + "incomplet sur la plage.",
-        "%@ are still on their way. Stopping now leaves the file incomplete "
-            + "on the display.":
-            "%@ sont encore en cours d'envoi. Arrêter maintenant laisse le fichier "
-            + "incomplet sur la plage.",
+        "Uninstalling leaves the file incomplete on the display.":
+            "Désinstaller laisse le fichier incomplet sur la plage.",
         "Wait": "Attendre",
-        "Stop anyway": "Arrêter quand même",
+        "Quit anyway": "Quitter quand même",
+        "Uninstall anyway": "Désinstaller quand même",
         "Switch it to file transfer mode": "Passez-la en mode transfert de fichiers",
         "No display connected": "Aucune plage branchée",
         "Open in Finder": "Ouvrir dans le Finder",

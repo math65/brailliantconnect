@@ -21,6 +21,13 @@ process alive instead makes launchd's copy find it, exit, and be restarted by
 KeepAlive forever. The resident copy owns the single piece of UI: a menu bar
 item (state, open in Finder, open at login, uninstall).
 
+That same KeepAlive is why **terminating is not quitting**: a process that exits
+on its own is back ten seconds later, and the menu bar item with it. *Quit*
+therefore unpublishes the location and calls `Installer.stopAgent()`
+(`launchctl bootout`) — the pair the CLI's `disable` has always used. The plist
+is left alone: whether the agent returns at the next login stays the business of
+*Open at Login*, which is also why `unregister()` only deletes that file.
+
 `Installer.uninstall` removes everything the app wrote — `ownedPaths` is the
 list, and it is the same list installing works from. Three things it is easy to
 get wrong:
