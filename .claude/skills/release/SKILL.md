@@ -91,9 +91,23 @@ claiming anything about how the app behaves.
 git add -A && git commit    # subject in English, body saying why
 git tag -a "v$NEW" -m "BrailliantConnect $NEW"
 git push && git push --tags
+# The notes file holds every version ever released. Cut the new section out,
+# or the release page repeats the whole history.
+python3 - "$NEW" <<'EOF' > /tmp/notes.md
+import io, sys
+s = io.open("RELEASE_NOTES.md", encoding="utf-8").read()
+start = s.index("## v" + sys.argv[1])
+rest = s.find("\n## v", start + 1)
+print(s[start:rest if rest > 0 else len(s)].rstrip())
+EOF
 gh release create "v$NEW" dist/BrailliantConnect.zip \
-  --title "BrailliantConnect $NEW" --notes-file RELEASE_NOTES.md
+  --title "BrailliantConnect $NEW" --notes-file /tmp/notes.md
 ```
+
+Link the **file**, not the release page, wherever the download is announced.
+The page hides its archive under a collapsed "Assets" section, which is one
+more thing to hunt for with a screen reader:
+`…/releases/download/vX.Y.Z/BrailliantConnect.zip`.
 
 Publishing is public and hard to take back. Show the user the notes and the
 version number, and get an explicit yes before this step — never as a
@@ -102,9 +116,17 @@ side effect of "make a release".
 ## 8. Tell the people who already installed it
 
 There is no update mechanism: someone running the previous version learns
-nothing on their own. The announcement channel in the admin backend is the only
-way to reach them — an announcement with a link button pointing at the release
-page. Ask the user whether to post one; it is their voice, not yours.
+nothing on their own.
+
+The announcement channel in the admin backend reaches them — but **only from
+1.1.0 onwards**, the version that added the client that asks for announcements.
+An older install has nothing polling the backend and will never see one, so
+check what the oldest version in the wild is before assuming an announcement
+covers anybody. It never reaches people who have not updated yet, which is the
+audience an update announcement is aimed at; it works for everything after
+their next update.
+
+Ask the user whether to post one; it is their voice, not yours.
 
 The AppleVis thread is the other half of that audience, and the same rule
 applies: draft, show, let them post.
