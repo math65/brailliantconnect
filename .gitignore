@@ -19,3 +19,7 @@ __pycache__/
 # for no reason.
 xcuserdata/
 DerivedData/
+
+# The backend key is not in this public repository. Without it the app builds
+# and runs; it simply does not offer to send a message.
+App/BrailliantConnect/AppBackendSecret.plist

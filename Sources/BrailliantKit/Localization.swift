@@ -213,25 +213,25 @@ public enum L {
         "BrailliantConnect could not register itself to start automatically. "
             + "Make sure the app is in the Applications folder, then open it again.":
             "BrailliantConnect n'a pas pu s'installer pour démarrer automatiquement. "
-            + "Vérifiez que l'application se trouve dans le dossier Applications, "
-            + "puis ouvrez-la de nouveau.",
+            + "Vérifiez que l'app se trouve dans le dossier Applications, "
+            + "puis ouvrez-la à nouveau.",
 
         "BrailliantConnect has been removed. The app is in the Trash.":
-            "BrailliantConnect a été supprimé. L'application est dans la corbeille.",
+            "BrailliantConnect a été supprimé. L'app est dans la Corbeille.",
         "BrailliantConnect has been removed, but the app itself could not "
             + "be moved to the Trash. Drag it there by hand:":
-            "BrailliantConnect a été supprimé, mais l'application elle-même n'a pas "
-            + "pu être placée dans la corbeille. Faites-la glisser à la main :",
+            "BrailliantConnect a été supprimé, mais l'app elle-même n'a pas "
+            + "pu être placée dans la Corbeille. Faites-la glisser à la main :",
         "The app could not be moved to the Trash":
-            "L'application n'a pas pu être placée dans la corbeille",
+            "L'app n'a pas pu être placée dans la Corbeille",
         "Everything else has been removed. Drag the app to the Trash:":
-            "Tout le reste a été supprimé. Faites glisser l'application vers la corbeille :",
+            "Tout le reste a été supprimé. Faites glisser l'app vers la Corbeille :",
 
         // MARK: Menu bar
 
         "Display connected": "Plage branchée",
         "Display asleep": "Plage en veille",
-        "MTP is off on the display": "MTP désactivé sur la plage",
+        "File transfer is off on the display": "Transfert de fichiers désactivé",
         "On the display: Options, User settings, MTP":
             "Sur la plage : Options, Paramètres de l'utilisateur, MTP",
         "Transferring — %@ of %@": "Transfert en cours — %@ sur %@",
@@ -266,8 +266,8 @@ public enum L {
         "No display connected": "Aucune plage branchée",
         "Open in Finder": "Ouvrir dans le Finder",
         "Press a key on the display to wake it":
-            "Appuyez sur une touche de la plage pour la réveiller",
-        "Open at Login": "Ouvrir à l'ouverture de session",
+            "Appuyez sur une touche pour la réactiver",
+        "Open at Login": "Lancer à l'ouverture de session",
         "Getting Started": "Premiers pas",
         "Getting started with BrailliantConnect": "Premiers pas avec BrailliantConnect",
         "BrailliantConnect is installed": "BrailliantConnect est installé",
@@ -291,16 +291,17 @@ public enum L {
             + "as a braille terminal at the same time — the two work together, "
             + "and nothing has to be switched off.":
             "C'est ce qui permet à l'ordinateur de voir les fichiers. La plage "
-            + "reste utilisable comme afficheur braille en même temps — les deux "
+            + "reste utilisable comme plage braille en même temps — les deux "
             + "fonctionnent ensemble, il n'y a rien à désactiver.",
         "2. Your files are in %@": "2. Vos fichiers sont dans %@",
-        "Inside, one folder per storage:": "À l'intérieur, un dossier par stockage :",
-        "mémoire interne — the display's own storage, holding your documents, "
-            + "notes and books.":
-            "mémoire interne — le stockage de la plage, avec vos documents, vos "
-            + "notes et vos livres.",
-        "usb — a stick plugged into the display, when there is one.":
-            "usb — la clé branchée sur la plage, quand il y en a une.",
+        "Inside, one folder per storage. The names come from the display:":
+            "À l'intérieur, un dossier par stockage. Les noms viennent de la plage :",
+        "its own memory, holding your documents, notes and books;":
+            "sa mémoire interne, avec vos documents, vos notes et vos livres ;",
+        "its removable storage, when there is one — a USB stick or a microSD "
+            + "card, depending on the model.":
+            "son support amovible, quand il y en a un — une clé USB ou une carte "
+            + "microSD selon le modèle.",
         "So your documents are one level down. The top level holds these "
             + "storages and accepts no files of its own.":
             "Vos documents sont donc un niveau plus bas. Le premier niveau ne "
@@ -333,11 +334,69 @@ public enum L {
             + "wrote will be removed, and the app itself moved to the Trash. "
             + "Nothing on the braille display is touched.":
             "L'emplacement Finder, l'agent d'arrière-plan et tous les fichiers "
-            + "écrits par cette application seront supprimés, et l'application "
-            + "elle-même placée dans la corbeille. "
+            + "écrits par cette app seront supprimés, et l'application "
+            + "elle-même placée dans la Corbeille. "
             + "Rien n'est touché sur la plage braille.",
         "Uninstall": "Désinstaller",
         "Cancel": "Annuler",
+
+        // MARK: Contacting the developer
+
+        "Report a Problem…": "Signaler un problème…",
+        "Contact the Developer": "Contacter le développeur",
+        "Subject": "Sujet",
+        "The display isn't detected": "La plage n'est pas détectée",
+        "The folder is empty or won't open": "Le dossier est vide ou ne s'ouvre pas",
+        "A file didn't copy to the display": "Un fichier n'a pas été copié sur la plage",
+        "Other problem": "Autre problème",
+        "Email address": "Adresse e-mail",
+        "name@example.com": "nom@exemple.com",
+        "Message": "Message",
+        "Send": "Envoyer",
+
+        "The display is asleep. Press a key on it to wake it.":
+            "La plage est en veille. Appuyez sur une touche pour la réactiver.",
+        "File transfer is turned off on the display. To turn it on: Options, "
+            + "User settings, MTP.":
+            "Le transfert de fichiers est désactivé sur la plage. Pour l'activer : "
+            + "Options, Paramètres de l'utilisateur, MTP.",
+        "No HumanWare device is connected. Check the cable, or try another "
+            + "port.":
+            "Aucun appareil HumanWare n'est connecté. Vérifiez le câble ou changez "
+            + "de port.",
+        "The display is detected and reachable. If it still doesn't appear in "
+            + "the Finder, send this report: that case hasn't been seen yet.":
+            "La plage est détectée et joignable. Si elle n'apparaît toujours pas dans "
+            + "le Finder, envoyez ce signalement : ce cas n'a encore jamais été observé.",
+        "The location isn't published in the Finder, which would explain it.":
+            "L'emplacement n'est pas publié dans le Finder, ce qui expliquerait le symptôme.",
+        "A transfer is in progress. The file may not have arrived yet.":
+            "Un transfert est en cours. Le fichier n'est peut-être pas encore arrivé.",
+
+        "This report includes a diagnostic: the version of the app and of macOS, "
+            + "the state of the display, whether the location is published, and — once "
+            + "the display has been read — its model, serial number and storage areas.":
+            "Ce signalement inclut un diagnostic : la version de l'app et de macOS, "
+            + "l'état de la plage, la publication ou non de l'emplacement et, dès que la "
+            + "plage a été lue, son modèle, son numéro de série et ses stockages.",
+
+        "Enter the email address where you'd like to receive a reply.":
+            "Saisissez l'adresse e-mail à laquelle vous souhaitez recevoir une réponse.",
+        "Enter a message.": "Saisissez un message.",
+        "Message Sent": "Message envoyé",
+        "You'll receive a reply at the address you provided.":
+            "Vous recevrez une réponse à l'adresse indiquée.",
+
+        "This version of the app can't send messages.":
+            "Cette version de l'app ne peut pas envoyer de message.",
+        "Unable to send the message. Check your internet connection.":
+            "Impossible d'envoyer le message. Vérifiez votre connexion à Internet.",
+        "Too many messages sent. Try again in a few minutes.":
+            "Trop de messages envoyés. Réessayez dans quelques minutes.",
+        "The email address or message wasn't accepted. Check them, then try again.":
+            "L'adresse e-mail ou le message n'a pas été accepté. Vérifiez-les, puis réessayez.",
+        "The server didn't accept the message. Try again later.":
+            "Le serveur n'a pas accepté le message. Réessayez plus tard.",
 
         // MARK: Listings
 

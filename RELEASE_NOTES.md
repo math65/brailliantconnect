@@ -1,5 +1,51 @@
 # Release notes
 
+## v1.1.0 — 26/08/2026
+
+Reporting a problem no longer requires a Terminal.
+
+Version 1.0.0 was built and tested on one model, a BI 40X, and said so. The
+answers came back within the week: someone tried it on a Mantis, the menu said
+the display was connected, and the Finder showed nothing. There was no way for
+them to say more than that, and no way for me to ask — the diagnosis lives
+behind a command-line tool that nobody should have to open.
+
+The app now produces it on their behalf.
+
+### Report a Problem…
+- **A new item in the menu bar** opens a window: you say what it is about, write
+  a line or two, and give an address for the answer. Suggestions and questions
+  go through the same window.
+- **The window often answers before you send.** A display that is plugged in but
+  asleep, or answering as a braille terminal with file transfer switched off, is
+  something the app can see for itself — it says so, and names the remedy. It
+  never stops you from sending anyway.
+- **A report carries a diagnosis, and says so before you press Send:** the
+  version of the app and of macOS, what the USB bus says about the display,
+  whether the Finder location is published, and the model, serial number and
+  storage areas of the display as they were last read. Nothing else leaves your
+  machine.
+- **The diagnosis works even while the Finder is using the display.** MTP allows
+  a single connection at a time, so nothing can question the display while the
+  Finder holds it. What the Finder side sees as it connects is written down as
+  it goes, and the report picks it up from there.
+
+### Announcements
+- **The app can now receive a message from its author at startup** — a version
+  worth skipping, a firmware that breaks file transfer. There is no update
+  mechanism and no account here, and until now someone who installed this had no
+  way of hearing anything again.
+
+### Fixed
+- **The welcome window described a BI 40X and nothing else.** It named the two
+  storage folders literally — `mémoire interne` and `usb` — when those names come
+  from the display itself and vary from one model to the next, and it assumed the
+  removable storage was a USB stick, which it is not on a display that takes a
+  microSD card.
+- **Wording throughout the app was gone over.** The menu said "MTP is off on the
+  display", naming a protocol nobody plugs a display in for; it now says file
+  transfer is off, and points at the setting.
+
 ## v1.0.0 — 20/08/2026
 
 First public release.

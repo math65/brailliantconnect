@@ -151,12 +151,13 @@ final class Welcome: NSObject, NSWindowDelegate {
                     + "and nothing has to be switched off."))</p>
 
             <h2>\(L.t("2. Your files are in %@", "<code>" + path + "</code>"))</h2>
-            <p>\(L.t("Inside, one folder per storage:"))</p>
+            <p>\(L.t("Inside, one folder per storage. The names come from the display:"))</p>
             <ul>
               <li>\(L.t(
-                "mémoire interne — the display's own storage, holding your documents, "
-                    + "notes and books."))</li>
-              <li>\(L.t("usb — a stick plugged into the display, when there is one."))</li>
+                "its own memory, holding your documents, notes and books;"))</li>
+              <li>\(L.t(
+                "its removable storage, when there is one — a USB stick or a microSD "
+                    + "card, depending on the model."))</li>
             </ul>
             <p>\(L.t(
                 "So your documents are one level down. The top level holds these "

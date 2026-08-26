@@ -19,7 +19,7 @@ Opening the app registers the agent with launchd and **exits**; the resident
 copy is the one launchd starts, with `--watch`. Keeping the double-clicked
 process alive instead makes launchd's copy find it, exit, and be restarted by
 KeepAlive forever. The resident copy owns the single piece of UI: a menu bar
-item (state, open in Finder, open at login, uninstall).
+item (state, open in Finder, open at login, report a problem, uninstall).
 
 That same KeepAlive is why **terminating is not quitting**: a process that exits
 on its own is back ten seconds later, and the menu bar item with it. *Quit*
@@ -61,7 +61,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 51 tests
+swift test                    # 53 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -275,6 +275,56 @@ Worth preserving deliberately, since a change elsewhere can quietly undo them:
   now check the symlink target.
 - `make-dist.sh` refuses to package a bundle carrying `get-task-allow`: a debug
   build would ship an agent any process could attach to.
+
+## The backend
+
+The app talks to `app-backend` (the Go service behind `mathieumartin.ovh`),
+registered there as `brailliantconnect`. Two things come from it: the feedback
+routes behind *Report a Problem…*, and an announcement checked once per agent
+start — the only channel back to people who installed this, since there is no
+update mechanism and no account.
+
+The Bearer key is **not in this repository**, which is public:
+`App/BrailliantConnect/AppBackendSecret.plist` is git-ignored and copied into
+`Contents/Resources` by the same build phase that embeds the libraries. Without
+it `AppBackendClient.isConfigured` is false, the menu item is not added, and
+nothing else changes — a contributor who clones this gets a working app, not a
+build error. The key is an app identifier and an anti-spam gate, not a
+credential: it grants posting to three routes as this app, and nothing else.
+
+**Only the agent compiles those files.** The extension parses what the device
+sends and is sandboxed for it; a network client there would widen the one
+surface this project keeps narrow (see **Security properties**).
+
+`Diagnostics.swift` is split on a hardware boundary, and that is the point:
+
+- what the agent answers alone — app, macOS, `USBWatcher.availability()`,
+  whether the domain is published, where the shortcut points — is **always**
+  there, because none of it needs the display;
+- model, serial and storages the agent **cannot ask for at all**. Measured 26
+  Aug 2026, not assumed: with the location published, `brailliant doctor` run
+  beside it fails with `libusb_claim_interface = -3`, and still failed a minute
+  later. The lock is not transient — MTP allows a single session, and the
+  extension holds it.
+
+  So the extension writes what it sees as it connects (`writeSnapshot`, in
+  `DisplayAccess.connection()`) into its own container —
+  `…/Containers/<appex id>/Data/Library/Application Support/BrailliantConnect/last-device.json`,
+  sandbox-writable there and readable by the agent, which is not sandboxed. No
+  App Group is involved; the extension's is deliberately empty. The snapshot
+  carries the date it was written, because one from last week may describe a
+  different display.
+
+  `brailliant doctor` remains the fallback for the case with no snapshot — no
+  location published, extension never run — and there its failure is attached
+  rather than dropped.
+
+The **subject** picked in the window (`Feedback.Subject`) drives the report: it
+names the email, leads the first section, and decides what the window says
+before anything is sent. Three of the four states a plugged display can be in
+have a remedy the agent can already name, so it says so. It never blocks the
+send — a Mantis reading as "reachable" while the Finder shows nothing is
+exactly the report worth receiving.
 
 ## Accessibility
 

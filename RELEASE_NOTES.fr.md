@@ -1,5 +1,54 @@
 # Notes de version
 
+## v1.1.0 — 26/08/2026
+
+Signaler un problème ne demande plus de Terminal.
+
+La version 1.0.0 avait été construite et éprouvée sur un seul modèle, une
+BI 40X, et le disait. Les réponses sont arrivées dans la semaine : quelqu'un l'a
+essayée sur un Mantis, le menu annonçait une plage connectée, et le Finder
+n'affichait rien. Cette personne n'avait aucun moyen d'en dire plus, ni moi de
+le lui demander — le diagnostic vit derrière un outil en ligne de commande que
+personne ne devrait avoir à ouvrir.
+
+L'application le produit désormais à sa place.
+
+### Signaler un problème…
+- **Un nouvel élément dans la barre des menus** ouvre une fenêtre : vous
+  indiquez de quoi il s'agit, écrivez une ligne ou deux, et donnez une adresse
+  pour la réponse. Les suggestions et les questions passent par la même fenêtre.
+- **La fenêtre répond souvent avant l'envoi.** Une plage branchée mais en veille,
+  ou qui ne répond qu'en terminal braille parce que le transfert de fichiers est
+  désactivé, l'application le voit d'elle-même : elle le dit, et nomme le remède.
+  Elle ne vous empêche jamais d'envoyer malgré tout.
+- **Un signalement inclut un diagnostic, et l'annonce avant que vous n'envoyiez :**
+  la version de l'application et de macOS, ce que le bus USB dit de la plage, la
+  publication ou non de l'emplacement dans le Finder, ainsi que le modèle, le
+  numéro de série et les stockages de la plage tels qu'ils ont été lus la
+  dernière fois. Rien d'autre ne quitte votre machine.
+- **Le diagnostic fonctionne même pendant que le Finder se sert de la plage.**
+  Le MTP n'accepte qu'une connexion à la fois : rien ne peut interroger la plage
+  tant que le Finder la tient. Ce que voit le Finder en se connectant est noté au
+  passage, et le signalement le reprend de là.
+
+### Annonces
+- **L'application peut maintenant recevoir un message de son auteur au
+  démarrage** — une version à éviter, un micrologiciel qui casse le transfert de
+  fichiers. Il n'y a ici ni mécanisme de mise à jour ni compte, et jusqu'à
+  présent une personne qui avait installé l'application n'avait plus aucun moyen
+  d'en entendre parler.
+
+### Corrections
+- **La fenêtre d'accueil décrivait une BI 40X et rien d'autre.** Elle nommait les
+  deux dossiers de stockage littéralement — `mémoire interne` et `usb` — alors
+  que ces noms viennent de la plage elle-même et changent d'un modèle à l'autre,
+  et elle supposait que le support amovible était une clé USB, ce qu'il n'est pas
+  sur une plage qui prend une carte microSD.
+- **Les textes de l'application ont été repris.** Le menu affichait « MTP
+  désactivé sur la plage », en nommant un protocole pour lequel personne ne
+  branche une plage ; il indique désormais que le transfert de fichiers est
+  désactivé, et pointe vers le réglage.
+
 ## v1.0.0 — 20/08/2026
 
 Première version publique.

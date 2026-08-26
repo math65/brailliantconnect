@@ -364,6 +364,11 @@ case "--watch":
         Welcome.showIfFirstLaunch(shortcut: shortcutInPlace)
     }
 
+    // The only channel back to the people who installed this: no update
+    // mechanism, no account, and a forum post reaches whoever reads forums.
+    // It waits for the welcome window to be gone before saying anything.
+    Announcements.checkAtLaunch()
+
     TransferNotice.delivery = { log($0) }
     DispatchQueue.main.async { TransferNotice.requestPermission(report: { log($0) }) }
 

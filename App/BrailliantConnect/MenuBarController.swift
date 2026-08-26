@@ -82,7 +82,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(disabled(L.t("Display asleep")))
             menu.addItem(disabled(L.t("Press a key on the display to wake it")))
         case .brailleTerminal:
-            menu.addItem(disabled(L.t("MTP is off on the display")))
+            menu.addItem(disabled(L.t("File transfer is off on the display")))
             menu.addItem(disabled(L.t("On the display: Options, User settings, MTP")))
         case .absent:
             menu.addItem(disabled(L.t("No display connected")))
@@ -96,6 +96,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         add(menu, L.t("Getting Started"), #selector(openWelcome))
+        // Absent from builds compiled without the backend key: an item that can
+        // only fail when pressed is worse than one that is not there.
+        if Feedback.isAvailable {
+            add(menu, L.t("Report a Problem…"), #selector(reportProblem))
+        }
         add(menu, L.t("Uninstall BrailliantConnect…"), #selector(uninstall))
         add(menu, L.t("Quit"), #selector(quit), key: "q")
     }
@@ -135,6 +140,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             shortcut: FinderLocation.existingShortcuts(
                 home: FileManager.default.homeDirectoryForCurrentUser
             ).first)
+    }
+
+    @objc private func reportProblem() {
+        Feedback.show()
     }
 
     @objc private func toggleStartup() {

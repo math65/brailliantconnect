@@ -87,6 +87,25 @@ Nothing else is required: no Homebrew, no macFUSE, no Python, no runtime.
 `libmtp` and `libusb` ship inside the bundle as universal binaries (1.5 MB to
 download).
 
+### Reporting a problem
+
+**Report a Problem…** in the menu bar sends a message straight from the app, for
+anyone who would rather not open a GitHub issue or a forum thread.
+
+You say what it is about first — the display is not detected, the folder is
+empty, a file did not make it across — and the window often answers on the spot:
+a display that is plugged in but asleep, or answering as a braille terminal with
+file transfer switched off, is something the app can see for itself and tell you
+in one line. It never stops you from sending anyway.
+
+A problem report carries a diagnosis with it, and says so before you press Send:
+the version of the app and of macOS, what the USB bus says about the display,
+whether the Finder location is published and where the shortcut points, and the
+model, serial number and storage areas of the display as they were last read.
+
+That is the whole of what leaves your machine, along with the address you type
+in so an answer can reach you. Suggestions and questions send the message alone.
+
 ### Uninstall
 
 **Uninstall BrailliantConnect…** in the menu bar removes the agent, the Finder

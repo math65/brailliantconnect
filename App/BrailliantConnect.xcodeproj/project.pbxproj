@@ -28,6 +28,10 @@
 		E84735362E67F2FCC8E4B58C /* Installer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05EC8B312499EBB3890E549A /* Installer.swift */; };
 		F22C1E278032372ABCD919B2 /* RemotePath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A669216EF3A8B0083C304A /* RemotePath.swift */; };
 		FC8F974486D8CB344A8D0149 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BFA9B9E6698769ADD45A54 /* main.swift */; };
+		5907B2C3A359F37F17E51C6E /* Announcements.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF38CF2EC1E78DA430874E2 /* Announcements.swift */; };
+		46753BABEDBC00F55AA0A21D /* AppBackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D7022C56467EFD25914EB2 /* AppBackendClient.swift */; };
+		8B03859FCD9C6BF50824426A /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F728C3AC9F92009F39346154 /* Diagnostics.swift */; };
+		ED9533F701818C03CB1A1BEA /* Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85872038C4062358AF828F0D /* Feedback.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +84,10 @@
 		D1BFA9B9E6698769ADD45A54 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		E80EF061C908BD7421206248 /* TransferMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferMonitor.swift; sourceTree = "<group>"; };
 		F587D5E0E4E79E35FF7DBB01 /* FileProviderExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FileProviderExtension.entitlements; sourceTree = "<group>"; };
+		CFF38CF2EC1E78DA430874E2 /* Announcements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Announcements.swift; sourceTree = "<group>"; };
+		46D7022C56467EFD25914EB2 /* AppBackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBackendClient.swift; sourceTree = "<group>"; };
+		F728C3AC9F92009F39346154 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
+		85872038C4062358AF828F0D /* Feedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feedback.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -100,7 +108,11 @@
 		232F0BEA806DCCCB4ABB1364 /* BrailliantConnect */ = {
 			isa = PBXGroup;
 			children = (
+				CFF38CF2EC1E78DA430874E2 /* Announcements.swift */,
+				46D7022C56467EFD25914EB2 /* AppBackendClient.swift */,
 				0BC9644AB568273EC86B51B0 /* BrailliantConnect.entitlements */,
+				F728C3AC9F92009F39346154 /* Diagnostics.swift */,
+				85872038C4062358AF828F0D /* Feedback.swift */,
 				05EC8B312499EBB3890E549A /* Installer.swift */,
 				D1BD58195308FCA37B7A92A9 /* main.swift */,
 				B6EC76DB0FEE5EB191F7CC71 /* MenuBarController.swift */,
@@ -276,7 +288,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "DEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  # Signer chaque bibliothèque séparément. Une signature « --deep »\n  # appliquée à l'application entière écraserait les entitlements de\n  # l'extension, qui refuserait alors de se charger.\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n";
+			shellScript = "DEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  # Signer chaque bibliothèque séparément. Une signature « --deep »\n  # appliquée à l'application entière écraserait les entitlements de\n  # l'extension, qui refuserait alors de se charger.\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n\n# La cl\u00e9 du backend n'est pas dans le d\u00e9p\u00f4t, qui est public : elle est\n# copi\u00e9e ici quand elle existe. Sans elle, l'application se construit et\n# fonctionne \u2014 elle n'offre simplement pas d'envoyer de message.\nKEY=\"$SRCROOT/BrailliantConnect/AppBackendSecret.plist\"\nif [ -f \"$KEY\" ]; then\n  RES=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  mkdir -p \"$RES\"\n  cp -f \"$KEY\" \"$RES/AppBackendSecret.plist\"\nfi\n";
 		};
 		C573A6C53CBA130B2FCD20FC /* Embarquer libmtp et libusb */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -321,15 +333,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5907B2C3A359F37F17E51C6E /* Announcements.swift in Sources */,
+				46753BABEDBC00F55AA0A21D /* AppBackendClient.swift in Sources */,
+				8B03859FCD9C6BF50824426A /* Diagnostics.swift in Sources */,
+				ED9533F701818C03CB1A1BEA /* Feedback.swift in Sources */,
 				69D6FB8CB1B597F4C3C4DD46 /* FinderLocation.swift in Sources */,
 				E84735362E67F2FCC8E4B58C /* Installer.swift in Sources */,
 				403B5737419633BCE25D4A06 /* Localization.swift in Sources */,
+				69312D26B11E702E2BFB3925 /* main.swift in Sources */,
 				B1965EB159D521F618C7696B /* MenuBarController.swift in Sources */,
 				002A19D13A55F5F37E4D6B74 /* TransferMonitor.swift in Sources */,
 				7BC3DD43DF775DAEF979D43F /* TransferNotice.swift in Sources */,
 				9A6DFDD504B2679C247C78F9 /* USBWatcher.swift in Sources */,
 				0E455DAB4D91EDB1A3EBDA5E /* Welcome.swift in Sources */,
-				69312D26B11E702E2BFB3925 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,7 +409,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -496,7 +512,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

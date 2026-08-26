@@ -66,7 +66,47 @@ final class DisplayAccess {
         let opened = try Brailliant(vendorID: humanwareVendorID)
         Self.log.info("session ouverte : \(opened.model, privacy: .public)")
         display = opened
+        writeSnapshot(of: opened)
         return opened
+    }
+
+    /// Leaves what only the device can tell where the agent can read it.
+    ///
+    /// The agent has no other way to obtain it. MTP allows one session at a
+    /// time, and once the Finder location is published this extension holds it
+    /// for good — measured, not assumed: `brailliant doctor` run beside it
+    /// fails with `libusb_claim_interface = -3`, and still failed a minute
+    /// later. So a problem report would carry no model and no storages exactly
+    /// where they are wanted, unless the process that has the connection writes
+    /// them down as it goes.
+    ///
+    /// Our own container: sandbox-writable here, readable from outside by the
+    /// agent, which is not sandboxed. Nothing else is shared between the two,
+    /// and no App Group is involved — the extension's is deliberately empty.
+    ///
+    /// Written once per session, best effort: a failure here must never turn
+    /// into a failure to serve the Finder.
+    private func writeSnapshot(of display: Brailliant) {
+        var snapshot: [String: Any] = [
+            "written": ISO8601DateFormatter().string(from: Date()),
+            "model": display.model,
+            "serial": display.serialNumber,
+        ]
+        if let storages = try? display.storages() {
+            snapshot["storages"] = storages.map {
+                [
+                    "name": $0.description.sanitizedForDisplay,
+                    "capacity": $0.capacity,
+                    "free": $0.free,
+                ]
+            }
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: snapshot) else { return }
+        let directory = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/BrailliantConnect")
+        try? FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true)
+        try? data.write(to: directory.appendingPathComponent("last-device.json"))
     }
 
     func close() {
