@@ -10,6 +10,15 @@ Finder » depuis la barre des menus ne produisait rien du tout. La description
 était exacte, et la faute revenait à l'application : non pas d'avoir échoué,
 mais d'avoir échoué sans un mot.
 
+### L'emplacement se répare quand macOS a perdu l'extension
+- Sur une machine, l'emplacement n'a jamais été publié, et la raison n'avait
+  rien à voir avec la plage braille : macOS ne gardait aucune trace de
+  l'extension Finder de l'application, et n'avait donc personne à qui confier
+  l'emplacement. Il répond à cela « L'application ne peut pas être utilisée pour
+  le moment », ce qui ne nomme ni l'extension ni le registre. L'application
+  reconnaît désormais ce cas, enregistre sa propre extension et publie
+  l'emplacement à nouveau — seule, sans rien à taper.
+
 ### « Ouvrir dans le Finder » dit ce qui s'est passé
 - Quand l'emplacement n'a pas été publié, l'élément ouvrait un dossier qui
   n'existait pas, ce à quoi macOS répond par le silence. Il tente désormais de

@@ -99,17 +99,65 @@ func log(_ message: String) {
 /// Reads how much is still on its way to the display, for the menu bar.
 let transfers = TransferMonitor()
 
-func publish(_ completion: @escaping (Error?) -> Void) {
+/// Whether the extension has already been registered again in this session.
+///
+/// One attempt per agent. A single plug fires several IOKit notifications, and
+/// a registration that did not take the first time will not take four times in
+/// a row either — it would only fill the log at the moment it is being read.
+var registrationRepaired = false
+
+/// True when the system says it holds no record of our extension.
+///
+/// It renders this one as "The application cannot be used right now", which
+/// names neither the extension nor the registry and sent the first report that
+/// carried it looking at the braille display instead.
+func isProviderNotRegistered(_ error: Error) -> Bool {
+    let error = error as NSError
+    return error.domain == NSFileProviderErrorDomain
+        && error.code == NSFileProviderError.providerNotFound.rawValue
+}
+
+func addDomain(_ completion: @escaping (Error?) -> Void) {
     let domain = NSFileProviderDomain(identifier: domainIdentifier, displayName: displayName)
-    NSFileProviderManager.add(domain) { error in
-        if error == nil {
-            createShortcut()
-            // A domain removed and re-added is a new one, so its progress has
-            // to be picked up again rather than kept from last time.
-            transfers.follow(domain: domainIdentifier)
+    NSFileProviderManager.add(domain, completionHandler: completion)
+}
+
+func publish(_ completion: @escaping (Error?) -> Void) {
+    addDomain { error in
+        // Not a refusal: the system does not know whom to hand the location
+        // to. Registering the extension is the whole remedy, and it is ours to
+        // apply — the agent is not sandboxed. Asking the user to type
+        // `pluginkit` would undo the one promise this app makes.
+        if let error, isProviderNotRegistered(error), !registrationRepaired {
+            registrationRepaired = true
+            log(L.t("the system holds no record of the Finder extension — registering it"))
+            if Installer.registerExtension() {
+                addDomain { retry in
+                    log(
+                        retry == nil
+                            ? L.t("Finder extension registered — location published")
+                            : L.t(
+                                "Finder extension registered, but publishing still failed: %@",
+                                retry!.localizedDescription))
+                    settle(retry, completion)
+                }
+                return
+            }
+            log(L.t("the Finder extension could not be registered"))
         }
-        completion(error)
+        settle(error, completion)
     }
+}
+
+/// What a successful publication owes the rest of the agent.
+func settle(_ error: Error?, _ completion: @escaping (Error?) -> Void) {
+    if error == nil {
+        createShortcut()
+        // A domain removed and re-added is a new one, so its progress has to be
+        // picked up again rather than kept from last time.
+        transfers.follow(domain: domainIdentifier)
+    }
+    completion(error)
 }
 
 func unpublish(_ completion: @escaping (Error?) -> Void) {

@@ -14,6 +14,9 @@ enum Installer {
 
     static let agentLabel = "com.mathieumartin.BrailliantConnect.agent"
 
+    /// Bundle identifier of the File Provider extension we ship.
+    static let extensionIdentifier = "com.mathieumartin.BrailliantConnect.FileProvider"
+
     private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 
     static var agentPlist: URL {
@@ -199,6 +202,35 @@ enum Installer {
         _ = try? FileManager.default.trashItem(at: path, resultingItemURL: nil)
     }
 
+    /// Tells the system about the extension inside our own bundle.
+    ///
+    /// `NSFileProviderManager.add` answers `providerNotFound` — the system
+    /// renders it as "The application cannot be used right now" — when it holds
+    /// no record of the extension. Nothing in that is about a braille display
+    /// or the Finder: the plug-in was simply never registered, and the location
+    /// has nobody to be handed to.
+    ///
+    /// Measured on a user's machine on 8 Sep 2026: display reachable over MTP,
+    /// extension never run, no snapshot, and every publication since the
+    /// install refused with that one error. `pluginkit -a` registers it and
+    /// `-e use` marks it enabled — the pair the `/extension` loop has always
+    /// run by hand.
+    ///
+    /// The agent is not sandboxed, so it can run them. The alternative was a
+    /// Terminal command handed to somebody who installed an app precisely so as
+    /// not to open one.
+    @discardableResult
+    static func registerExtension() -> Bool {
+        let appex = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/PlugIns/FileProviderExtension.appex")
+        guard FileManager.default.fileExists(atPath: appex.path) else { return false }
+        guard run("/usr/bin/pluginkit", ["-a", appex.path]).code == 0 else { return false }
+        // Registered and disabled is a state the system can be left in, and it
+        // publishes exactly as much as no registration at all.
+        _ = run("/usr/bin/pluginkit", ["-e", "use", "-i", extensionIdentifier])
+        return true
+    }
+
     /// Deregisters every copy of the extension the system knows about.
     ///
     /// `pluginkit -r` takes a path and removes that one path, which is rarely
@@ -207,8 +239,7 @@ enum Installer {
     /// found here by listing the registrations first and removing each by its
     /// own path, rather than assuming there is only ours.
     private static func deregisterExtension() {
-        let identifier = "com.mathieumartin.BrailliantConnect.FileProvider"
-        let listing = run("/usr/bin/pluginkit", ["-m", "-v", "-i", identifier]).output
+        let listing = run("/usr/bin/pluginkit", ["-m", "-v", "-i", extensionIdentifier]).output
         var paths = listing.split(separator: "\n").compactMap { line -> String? in
             // Tab-separated, the path last; the trailing "(1 plug-in)" line has
             // no tab and no leading slash, and drops out on its own.

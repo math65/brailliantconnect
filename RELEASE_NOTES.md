@@ -9,6 +9,14 @@ checked — and nothing in the Finder. Choosing "Open in Finder" from the menu b
 did nothing at all. The description was exact, and the fault was the app's: not
 that it failed, but that it failed without a word.
 
+### The location repairs itself when macOS has lost the extension
+- On one machine, the location was never published, and the reason turned out to
+  have nothing to do with the braille display: macOS held no record of the app's
+  Finder extension, so it had nobody to hand the location to. It answers that
+  with "The application cannot be used right now", which names neither the
+  extension nor the registry. The app now recognises it, registers its own
+  extension, and publishes the location again — by itself, with nothing to type.
+
 ### "Open in Finder" says what happened
 - When the location has not been published, the item used to open a folder that
   was not there, and macOS answers that with silence. It now tries to publish

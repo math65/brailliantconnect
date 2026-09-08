@@ -172,6 +172,14 @@ public enum L {
             "plage branchée — emplacement publié dans ~/%@",
         "display connected but publishing failed: %@":
             "plage branchée mais publication impossible : %@",
+        "the system holds no record of the Finder extension — registering it":
+            "le système ne connaît pas l'extension Finder — enregistrement en cours",
+        "Finder extension registered — location published":
+            "extension Finder enregistrée — emplacement publié",
+        "Finder extension registered, but publishing still failed: %@":
+            "extension Finder enregistrée, mais la publication échoue encore : %@",
+        "the Finder extension could not be registered":
+            "l'extension Finder n'a pas pu être enregistrée",
         "display disconnected — location removed": "plage débranchée — emplacement retiré",
         "MTP turned off on the display — location removed":
             "MTP désactivé sur la plage — emplacement retiré",
