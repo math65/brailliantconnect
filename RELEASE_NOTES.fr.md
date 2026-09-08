@@ -1,5 +1,37 @@
 # Notes de version
 
+## v1.1.1 — 08/09/2026
+
+Trois choses que l'application faisait en silence, elle les dit maintenant.
+
+Un signalement est arrivé d'une BI 40X : plage branchée, transfert de fichiers
+activé, câbles vérifiés — et rien dans le Finder. Choisir « Ouvrir dans le
+Finder » depuis la barre des menus ne produisait rien du tout. La description
+était exacte, et la faute revenait à l'application : non pas d'avoir échoué,
+mais d'avoir échoué sans un mot.
+
+### « Ouvrir dans le Finder » dit ce qui s'est passé
+- Quand l'emplacement n'a pas été publié, l'élément ouvrait un dossier qui
+  n'existait pas, ce à quoi macOS répond par le silence. Il tente désormais de
+  publier l'emplacement à nouveau — le remède chaque fois qu'il y en a un — et
+  lorsque cela ne suffit pas, il affiche l'erreur donnée par macOS au lieu de
+  vous laisser deviner.
+
+### « Lancer à l'ouverture de session » peut être réactivé
+- Le décocher puis le recocher faisait disparaître l'icône de la barre des menus
+  jusqu'à la session suivante. Le réglage s'écrit maintenant sans arrêter le
+  programme déjà en marche, et l'icône reste où elle est.
+
+### Un signalement emporte le journal de l'application
+- Les signalements indiquaient si l'emplacement du Finder était publié. Aucun ne
+  pouvait dire ce que le système avait répondu lorsque l'application avait
+  demandé à le publier, parce que cette ligne vit dans un journal qui n'était
+  jamais envoyé. Il voyage désormais avec chaque signalement — sa fin, la partie
+  qui décrit ce qui vient de se passer — et la fenêtre l'annonce avant que vous
+  n'appuyiez sur Envoyer, avec tout le reste de ce que le signalement contient.
+
+Rien sur la plage braille n'est touché, et rien d'autre ne change.
+
 ## v1.1.0 — 26/08/2026
 
 Signaler un problème ne demande plus de Terminal.

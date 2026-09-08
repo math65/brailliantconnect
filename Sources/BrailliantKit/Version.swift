@@ -10,5 +10,5 @@ import Foundation
 /// project and fails when they drift, so the two cannot quietly disagree —
 /// which is the only way a constant like this stays true.
 public enum Version {
-    public static let current = "1.1.0"
+    public static let current = "1.1.1"
 }

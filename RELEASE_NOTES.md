@@ -1,5 +1,34 @@
 # Release notes
 
+## v1.1.1 — 08/09/2026
+
+Three things the app used to do silently, it now says out loud.
+
+A report arrived from a BI 40X: the display connected, file transfer on, cables
+checked — and nothing in the Finder. Choosing "Open in Finder" from the menu bar
+did nothing at all. The description was exact, and the fault was the app's: not
+that it failed, but that it failed without a word.
+
+### "Open in Finder" says what happened
+- When the location has not been published, the item used to open a folder that
+  was not there, and macOS answers that with silence. It now tries to publish
+  the location again — the remedy wherever there is one — and when that does not
+  work, it shows you the error macOS gives instead of leaving you to guess.
+
+### "Open at Login" can be switched back on
+- Turning it off and on again used to take the menu bar icon away until the next
+  login. The setting is now written without stopping the program that is already
+  running, so the icon stays where it is.
+
+### A problem report carries the app's log
+- Reports said whether the Finder location was published. None of them could say
+  what the system answered when the app asked to publish it, because that line
+  lives in a log that was never sent. It travels with every report now — the end
+  of it, the part describing what just happened — and the window says so before
+  you press Send, along with everything else the report contains.
+
+Nothing on the braille display is touched, and nothing else changes.
+
 ## v1.1.0 — 26/08/2026
 
 Reporting a problem no longer requires a Terminal.
