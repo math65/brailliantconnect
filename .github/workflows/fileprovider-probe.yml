@@ -1,0 +1,83 @@
+# Does the Finder extension register on a machine that is not the author's?
+#
+# Every report of an empty Finder so far has come from someone else's Mac, and
+# the location has always published here. That is the one thing this repository
+# could never test: a machine with no developer certificate, no provisioning
+# profile and no history of `pluginkit` being run by hand.
+#
+# A GitHub runner is exactly that machine. It downloads the published archive —
+# the same bytes a user gets, signed and notarised — installs it, launches it,
+# and reports what the system did. No secret is needed: it tests the release,
+# not the source.
+#
+# The matrix answers two questions at once:
+#   macos-26        the author's own version — the control. A failure here means
+#                   the fault is "not the author's Mac", not the OS.
+#   macos-15-intel  x86_64, the reporting user's architecture.
+#   macos-14        the oldest version GitHub still offers; macos-13, the one
+#                   actually reported, was retired.
+name: File Provider registration probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to test
+        default: v1.1.1-beta2
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-15-intel, macos-14]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: What this machine is
+        run: sw_vers && uname -m
+
+      - name: Fetch the published archive
+        run: |
+          curl -fsSL -o app.zip \
+            "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/BrailliantConnect.zip"
+          ditto -x -k app.zip unpacked
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+            -c "Print :CFBundleVersion" unpacked/BrailliantConnect.app/Contents/Info.plist
+
+      - name: Gatekeeper verdict, before anything else
+        run: spctl -a -vvv -t exec unpacked/BrailliantConnect.app 2>&1 || true
+
+      - name: Install into /Applications
+        run: ditto unpacked/BrailliantConnect.app /Applications/BrailliantConnect.app
+
+      - name: Registered before launch?
+        run: pluginkit -mAvvv -i com.mathieumartin.BrailliantConnect.FileProvider || echo "  none — expected"
+
+      - name: Launch it, as a double-click would
+        run: open -a /Applications/BrailliantConnect.app || echo "  open refused — no GUI session"
+
+      - name: Registered after launch?
+        run: |
+          sleep 15
+          pluginkit -mAvvv -i com.mathieumartin.BrailliantConnect.FileProvider \
+            || echo "  STILL NONE — macOS did not register it on its own"
+
+      - name: Publish the location — the question this whole run exists for
+        run: |
+          set +e
+          /Applications/BrailliantConnect.app/Contents/MacOS/BrailliantConnect --publish
+          echo "exit code: $?"
+          ls -d ~/Library/CloudStorage/BrailliantConnect-* 2>/dev/null \
+            && echo "PUBLISHED — the domain folder exists" \
+            || echo "NOT PUBLISHED — no domain folder"
+
+      - name: What the agent wrote
+        if: always()
+        run: cat ~/Library/Logs/BrailliantConnect.log 2>/dev/null || echo "  no log"
+
+      - name: What the system says about the plug-in
+        if: always()
+        run: |
+          pluginkit -mAvvv -i com.mathieumartin.BrailliantConnect.FileProvider || true
+          log show --last 3m --predicate 'eventMessage CONTAINS "deny"' --style compact 2>/dev/null \
+            | grep -i "brailliant\|fileproviderd" | head -20 || echo "  no sandbox denial found"
