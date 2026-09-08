@@ -126,13 +126,82 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func openInFinder() {
+        if openLocation() { return }
+
+        // Nothing there to open. This is the failure the item is by far the
+        // most likely to hit — the display reads as connected while the
+        // location was never published — and `NSWorkspace.open` answers it
+        // with silence: it returns false and says nothing at all. The first
+        // report it produced read, in full, "activating it produces nothing".
+        //
+        // Publishing again is the remedy wherever there is one, and where
+        // there is none, the error the system gives is precisely what nobody
+        // was being told.
+        log(L.t("\"Open in Finder\": nothing to open — publishing again"))
+        publish { error in
+            DispatchQueue.main.async {
+                if let error {
+                    log(
+                        L.t(
+                            "\"Open in Finder\": publishing failed: %@",
+                            error.localizedDescription))
+                    self.explainEmptyLocation(reason: error.localizedDescription)
+                    return
+                }
+                // `publish` waits for the folder to appear before it links to
+                // it, so a success that still opens nothing means the system
+                // took the domain and produced no folder for it.
+                if self.openLocation() { return }
+                log(L.t("\"Open in Finder\": location published, but no folder appeared"))
+                self.explainEmptyLocation(reason: nil)
+            }
+        }
+    }
+
+    /// Opens the Finder location, and reports whether there was one to open.
+    private func openLocation() -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser
         // Prefer the home-folder shortcut — the path the user can find again on
         // their own afterwards — under whatever name it ended up taking.
         let target =
             FinderLocation.existingShortcuts(home: home).first
             ?? FinderLocation.domainLocation(home: home)
-        NSWorkspace.shared.open(target)
+        // Checked rather than left to `open`: a shortcut pointing at a domain
+        // folder the system has taken away fails exactly like one that was
+        // never created, and `fileExists` follows the link and says so.
+        guard FileManager.default.fileExists(atPath: target.path) else { return false }
+        return NSWorkspace.shared.open(target)
+    }
+
+    /// Says why the location could not be opened.
+    ///
+    /// An alert rather than a line in the log: whoever chose this item is
+    /// looking at the menu bar, not at ~/Library/Logs, and a menu item that
+    /// answers nothing is indistinguishable from an app that has stopped
+    /// working.
+    private func explainEmptyLocation(reason: String?) {
+        let alert = NSAlert()
+        alert.messageText = L.t("The location could not be opened")
+        var text = L.t(
+            "The display is connected, but macOS has not published its location "
+                + "in the Finder.")
+        if let reason {
+            text += "\n\n" + L.t("macOS reports: %@", reason)
+        }
+        text += "\n\n"
+            + L.t("Unplugging the display and plugging it back in is worth trying.")
+        // Only offered where it exists: a build compiled without the backend
+        // key has no such item, and naming one that is not in the menu would
+        // send the reader looking for it.
+        if Feedback.isAvailable {
+            text += " " + L.t("If it happens again, use \"Report a Problem…\" from this menu.")
+        }
+        alert.informativeText = text
+        alert.alertStyle = .warning
+        // An accessory app has no windows and never comes to the front by
+        // itself; without this the alert would open behind everything else.
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     @objc private func openWelcome() {
@@ -150,7 +219,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if Installer.isRegistered {
             Installer.unregister()
         } else {
-            Installer.register()
+            // Written, not loaded: loading boots the job out first, and the
+            // process that dies of it is this one. The agent is already
+            // running — the registration is the only thing missing.
+            Installer.register(loadNow: false)
         }
         onChange()
     }

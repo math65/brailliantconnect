@@ -23,6 +23,10 @@ import Foundation
 /// such snapshot — no location published, extension never run — and there its
 /// failure is attached as-is rather than dropped, since the error it prints is
 /// itself the answer to a good half of the reports that will arrive.
+///
+/// One text file goes with the report, and the agent's own log always leads it.
+/// The sections say *that* the location is not published; only the log says
+/// what the system answered when it was asked to publish it.
 enum Diagnostics {
 
     /// Collects everything, then calls back on the main queue.
@@ -45,17 +49,34 @@ enum Diagnostics {
                     application(symptom: symptom), system(), display(published: published),
                 ]
 
+                // The agent's own log travels with every report, snapshot or
+                // not. It is the only place a failed publication leaves a
+                // trace, and the first report to arrive without it said the
+                // display was reachable, the location was not published, and
+                // nothing whatsoever about why — the one question worth asking.
+                var attachment = Data()
+                func attach(_ title: String, _ body: Data) {
+                    guard !body.isEmpty else { return }
+                    if !attachment.isEmpty { attachment.append(0x0A) }
+                    attachment.append(Data("=== \(title) ===\n".utf8))
+                    attachment.append(body)
+                    if attachment.last != 0x0A { attachment.append(0x0A) }
+                }
+                if let agent = agentLog() {
+                    attach("~/Library/Logs/BrailliantConnect.log", agent)
+                }
+
                 // The extension's snapshot first, and when it is there, no
                 // doctor at all: it would only fail. Running it anyway would
                 // cost the user seconds of waiting to attach an error that
                 // says nothing this report does not already say.
-                var log: Data?
                 if let hardware = hardwareFromExtension() {
                     sections.append(hardware)
                 } else {
-                    log = Data(runDoctor().utf8)
+                    attach("brailliant doctor", Data(runDoctor().utf8))
                 }
 
+                let log = attachment.isEmpty ? nil : attachment
                 DispatchQueue.main.async { completion(sections, log) }
             }
         }
@@ -175,6 +196,37 @@ enum Diagnostics {
             .appendingPathComponent("Library/Containers/\(identifier)/Data")
             .appendingPathComponent("Library/Application Support/BrailliantConnect")
             .appendingPathComponent("last-device.json")
+    }
+
+    /// The tail of the agent's own log, or nil when there is none to read.
+    ///
+    /// Every publication attempt leaves its verdict there — including "display
+    /// connected but publishing failed: …", which is the single line that says
+    /// why nothing appeared in the Finder. A report that left it out asked its
+    /// reader to guess, and the first one to arrive did exactly that.
+    ///
+    /// Only the end is kept. The file has no rotation and the agent writes to
+    /// it at every login for as long as the app is installed, while what a
+    /// report is about happened in the last few minutes.
+    ///
+    /// - Parameter limit: how many bytes of the end to keep.
+    private static func agentLog(limit: Int = 64 * 1024) -> Data? {
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/BrailliantConnect.log")
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+
+        let size = Int((try? handle.seekToEnd()) ?? 0)
+        let cut = size > limit
+        try? handle.seek(toOffset: UInt64(cut ? size - limit : 0))
+        guard var data = try? handle.readToEnd(), !data.isEmpty else { return nil }
+
+        // Resume at a line break rather than mid-line, which also guarantees
+        // the first bytes are not the tail of a multi-byte character.
+        if cut, let newline = data.firstIndex(of: 0x0A) {
+            data = data[data.index(after: newline)...]
+        }
+        return data.isEmpty ? nil : data
     }
 
     /// Runs the `brailliant` shipped next to us and returns whatever it said.
