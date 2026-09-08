@@ -65,8 +65,16 @@ enum Installer {
     /// Called on first launch, which is what makes a double-click the whole
     /// installation procedure. Failing is not fatal: the app keeps watching the
     /// display for this session, it simply will not come back by itself.
+    ///
+    /// - Parameter loadNow: whether to hand the job to launchd straight away.
+    ///   The resident agent has to pass `false`, and this is the trap: loading
+    ///   means booting the job out first, and the process `bootout` terminates
+    ///   is the one running this line. The `bootstrap` below would never
+    ///   happen, and turning "Open at Login" back on would take the menu bar
+    ///   item away until the next login. Writing the registration is all the
+    ///   agent needs there anyway, since it is already running.
     @discardableResult
-    static func register() -> Bool {
+    static func register(loadNow: Bool = true) -> Bool {
         let executable = Bundle.main.bundleURL
             .appendingPathComponent("Contents/MacOS/BrailliantConnect").path
         guard FileManager.default.isExecutableFile(atPath: executable) else { return false }
@@ -88,6 +96,8 @@ enum Installer {
                 fromPropertyList: plist, format: .xml, options: 0),
             (try? data.write(to: agentPlist)) != nil
         else { return false }
+
+        guard loadNow else { return true }
 
         // "bootout" before "bootstrap": bootstrapping over an existing
         // registration fails, which would leave a stale copy in charge.

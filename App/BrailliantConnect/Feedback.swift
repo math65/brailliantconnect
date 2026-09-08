@@ -304,8 +304,9 @@ final class Feedback: NSObject, NSWindowDelegate {
         subject.isProblem
             ? L.t(
                 "This report includes a diagnostic: the version of the app and of macOS, "
-                    + "the state of the display, whether the location is published, and — once "
-                    + "the display has been read — its model, serial number and storage areas.")
+                    + "the state of the display, whether the location is published, this app's "
+                    + "own log, and — once the display has been read — its model, serial "
+                    + "number and storage areas.")
             : nil
     }
 
@@ -355,7 +356,9 @@ final class Feedback: NSObject, NSWindowDelegate {
                 summary: message,
                 subjectHint: "\(subject.reportSubject) — \(AppBackendClient.appVersion)",
                 sections: sections,
-                logFile: log.map { (name: "doctor.txt", data: $0) },
+                // "log.txt", not "doctor.txt": it now carries the agent's
+                // log as well, and usually instead.
+                logFile: log.map { (name: "log.txt", data: $0) },
                 completion: completion)
         }
     }

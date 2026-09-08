@@ -177,6 +177,13 @@ Each of these produces an error that points somewhere other than its cause.
 - Reading a permission or a notification status from a second executable
   dropped into `Contents/MacOS/` reports the wrong answer — it is not the
   application, whatever its path suggests. Measure from the agent itself.
+- `Installer.register()` boots the job out before bootstrapping it, and
+  `bootout` **terminates the process running that line** when the caller is the
+  agent itself. The `bootstrap` after it never happens: the plist is on disk,
+  no job is loaded, and the menu bar item is gone until the next login. That is
+  what turning *Open at Login* back on used to do, so the menu passes
+  `loadNow: false` — the agent is already running, and writing the registration
+  is the whole of what it needs.
 
 ## Hardware behaviour
 
@@ -318,6 +325,15 @@ surface this project keeps narrow (see **Security properties**).
   `brailliant doctor` remains the fallback for the case with no snapshot — no
   location published, extension never run — and there its failure is attached
   rather than dropped.
+
+  One text file travels with the report, and **the agent's own log leads it**:
+  the sections say *that* the location is not published, and only
+  `~/Library/Logs/BrailliantConnect.log` says what the system answered when it
+  was asked to publish it. The first report to arrive had every section and no
+  log, and the one question worth asking was the one it could not answer. Only
+  the last 64 KB go — the file has no rotation. The backend takes a single
+  `log_file`, so the doctor's output, when there is one, is appended to the
+  same file under its own heading rather than sent beside it.
 
 The **subject** picked in the window (`Feedback.Subject`) drives the report: it
 names the email, leads the first section, and decides what the window says

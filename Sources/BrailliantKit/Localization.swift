@@ -177,6 +177,12 @@ public enum L {
             "MTP désactivé sur la plage — emplacement retiré",
         "display disconnected but removal failed: %@":
             "plage débranchée mais retrait impossible : %@",
+        "\"Open in Finder\": nothing to open — publishing again":
+            "« Ouvrir dans le Finder » : rien à ouvrir — nouvelle publication",
+        "\"Open in Finder\": publishing failed: %@":
+            "« Ouvrir dans le Finder » : publication impossible : %@",
+        "\"Open in Finder\": location published, but no folder appeared":
+            "« Ouvrir dans le Finder » : emplacement publié, mais aucun dossier n'est apparu",
         "Publishing failed: %@": "Échec de la publication : %@",
         "Removal failed: %@": "Échec du retrait : %@",
         "The system did not answer within the allotted time.":
@@ -265,6 +271,16 @@ public enum L {
         "Uninstall anyway": "Désinstaller quand même",
         "No display connected": "Aucune plage branchée",
         "Open in Finder": "Ouvrir dans le Finder",
+        "The location could not be opened": "L'emplacement n'a pas pu être ouvert",
+        "The display is connected, but macOS has not published its location "
+            + "in the Finder.":
+            "La plage est branchée, mais macOS n'a pas publié son emplacement "
+            + "dans le Finder.",
+        "macOS reports: %@": "macOS indique : %@",
+        "Unplugging the display and plugging it back in is worth trying.":
+            "Débrancher puis rebrancher la plage vaut la peine d'être essayé.",
+        "If it happens again, use \"Report a Problem…\" from this menu.":
+            "Si cela se reproduit, utilisez « Signaler un problème… » dans ce menu.",
         "Press a key on the display to wake it":
             "Appuyez sur une touche pour la réactiver",
         "Open at Login": "Lancer à l'ouverture de session",
@@ -374,11 +390,13 @@ public enum L {
             "Un transfert est en cours. Le fichier n'est peut-être pas encore arrivé.",
 
         "This report includes a diagnostic: the version of the app and of macOS, "
-            + "the state of the display, whether the location is published, and — once "
-            + "the display has been read — its model, serial number and storage areas.":
+            + "the state of the display, whether the location is published, this app's "
+            + "own log, and — once the display has been read — its model, serial "
+            + "number and storage areas.":
             "Ce signalement inclut un diagnostic : la version de l'app et de macOS, "
-            + "l'état de la plage, la publication ou non de l'emplacement et, dès que la "
-            + "plage a été lue, son modèle, son numéro de série et ses stockages.",
+            + "l'état de la plage, la publication ou non de l'emplacement, le journal "
+            + "de l'app et, dès que la plage a été lue, son modèle, son numéro de série "
+            + "et ses stockages.",
 
         "Enter the email address where you'd like to receive a reply.":
             "Saisissez l'adresse e-mail à laquelle vous souhaitez recevoir une réponse.",
