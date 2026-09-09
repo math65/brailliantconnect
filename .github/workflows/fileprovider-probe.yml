@@ -79,6 +79,15 @@ jobs:
             && echo "  (true = served at once; false = the Finder waits for Enable, as macOS 13 does)" \
             || echo "  no domain state on disk"
 
+      - name: Is it served without a click? (13 hangs here until the user enables it)
+        if: always()
+        run: |
+          ( ls -la ~/Library/CloudStorage/BrailliantConnect-Brailliant/ > /tmp/ls.out 2>&1; echo "ls exit $?" >> /tmp/ls.out ) &
+          sleep 25
+          cat /tmp/ls.out 2>/dev/null || echo "  ls still hanging after 25 s — nothing is served"
+          pgrep -lx FileProviderExtension && echo "  extension process running: served" \
+            || echo "  no extension process: not served"
+
       - name: What the agent wrote
         if: always()
         run: cat ~/Library/Logs/BrailliantConnect.log 2>/dev/null || echo "  no log"
