@@ -19,11 +19,12 @@ out to be two things the app had never met on newer systems.
   same way there. The app now carries its identity in its signature, the way
   Dropbox and Google Drive do, and the service no longer needs to read
   anything.
-- macOS 13 also creates a new location switched off, and asks you to enable it
-  once: in the Finder sidebar, under Locations, select BrailliantConnect, then
+- On a Mac that has never seen it, macOS creates the new location switched
+  off and asks you to enable it once — on macOS 13, and on 14, 15 and 26 alike:
+  in the Finder sidebar, under Locations, select BrailliantConnect, then
   activate Enable. The app cannot do that for you — it is your consent — but
-  it tells you: the menu bar says it is waiting, a notification says where the
-  button is, "Open in Finder" opens the window that has it, and the app
+  it now tells you: the menu bar says it is waiting, a notification says where
+  the button is, "Open in Finder" opens the window that has it, and the app
   notices the moment you have done it. Once is enough; unplugging the display
   and plugging it back in does not ask again.
 

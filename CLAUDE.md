@@ -309,8 +309,12 @@ after a user's report; every statement here comes with its control.
   every read answers -2011, and the extension is never launched. The Finder
   shows the location in its sidebar with the banner "“BrailliantConnect” is
   not enabled. To access “BrailliantConnect”, click Enable"; after the click
-  the extension starts and the folder lists. The app says nothing about this
-  yet. Whether macOS 14 and later ask the same is not measured.
+  the extension starts and the folder lists. The agent reads `userEnabled`
+  and says so (menu, notification, welcome page, report, `--publish`). Not a
+  macOS 13 trait: the probe workflow reads `Enabled` from `Domains.plist`, and
+  fresh 14.8.9, 15.7.9 and 26.6.2 runners all answer `false` after a
+  publication. Only 13.2.1 has been watched doing the click; the key persists
+  once set, which is why the author's Mac never asks.
 - **The extension is registered on its own.** `pluginkit` lists it right
   after the first launch, so the agent's line "the system holds no record of
   the Finder extension" is wrong on this version, and its `pluginkit -a` does

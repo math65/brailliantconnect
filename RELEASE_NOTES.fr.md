@@ -20,11 +20,12 @@ rencontrées sur les systèmes plus récents.
   plage ; le projet d'exemple d'Apple lui-même y échoue de la même façon.
   L'application porte désormais son identité dans sa signature, comme Dropbox
   et Google Drive, et le service n'a plus rien à lire.
-- macOS 13 crée aussi tout nouvel emplacement désactivé, et vous demande de
-  l'activer une fois : dans la barre latérale du Finder, sous Emplacements,
-  sélectionnez BrailliantConnect, puis activez le bouton Activer. L'application
-  ne peut pas le faire à votre place — c'est votre consentement — mais elle
-  vous le dit : la barre des menus indique qu'elle attend, une notification dit
+- Sur un Mac qui ne l'a jamais vu, macOS crée le nouvel emplacement désactivé
+  et vous demande de l'activer une fois — sous macOS 13 comme sous 14, 15 et
+  26 : dans la barre latérale du Finder, sous Emplacements, sélectionnez
+  BrailliantConnect, puis activez le bouton Activer. L'application ne peut pas
+  le faire à votre place — c'est votre consentement — mais elle vous le dit
+  désormais : la barre des menus indique qu'elle attend, une notification dit
   où est le bouton, « Ouvrir dans le Finder » ouvre la fenêtre qui le porte, et
   l'application s'en aperçoit dès que c'est fait. Une seule fois suffit ;
   débrancher puis rebrancher la plage ne redemande rien.
