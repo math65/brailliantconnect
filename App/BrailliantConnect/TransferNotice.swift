@@ -39,6 +39,24 @@ enum TransferNotice {
         }
     }
 
+    /// Says that the Finder is waiting for the location to be enabled.
+    ///
+    /// Once per agent, from `trackApproval`: on macOS 13 a new location is
+    /// created disabled, and the only sign of it is a banner in a Finder
+    /// window nobody has a reason to open.
+    static func announceApprovalNeeded() {
+        let content = UNMutableNotificationContent()
+        content.title = L.t("Enable the Brailliant location")
+        content.body = L.t(
+            "In the Finder sidebar, under Locations, select BrailliantConnect, then "
+                + "activate Enable. Once is enough.")
+        let request = UNNotificationRequest(
+            identifier: "location-approval", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error { delivery?("notification refused: \(error.localizedDescription)") }
+        }
+    }
+
     /// Says the display is safe to unplug.
     static func announceCompletion(of total: Int64) {
         let content = UNMutableNotificationContent()

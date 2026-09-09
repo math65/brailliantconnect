@@ -191,6 +191,13 @@ public enum L {
             "« Ouvrir dans le Finder » : publication impossible : %@",
         "\"Open in Finder\": location published, but no folder appeared":
             "« Ouvrir dans le Finder » : emplacement publié, mais aucun dossier n'est apparu",
+        "location published, but macOS is waiting for it to be enabled in the Finder":
+            "emplacement publié, mais macOS attend qu'il soit activé dans le Finder",
+        "location enabled in the Finder": "emplacement activé dans le Finder",
+        "macOS is waiting for it to be enabled: in the Finder sidebar, "
+            + "under Locations, choose BrailliantConnect, then Enable.":
+            "macOS attend qu'il soit activé : dans la barre latérale du Finder, "
+            + "sous Emplacements, choisissez BrailliantConnect, puis Activer.",
         "Publishing failed: %@": "Échec de la publication : %@",
         "Removal failed: %@": "Échec du retrait : %@",
         "The system did not answer within the allotted time.":
@@ -279,6 +286,23 @@ public enum L {
         "Uninstall anyway": "Désinstaller quand même",
         "No display connected": "Aucune plage branchée",
         "Open in Finder": "Ouvrir dans le Finder",
+        "Waiting for the location to be enabled in the Finder":
+            "En attente de l'activation de l'emplacement dans le Finder",
+        "In the sidebar, choose BrailliantConnect, then Enable":
+            "Dans la barre latérale, choisissez BrailliantConnect, puis Activer",
+        "Enable the Brailliant location": "Activez l'emplacement Brailliant",
+        "In the Finder sidebar, under Locations, select BrailliantConnect, then "
+            + "activate Enable. Once is enough.":
+            "Dans la barre latérale du Finder, sous Emplacements, sélectionnez "
+            + "BrailliantConnect, puis activez le bouton Activer. Une seule fois suffit.",
+        "The first time, the Finder may ask you to enable the location: in "
+            + "its sidebar, under Locations, select BrailliantConnect, then "
+            + "activate Enable. Once is enough, and the menu bar says so for "
+            + "as long as it is waiting.":
+            "La première fois, le Finder peut demander d'activer l'emplacement : "
+            + "dans sa barre latérale, sous Emplacements, sélectionnez "
+            + "BrailliantConnect, puis activez le bouton Activer. Une seule fois "
+            + "suffit, et la barre des menus le dit tant qu'il attend.",
         "The location could not be opened": "L'emplacement n'a pas pu être ouvert",
         "The display is connected, but macOS has not published its location "
             + "in the Finder.":

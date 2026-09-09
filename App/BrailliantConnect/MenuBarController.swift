@@ -74,6 +74,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         switch availability {
         case .ready:
             menu.addItem(disabled(L.t("Display connected")))
+            // macOS 13 serves nothing from a new location until the user has
+            // enabled it in the Finder, and says so only in a banner nobody
+            // opens the Finder to read. The menu is where they look instead,
+            // and the item below opens exactly the window with the button.
+            if locationAwaitingApproval {
+                menu.addItem(disabled(L.t("Waiting for the location to be enabled in the Finder")))
+                menu.addItem(disabled(L.t("In the sidebar, choose BrailliantConnect, then Enable")))
+            }
             add(menu, L.t("Open in Finder"), #selector(openInFinder))
         case .asleep:
             // Plugged in but answering nothing. The remedy differs from one
@@ -162,10 +170,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func openLocation() -> Bool {
         let home = FileManager.default.homeDirectoryForCurrentUser
         // Prefer the home-folder shortcut — the path the user can find again on
-        // their own afterwards — under whatever name it ended up taking.
+        // their own afterwards — under whatever name it ended up taking. Not
+        // while the Finder waits for its click: the banner with the button
+        // hangs on the location itself, so that is what gets opened.
         let target =
-            FinderLocation.existingShortcuts(home: home).first
-            ?? FinderLocation.domainLocation(home: home)
+            locationAwaitingApproval
+            ? FinderLocation.domainLocation(home: home)
+            : FinderLocation.existingShortcuts(home: home).first
+                ?? FinderLocation.domainLocation(home: home)
         // Checked rather than left to `open`: a shortcut pointing at a domain
         // folder the system has taken away fails exactly like one that was
         // never created, and `fileExists` follows the link and says so.
@@ -188,7 +200,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if let reason {
             text += "\n\n" + L.t("macOS reports: %@", reason)
         }
-        text += "\n\n"
+        text +=
+            "\n\n"
             + L.t("Unplugging the display and plugging it back in is worth trying.")
         // Only offered where it exists: a build compiled without the backend
         // key has no such item, and naming one that is not in the menu would

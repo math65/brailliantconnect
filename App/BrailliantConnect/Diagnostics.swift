@@ -43,10 +43,11 @@ enum Diagnostics {
         symptom: String,
         completion: @escaping (_ sections: [AppBackendClient.ReportSection], _ log: Data?) -> Void
     ) {
-        isPublished { published in
+        publishedState { published, userEnabled in
             DispatchQueue.global(qos: .userInitiated).async {
                 var sections = [
-                    application(symptom: symptom), system(), display(published: published),
+                    application(symptom: symptom), system(),
+                    display(published: published, userEnabled: userEnabled),
                 ]
 
                 // The agent's own log travels with every report, snapshot or
@@ -114,7 +115,19 @@ enum Diagnostics {
 
     /// The half a report from an untested model turns on: what the USB tree
     /// says, and whether the Finder side of it actually came up.
-    private static func display(published: Bool) -> AppBackendClient.ReportSection {
+    private static func display(
+        published: Bool, userEnabled: Bool?
+    ) -> AppBackendClient.ReportSection {
+        // A location can be published and still serve nothing: macOS 13 waits
+        // for the user to enable it in the Finder. The first report from such
+        // a Mac said "published" and nothing else, which was true and useless.
+        let enabled: String
+        switch (published, userEnabled) {
+        case (false, _): enabled = "—"
+        case (true, .some(true)): enabled = "oui"
+        case (true, .some(false)): enabled = "non — en attente du clic Enable"
+        case (true, .none): enabled = "inconnu"
+        }
         let home = FileManager.default.homeDirectoryForCurrentUser
         let shortcuts = FinderLocation.existingShortcuts(home: home)
         let shortcut =
@@ -130,6 +143,7 @@ enum Diagnostics {
                 ("Appareils HumanWare branchés", String(USBWatcher.pluggedDisplayCount())),
                 ("Dont joignables en MTP", String(USBWatcher.connectedDisplayCount())),
                 ("Emplacement publié", published ? "oui" : "non"),
+                ("Activé dans le Finder", enabled),
                 ("Raccourci", shortcut),
             ])
     }

@@ -162,6 +162,11 @@ final class Welcome: NSObject, NSWindowDelegate {
             <p>\(L.t(
                 "So your documents are one level down. The top level holds these "
                     + "storages and accepts no files of its own."))</p>
+            <p>\(L.t(
+                "The first time, the Finder may ask you to enable the location: in "
+                    + "its sidebar, under Locations, select BrailliantConnect, then "
+                    + "activate Enable. Once is enough, and the menu bar says so for "
+                    + "as long as it is waiting."))</p>
 
             <h2>\(L.t("3. Wait before unplugging"))</h2>
             <p>\(L.t(

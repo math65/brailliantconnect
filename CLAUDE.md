@@ -283,6 +283,41 @@ Worth preserving deliberately, since a change elsewhere can quietly undo them:
 - `make-dist.sh` refuses to package a bundle carrying `get-task-allow`: a debug
   build would ship an agent any process could attach to.
 
+## macOS 13
+
+Measured on 9 September 2026 on a pristine Ventura 13.2.1 virtual machine,
+after a user's report; every statement here comes with its control.
+
+- **`fileproviderd` cannot read a third-party bundle under `/Applications`.**
+  Its sandbox profile (`/System/Library/Sandbox/Profiles/com.apple.fileproviderd.sb`)
+  lists no such path, and the kernel logs
+  `Sandbox: fileproviderd deny(1) file-read-data /Applications/BrailliantConnect.app`
+  at the second every publication fails. To learn which app is calling, the
+  daemon first reads the caller's `com.apple.application-identifier`
+  entitlement and only then falls back to reading the bundle from disk. Apps
+  that carry the entitlement (Dropbox, Google Drive) never touch the disk. Ours
+  did not, so `NSFileProviderManager.add` answered `providerNotFound` (-2001,
+  "The application cannot be used right now") — from `--publish`, from `open`,
+  from the resident agent, and for Apple's own FruitBasket sample alike. The
+  same bundle in `~/Desktop` or `~/Applications` publishes; moved back to
+  `/Applications`, it fails again. Hence the Developer ID provisioning profile
+  and the distribution entitlements in `make-dist.sh`: with them, the same
+  build publishes from `/Applications`. Without a profile the claim gets the
+  app killed at launch ("Code has restricted entitlements, but the validation
+  of its code signature failed").
+- **A new location starts disabled.** `Domains.plist` says `Enabled = false`,
+  every read answers -2011, and the extension is never launched. The Finder
+  shows the location in its sidebar with the banner "“BrailliantConnect” is
+  not enabled. To access “BrailliantConnect”, click Enable"; after the click
+  the extension starts and the folder lists. The app says nothing about this
+  yet. Whether macOS 14 and later ask the same is not measured.
+- **The extension is registered on its own.** `pluginkit` lists it right
+  after the first launch, so the agent's line "the system holds no record of
+  the Finder extension" is wrong on this version, and its `pluginkit -a` does
+  nothing useful there.
+- The VM, its tooling and every measurement are described in the auto-memory
+  note `vm-ventura-tart`.
+
 ## The backend
 
 The app talks to `app-backend` (the Go service behind `mathieumartin.ovh`),

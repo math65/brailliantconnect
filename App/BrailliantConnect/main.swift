@@ -156,6 +156,8 @@ func settle(_ error: Error?, _ completion: @escaping (Error?) -> Void) {
         // A domain removed and re-added is a new one, so its progress has to be
         // picked up again rather than kept from last time.
         transfers.follow(domain: domainIdentifier)
+        // Published is not yet served: the user's click may still be missing.
+        publishedState { _, userEnabled in trackApproval(userEnabled: userEnabled) }
     }
     completion(error)
 }
@@ -166,14 +168,96 @@ func unpublish(_ completion: @escaping (Error?) -> Void) {
         // The shortcut goes with the domain: leaving it would point nowhere.
         removeShortcut()
         transfers.stop()
+        // Nothing left to wait for. The consent itself is kept by the system,
+        // so the next publication comes back enabled.
+        DispatchQueue.main.async {
+            locationAwaitingApproval = false
+            stopApprovalPoll()
+        }
         completion(error)
     }
 }
 
-func isPublished(_ completion: @escaping (Bool) -> Void) {
+/// Reads whether our domain is published, and whether the user has enabled it.
+///
+/// `userEnabled` is the second half of a publication on macOS 13: the system
+/// creates a third-party location disabled, the Finder asks for a click on
+/// "Enable" the first time, and until then every read answers -2011 and the
+/// extension is never started. Nothing public can flip it — it is the user's
+/// consent — but it can be read, and said.
+func publishedState(_ completion: @escaping (_ published: Bool, _ userEnabled: Bool?) -> Void) {
     NSFileProviderManager.getDomainsWithCompletionHandler { domains, _ in
-        completion(domains.contains { $0.identifier == domainIdentifier })
+        let ours = domains.first { $0.identifier == domainIdentifier }
+        completion(ours != nil, ours?.userEnabled)
     }
+}
+
+func isPublished(_ completion: @escaping (Bool) -> Void) {
+    publishedState { published, _ in completion(published) }
+}
+
+// MARK: - The user's consent
+
+/// Whether the published location is still waiting for the user to enable it.
+///
+/// Read by the menu, which says so for as long as it lasts. Measured on
+/// 13.2.1: the click is asked once per Mac — the choice survives the domain
+/// being removed and published again, which is what every unplug and plug
+/// does — and never on the author's macOS 26. Main queue only.
+var locationAwaitingApproval = false
+
+/// The first time is announced — a log line and a notification — and the
+/// menu carries it from then on. Once per agent: a notification at every plug
+/// would teach the reader to dismiss it.
+var approvalAnnounced = false
+
+/// Polls the consent while it is awaited, so the agent notices the click
+/// without being told: the system sends no notification for it.
+var approvalPoll: Timer?
+
+func trackApproval(userEnabled: Bool?) {
+    DispatchQueue.main.async {
+        let waiting = userEnabled == false
+        let changed = waiting != locationAwaitingApproval
+        locationAwaitingApproval = waiting
+        if waiting {
+            if !approvalAnnounced {
+                approvalAnnounced = true
+                log(
+                    L.t(
+                        "location published, but macOS is waiting for it to be enabled in the Finder"
+                    ))
+                TransferNotice.announceApprovalNeeded()
+            }
+            startApprovalPoll()
+        } else {
+            if changed { log(L.t("location enabled in the Finder")) }
+            stopApprovalPoll()
+        }
+    }
+}
+
+/// Main queue only: a timer belongs to the run loop of the thread that makes
+/// it, and only the main one runs.
+func startApprovalPoll() {
+    guard approvalPoll == nil else { return }
+    approvalPoll = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
+        publishedState { published, userEnabled in
+            DispatchQueue.main.async {
+                guard published else {
+                    locationAwaitingApproval = false
+                    stopApprovalPoll()
+                    return
+                }
+                trackApproval(userEnabled: userEnabled)
+            }
+        }
+    }
+}
+
+func stopApprovalPoll() {
+    approvalPoll?.invalidate()
+    approvalPoll = nil
 }
 
 func finish(_ message: String, code: Int32 = 0) -> Never {
@@ -198,7 +282,7 @@ func syncWithHardware() {
     let state = USBWatcher.availability()
     let available = state == .ready
     let connected = available
-    isPublished { published in
+    publishedState { published, userEnabled in
         let action = FinderLocation.action(
             displayConnected: connected, locationPublished: published)
         // Report a transition once, not once per notification.
@@ -244,8 +328,12 @@ func syncWithHardware() {
         case .nothing:
             // Already in the right state — but if that state is "published",
             // this may be the first pass after a restart, and the transfer
-            // progress still has to be picked up.
-            if published { transfers.follow(domain: domainIdentifier) }
+            // progress still has to be picked up — as does the consent, which
+            // may have been given, or not, while no agent was watching.
+            if published {
+                transfers.follow(domain: domainIdentifier)
+                trackApproval(userEnabled: userEnabled)
+            }
         }
     }
 }
@@ -300,12 +388,26 @@ switch arguments.first ?? "--install" {
 
 case "--publish":
     publish { error in
-        finalMessage =
-            error == nil
-            ? L.t("Location published. Reachable in \"~/Brailliant\".")
-            : L.t("Publishing failed: %@", error!.localizedDescription)
-        exitCode = error == nil ? 0 : 1
-        waiter.signal()
+        guard error == nil else {
+            finalMessage = L.t("Publishing failed: %@", error!.localizedDescription)
+            exitCode = 1
+            waiter.signal()
+            return
+        }
+        finalMessage = L.t("Location published. Reachable in \"~/Brailliant\".")
+        // Published is one thing; served is another, and the command that
+        // said "published" on macOS 13 while the Finder waited for a click
+        // would have been telling half the truth.
+        publishedState { _, userEnabled in
+            if userEnabled == false {
+                finalMessage +=
+                    "\n"
+                    + L.t(
+                        "macOS is waiting for it to be enabled: in the Finder sidebar, "
+                            + "under Locations, choose BrailliantConnect, then Enable.")
+            }
+            waiter.signal()
+        }
     }
     if waiter.wait(timeout: .now() + 60) == .timedOut {
         finish(L.t("The system did not answer within the allotted time."), code: 1)

@@ -78,6 +78,16 @@ holding a Debug build: see step 6.
 Notarizing takes a few minutes. The script staples the ticket and re-zips, so
 the archive works offline.
 
+With `--notarize` the agent is also signed with
+`App/BrailliantConnect/BrailliantConnect-distribution.entitlements` and
+carries `App/BrailliantConnect/BrailliantConnect.provisionprofile` as
+`Contents/embedded.provisionprofile`: that is what lets macOS 13 publish the
+location at all (see **macOS 13** in `CLAUDE.md`). The script refuses to
+package without either. The profile expires on 4 September 2044 but embeds the
+Developer ID certificate, which expires in **February 2027**: after renewing
+the certificate, regenerate the profile on the portal (Profiles → Developer ID
+→ App ID `com.mathieumartin.BrailliantConnect`) and replace the file.
+
 ## 6. If the `/extension` loop ran recently
 
 Testing the extension puts a **Debug** build in `/Applications`. It is not the

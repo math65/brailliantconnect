@@ -1,21 +1,31 @@
 # Release notes
 
-## v1.1.1 — 08/09/2026
+## v1.1.1 — 09/09/2026
 
-Three things the app used to do silently, it now says out loud.
+Three things the app used to do silently, it now says out loud — and one it
+could not do at all on macOS 13, it now does.
 
-A report arrived from a BI 40X: the display connected, file transfer on, cables
-checked — and nothing in the Finder. Choosing "Open in Finder" from the menu bar
-did nothing at all. The description was exact, and the fault was the app's: not
-that it failed, but that it failed without a word.
+A report arrived from a BI 40X running macOS 13: the display connected, file
+transfer on, cables checked — and nothing in the Finder. Choosing "Open in
+Finder" from the menu bar did nothing at all. The description was exact.
+Reproducing it took a virtual Mac running that same macOS, and the cause turned
+out to be two things the app had never met on newer systems.
 
-### The location repairs itself when macOS has lost the extension
-- On one machine, the location was never published, and the reason turned out to
-  have nothing to do with the braille display: macOS held no record of the app's
-  Finder extension, so it had nobody to hand the location to. It answers that
-  with "The application cannot be used right now", which names neither the
-  extension nor the registry. The app now recognises it, registers its own
-  extension, and publishes the location again — by itself, with nothing to type.
+### The location publishes on macOS 13
+- On macOS 13, the system service behind Finder locations is not allowed to
+  read an app installed in the Applications folder — and reading ours was how
+  it identified it. It answered "The application cannot be used right now"
+  every time, whatever the display did; Apple's own sample project fails the
+  same way there. The app now carries its identity in its signature, the way
+  Dropbox and Google Drive do, and the service no longer needs to read
+  anything.
+- macOS 13 also creates a new location switched off, and asks you to enable it
+  once: in the Finder sidebar, under Locations, select BrailliantConnect, then
+  activate Enable. The app cannot do that for you — it is your consent — but
+  it tells you: the menu bar says it is waiting, a notification says where the
+  button is, "Open in Finder" opens the window that has it, and the app
+  notices the moment you have done it. Once is enough; unplugging the display
+  and plugging it back in does not ask again.
 
 ### "Open in Finder" says what happened
 - When the location has not been published, the item used to open a folder that
@@ -33,7 +43,8 @@ that it failed, but that it failed without a word.
   what the system answered when the app asked to publish it, because that line
   lives in a log that was never sent. It travels with every report now — the end
   of it, the part describing what just happened — and the window says so before
-  you press Send, along with everything else the report contains.
+  you press Send, along with everything else the report contains. The report
+  also says whether the location has been enabled.
 
 Nothing on the braille display is touched, and nothing else changes.
 

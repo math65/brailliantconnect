@@ -23,7 +23,7 @@ on:
     inputs:
       tag:
         description: Release tag to test
-        default: v1.1.1-beta2
+        default: v1.1.1-beta3
 
 jobs:
   probe:
@@ -70,6 +70,14 @@ jobs:
           ls -d ~/Library/CloudStorage/BrailliantConnect-* 2>/dev/null \
             && echo "PUBLISHED — the domain folder exists" \
             || echo "NOT PUBLISHED — no domain folder"
+
+      - name: Did the location come up enabled, or does this macOS ask for a click?
+        if: always()
+        run: |
+          P="$HOME/Library/Application Support/FileProvider/com.mathieumartin.BrailliantConnect.FileProvider/Domains.plist"
+          /usr/libexec/PlistBuddy -c "Print :brailliant-principal:Enabled" "$P" 2>/dev/null \
+            && echo "  (true = served at once; false = the Finder waits for Enable, as macOS 13 does)" \
+            || echo "  no domain state on disk"
 
       - name: What the agent wrote
         if: always()

@@ -1,23 +1,33 @@
 # Notes de version
 
-## v1.1.1 — 08/09/2026
+## v1.1.1 — 09/09/2026
 
-Trois choses que l'application faisait en silence, elle les dit maintenant.
+Trois choses que l'application faisait en silence, elle les dit maintenant — et
+une qu'elle ne pouvait pas faire du tout sur macOS 13, elle la fait.
 
-Un signalement est arrivé d'une BI 40X : plage branchée, transfert de fichiers
-activé, câbles vérifiés — et rien dans le Finder. Choisir « Ouvrir dans le
-Finder » depuis la barre des menus ne produisait rien du tout. La description
-était exacte, et la faute revenait à l'application : non pas d'avoir échoué,
-mais d'avoir échoué sans un mot.
+Un signalement est arrivé d'une BI 40X sous macOS 13 : plage branchée,
+transfert de fichiers activé, câbles vérifiés — et rien dans le Finder. Choisir
+« Ouvrir dans le Finder » depuis la barre des menus ne produisait rien du tout.
+La description était exacte. Le reproduire a demandé un Mac virtuel sous ce
+même macOS, et la cause tenait à deux choses que l'application n'avait jamais
+rencontrées sur les systèmes plus récents.
 
-### L'emplacement se répare quand macOS a perdu l'extension
-- Sur une machine, l'emplacement n'a jamais été publié, et la raison n'avait
-  rien à voir avec la plage braille : macOS ne gardait aucune trace de
-  l'extension Finder de l'application, et n'avait donc personne à qui confier
-  l'emplacement. Il répond à cela « L'application ne peut pas être utilisée pour
-  le moment », ce qui ne nomme ni l'extension ni le registre. L'application
-  reconnaît désormais ce cas, enregistre sa propre extension et publie
-  l'emplacement à nouveau — seule, sans rien à taper.
+### L'emplacement se publie sur macOS 13
+- Sur macOS 13, le service système derrière les emplacements du Finder n'a pas
+  le droit de lire une application installée dans le dossier Applications — et
+  c'est en la lisant qu'il identifiait la nôtre. Il répondait « L'application
+  ne peut pas être utilisée pour le moment » à chaque fois, quoi que fasse la
+  plage ; le projet d'exemple d'Apple lui-même y échoue de la même façon.
+  L'application porte désormais son identité dans sa signature, comme Dropbox
+  et Google Drive, et le service n'a plus rien à lire.
+- macOS 13 crée aussi tout nouvel emplacement désactivé, et vous demande de
+  l'activer une fois : dans la barre latérale du Finder, sous Emplacements,
+  sélectionnez BrailliantConnect, puis activez le bouton Activer. L'application
+  ne peut pas le faire à votre place — c'est votre consentement — mais elle
+  vous le dit : la barre des menus indique qu'elle attend, une notification dit
+  où est le bouton, « Ouvrir dans le Finder » ouvre la fenêtre qui le porte, et
+  l'application s'en aperçoit dès que c'est fait. Une seule fois suffit ;
+  débrancher puis rebrancher la plage ne redemande rien.
 
 ### « Ouvrir dans le Finder » dit ce qui s'est passé
 - Quand l'emplacement n'a pas été publié, l'élément ouvrait un dossier qui
@@ -38,6 +48,7 @@ mais d'avoir échoué sans un mot.
   jamais envoyé. Il voyage désormais avec chaque signalement — sa fin, la partie
   qui décrit ce qui vient de se passer — et la fenêtre l'annonce avant que vous
   n'appuyiez sur Envoyer, avec tout le reste de ce que le signalement contient.
+  Le signalement dit aussi si l'emplacement a été activé.
 
 Rien sur la plage braille n'est touché, et rien d'autre ne change.
 

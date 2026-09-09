@@ -140,6 +140,21 @@ if [ "$NOTARIZE" -eq 1 ]; then
   RUNTIME_FLAGS=(--options runtime --timestamp)
 fi
 
+# The distributed agent claims its identity (com.apple.application-identifier)
+# and carries the Developer ID provisioning profile that authorises the claim.
+# macOS 13 needs it: fileproviderd reads that entitlement to learn which app is
+# publishing a location, and otherwise reads the bundle from disk, which its
+# sandbox refuses under /Applications — every publication then ends in -2001
+# "The application cannot be used right now" (measured on a pristine 13.2.1,
+# 9 Sep 2026). The ad-hoc bundle keeps the plain entitlements: the claim is
+# restricted, and an app making it without a profile is killed at launch.
+APP_ENTITLEMENTS="$ROOT/App/BrailliantConnect/BrailliantConnect.entitlements"
+if [ "$NOTARIZE" -eq 1 ]; then
+  APP_ENTITLEMENTS="$ROOT/App/BrailliantConnect/BrailliantConnect-distribution.entitlements"
+  cp "$ROOT/App/BrailliantConnect/BrailliantConnect.provisionprofile" \
+    "$APP/Contents/embedded.provisionprofile"
+fi
+
 # The extension is deliberately not re-signed: Xcode already signed it with its
 # entitlements during the build. Re-signing without passing --entitlements
 # silently drops them, and the extension then refuses to load with a message
@@ -155,7 +170,7 @@ codesign --force ${RUNTIME_FLAGS[@]+"${RUNTIME_FLAGS[@]}"} --sign "$IDENTITY" \
 # Re-sealing the app must carry its entitlements explicitly, for the same
 # reason as above.
 codesign --force ${RUNTIME_FLAGS[@]+"${RUNTIME_FLAGS[@]}"} \
-  --entitlements "$ROOT/App/BrailliantConnect/BrailliantConnect.entitlements" \
+  --entitlements "$APP_ENTITLEMENTS" \
   --sign "$IDENTITY" "$APP"
 
 log "Verifying"
@@ -168,6 +183,18 @@ if ! codesign -d --entitlements - "$APP/Contents/PlugIns/FileProviderExtension.a
   exit 1
 fi
 echo "    extension: sandbox entitlement present"
+# The distributed agent must claim its identity and carry the profile that
+# backs the claim: one without the other is an app that macOS 13 cannot serve,
+# or one that macOS kills at launch.
+if [ "$NOTARIZE" -eq 1 ]; then
+  if ! codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "application-identifier"; then
+    echo "ERROR: the agent does not claim com.apple.application-identifier." >&2
+    exit 1
+  fi
+  [ -f "$APP/Contents/embedded.provisionprofile" ] \
+    || { echo "ERROR: no embedded.provisionprofile in the agent." >&2; exit 1; }
+  echo "    agent: identity claimed, profile embedded (expires $(security cms -D -i "$APP/Contents/embedded.provisionprofile" 2>/dev/null | plutil -extract ExpirationDate raw -o - - 2>/dev/null | cut -c1-10))"
+fi
 # get-task-allow lets any process attach to ours. Xcode adds it to debug builds,
 # and a debug build reaching this script would ship a debuggable agent holding a
 # live MTP session over the user's files.

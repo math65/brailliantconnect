@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	The distributed agent claims its identity, and BrailliantConnect.entitlements
+	(used by Xcode builds and ad-hoc bundles) does not. On macOS 13,
+	fileproviderd reads com.apple.application-identifier to learn which app is
+	asking it to publish a location, and falls back to reading the bundle from
+	disk, which its sandbox forbids under /Applications. Measured on a pristine
+	13.2.1 on 9 Sep 2026: without this claim, every publication ends in -2001.
+	The claim is restricted: it is only honoured with the Developer ID
+	provisioning profile beside it (BrailliantConnect.provisionprofile), and an
+	app making it without one is killed at launch.
+	-->
+	<key>com.apple.application-identifier</key>
+	<string>633EG76YX5.com.mathieumartin.BrailliantConnect</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>633EG76YX5</string>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>633EG76YX5.group.com.mathieumartin.brailliantconnect</string>
+	</array>
+</dict>
+</plist>
