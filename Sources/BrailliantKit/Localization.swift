@@ -295,14 +295,6 @@ public enum L {
             + "activate Enable. Once is enough.":
             "Dans la barre latérale du Finder, sous Emplacements, sélectionnez "
             + "BrailliantConnect, puis activez le bouton Activer. Une seule fois suffit.",
-        "The first time, the Finder may ask you to enable the location: in "
-            + "its sidebar, under Locations, select BrailliantConnect, then "
-            + "activate Enable. Once is enough, and the menu bar says so for "
-            + "as long as it is waiting.":
-            "La première fois, le Finder peut demander d'activer l'emplacement : "
-            + "dans sa barre latérale, sous Emplacements, sélectionnez "
-            + "BrailliantConnect, puis activez le bouton Activer. Une seule fois "
-            + "suffit, et la barre des menus le dit tant qu'il attend.",
         "The location could not be opened": "L'emplacement n'a pas pu être ouvert",
         "The display is connected, but macOS has not published its location "
             + "in the Finder.":
@@ -341,7 +333,20 @@ public enum L {
             "C'est ce qui permet à l'ordinateur de voir les fichiers. La plage "
             + "reste utilisable comme plage braille en même temps — les deux "
             + "fonctionnent ensemble, il n'y a rien à désactiver.",
-        "2. Your files are in %@": "2. Vos fichiers sont dans %@",
+        "2. Enable the location, once": "2. Activez l'emplacement, une fois",
+        "The first time the display appears, macOS creates its location "
+            + "switched off and asks you to enable it: in the Finder sidebar, "
+            + "under Locations, select BrailliantConnect, then activate the "
+            + "Enable button. The menu bar says when it is waiting, and \"Open "
+            + "in Finder\" opens the window that has the button. Once is "
+            + "enough: unplugging the display does not ask again.":
+            "La première fois que la plage apparaît, macOS crée son emplacement "
+            + "désactivé et vous demande de l'activer : dans la barre latérale du "
+            + "Finder, sous Emplacements, sélectionnez BrailliantConnect, puis "
+            + "activez le bouton Activer. La barre des menus le dit tant qu'elle "
+            + "attend, et « Ouvrir dans le Finder » ouvre la fenêtre qui porte le "
+            + "bouton. Une seule fois suffit : débrancher la plage ne redemande rien.",
+        "3. Your files are in %@": "3. Vos fichiers sont dans %@",
         "Inside, one folder per storage. The names come from the display:":
             "À l'intérieur, un dossier par stockage. Les noms viennent de la plage :",
         "its own memory, holding your documents, notes and books;":
@@ -354,7 +359,7 @@ public enum L {
             + "storages and accepts no files of its own.":
             "Vos documents sont donc un niveau plus bas. Le premier niveau ne "
             + "contient que ces stockages et n'accepte aucun fichier.",
-        "3. Wait before unplugging": "3. Attendez avant de débrancher",
+        "4. Wait before unplugging": "4. Attendez avant de débrancher",
         "The Finder hands control back immediately, long before a copy is "
             + "finished. Three gigabytes take about seven minutes, during which "
             + "everything looks done. A notification announces the end, and the "
@@ -365,8 +370,8 @@ public enum L {
             + "lesquelles tout semble terminé. Une notification annonce la fin, et "
             + "la barre des menus affiche « Ne débranchez pas la plage » jusque-là. "
             + "La suppression, en revanche, est immédiate.",
-        "4. Everything else is in the menu bar":
-            "4. Tout le reste est dans la barre des menus",
+        "5. Everything else is in the menu bar":
+            "5. Tout le reste est dans la barre des menus",
         "The menu bar item is the only visible part of the app. It reports the "
             + "state of the display, opens the location in the Finder, and "
             + "uninstalls everything — including itself — leaving the braille "

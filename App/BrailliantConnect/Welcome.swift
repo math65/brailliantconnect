@@ -8,9 +8,10 @@ import WebKit
 /// back over it. Read-only but selectable, for the same reason — selectable
 /// text is navigable text.
 ///
-/// It says the few things nobody can guess, and stops there. The display has to
-/// be switched to file transfer mode, the files are one level down, and a copy
-/// is not over when the Finder says it is.
+/// It says the few things nobody can guess, and stops there. File transfer has
+/// to be on at the display, the location has to be enabled once when the Finder
+/// asks, the files are one level down, and a copy is not over when the Finder
+/// says it is.
 final class Welcome: NSObject, NSWindowDelegate {
 
     private static let seenKey = "WelcomeShown"
@@ -150,7 +151,16 @@ final class Welcome: NSObject, NSWindowDelegate {
                     + "as a braille terminal at the same time — the two work together, "
                     + "and nothing has to be switched off."))</p>
 
-            <h2>\(L.t("2. Your files are in %@", "<code>" + path + "</code>"))</h2>
+            <h2>\(L.t("2. Enable the location, once"))</h2>
+            <p>\(L.t(
+                "The first time the display appears, macOS creates its location "
+                    + "switched off and asks you to enable it: in the Finder sidebar, "
+                    + "under Locations, select BrailliantConnect, then activate the "
+                    + "Enable button. The menu bar says when it is waiting, and \"Open "
+                    + "in Finder\" opens the window that has the button. Once is "
+                    + "enough: unplugging the display does not ask again."))</p>
+
+            <h2>\(L.t("3. Your files are in %@", "<code>" + path + "</code>"))</h2>
             <p>\(L.t("Inside, one folder per storage. The names come from the display:"))</p>
             <ul>
               <li>\(L.t(
@@ -162,13 +172,8 @@ final class Welcome: NSObject, NSWindowDelegate {
             <p>\(L.t(
                 "So your documents are one level down. The top level holds these "
                     + "storages and accepts no files of its own."))</p>
-            <p>\(L.t(
-                "The first time, the Finder may ask you to enable the location: in "
-                    + "its sidebar, under Locations, select BrailliantConnect, then "
-                    + "activate Enable. Once is enough, and the menu bar says so for "
-                    + "as long as it is waiting."))</p>
 
-            <h2>\(L.t("3. Wait before unplugging"))</h2>
+            <h2>\(L.t("4. Wait before unplugging"))</h2>
             <p>\(L.t(
                 "The Finder hands control back immediately, long before a copy is "
                     + "finished. Three gigabytes take about seven minutes, during which "
@@ -176,7 +181,7 @@ final class Welcome: NSObject, NSWindowDelegate {
                     + "menu bar says \"Do not unplug the display\" until then. Deleting, "
                     + "on the other hand, is immediate."))</p>
 
-            <h2>\(L.t("4. Everything else is in the menu bar"))</h2>
+            <h2>\(L.t("5. Everything else is in the menu bar"))</h2>
             <p>\(L.t(
                 "The menu bar item is the only visible part of the app. It reports the "
                     + "state of the display, opens the location in the Finder, and "

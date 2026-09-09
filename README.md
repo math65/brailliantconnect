@@ -38,14 +38,26 @@ Unpack the archive, drag **BrailliantConnect** into Applications, and open it
 once. That is the entire procedure — no terminal, no configuration.
 
 A window appears the first time, saying the few things nobody can guess: turn
-on file transfer from the display's own menu, the files sit one level down
-under their storage, and a copy is not over when the Finder says it is. It can
-be reopened later from the menu bar, under **Getting Started**.
+on file transfer from the display's own menu, enable the location once when
+the Finder asks, the files sit one level down under their storage, and a copy
+is not over when the Finder says it is. It can be reopened later from the menu
+bar, under **Getting Started**.
 
 Opening it registers a background agent and quits. From then on the agent starts
 with every session, and the display shows up in `~/Brailliant` whenever it is
 connected. An item in the menu bar says whether the display is there, opens it
 in the Finder, and can uninstall everything.
+
+### Enable the location, once
+
+The first time the display appears, macOS creates its Finder location switched
+off and asks you to enable it — the same consent step iCloud Drive, Dropbox
+and Google Drive go through, on every version of macOS. In the Finder sidebar,
+under **Locations**, select **BrailliantConnect**, then activate the **Enable**
+button. Until then the folder lists nothing; the menu bar says it is waiting, a
+notification says where the button is, and **Open in Finder** opens the window
+that has it. Once is enough: macOS keeps the answer, and unplugging the display
+does not ask again.
 
 **Quit** stops it for this session and takes the location out of the Finder with
 it — nothing is left watching a folder nobody is behind. Opening the app again
