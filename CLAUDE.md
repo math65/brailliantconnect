@@ -313,8 +313,9 @@ after a user's report; every statement here comes with its control.
   and says so (menu, notification, welcome page, report, `--publish`). Not a
   macOS 13 trait: the probe workflow reads `Enabled` from `Domains.plist`, and
   fresh 14.8.9, 15.7.9 and 26.6.2 runners all answer `false` after a
-  publication. Only 13.2.1 has been watched doing the click; the key persists
-  once set, which is why the author's Mac never asks.
+  publication, list nothing from the location (`ls` hangs, as on 13) and never
+  launch the extension until someone clicks. The key persists once set, which
+  is why the author's Mac never asks: the click was made once, in August.
 - **The extension is registered on its own.** `pluginkit` lists it right
   after the first launch, so the agent's line "the system holds no record of
   the Finder extension" is wrong on this version, and its `pluginkit -a` does
