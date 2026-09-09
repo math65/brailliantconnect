@@ -26,8 +26,9 @@ rencontrées sur les systèmes plus récents.
   BrailliantConnect, puis activez le bouton Activer. L'application ne peut pas
   le faire à votre place — c'est votre consentement — mais elle vous le dit
   désormais : la barre des menus indique qu'elle attend, une notification dit
-  où est le bouton, « Ouvrir dans le Finder » ouvre la fenêtre qui le porte, et
-  l'application s'en aperçoit dès que c'est fait. Une seule fois suffit ;
+  où est le bouton, « Ouvrir dans le Finder » ouvre la fenêtre qui le porte, la
+  fenêtre Premiers pas en fait sa deuxième étape, et l'application s'en aperçoit
+  dès que c'est fait. Une seule fois suffit ;
   débrancher puis rebrancher la plage ne redemande rien.
 
 ### « Ouvrir dans le Finder » dit ce qui s'est passé

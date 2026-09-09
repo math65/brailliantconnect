@@ -24,8 +24,9 @@ out to be two things the app had never met on newer systems.
   in the Finder sidebar, under Locations, select BrailliantConnect, then
   activate Enable. The app cannot do that for you — it is your consent — but
   it now tells you: the menu bar says it is waiting, a notification says where
-  the button is, "Open in Finder" opens the window that has it, and the app
-  notices the moment you have done it. Once is enough; unplugging the display
+  the button is, "Open in Finder" opens the window that has it, the Getting
+  Started window makes it its second step, and the app notices the moment you
+  have done it. Once is enough; unplugging the display
   and plugging it back in does not ask again.
 
 ### "Open in Finder" says what happened
