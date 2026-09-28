@@ -47,10 +47,6 @@ final class TransferMonitor {
     func follow(domain identifier: NSFileProviderDomainIdentifier) {
         guard !following else { return }
         following = true
-        // `globalProgress` arrived in 11.3, three months after the replicated
-        // extension itself. On 11.0 to 11.2 the menu simply says nothing about
-        // transfers rather than saying something wrong.
-        guard #available(macOS 11.3, *) else { return }
         NSFileProviderManager.getDomainsWithCompletionHandler { [weak self] domains, _ in
             guard let domain = domains.first(where: { $0.identifier == identifier }),
                 let manager = NSFileProviderManager(for: domain)

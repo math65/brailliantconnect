@@ -30,7 +30,7 @@ over USB, and `libmtp` talks to the display directly.
 
 A File Provider extension — Apple's own mechanism, the one behind iCloud Drive
 and Dropbox — then makes the display appear in the Finder. It runs in user
-space, needs no kernel extension, and works from macOS 11.
+space, needs no kernel extension, and works from macOS 12.
 
 ## Install
 

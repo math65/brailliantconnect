@@ -1,26 +1,32 @@
 // swift-tools-version:5.9
 import PackageDescription
 
-// libmtp est fournie par son chemin complet plutôt que par « -lmtp » : son nom
-// de fichier (libmtp.9.dylib) ne suit pas la convention attendue par le linker.
-// Les rpath permettent de la retrouver à l'exécution, aussi bien dans l'arbre
-// de développement qu'une fois le binaire distribué à côté de ses dylibs.
+// libmtp is passed by its full path rather than as "-lmtp": its file name
+// (libmtp.9.dylib) does not follow the convention the linker expects. The
+// rpaths let it be found at run time, both in the development tree and once
+// the binary is distributed beside its dylibs.
+//
+// Each rpath is a depth, counted from the binary up to the repository root,
+// and the depth depends on where SwiftPM puts its output: .build/<config>/,
+// .build/<triple>/<config>/, and since Xcode 27 .build/out/Products/<Config>/.
+// All of them are listed; an rpath that leads nowhere is simply skipped.
 let mtpLinkage: [LinkerSetting] = [
     .unsafeFlags([
         "Vendor/libmtp.9.dylib",
         "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
         "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../Vendor",
-        // Bundles de test : leur profondeur varie selon que SwiftPM place la
-        // sortie dans .build/debug/ ou .build/<triple>/debug/. Les deux
-        // variantes sont couvertes, un rpath inutile étant simplement ignoré.
+        "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../../Vendor",
+        // Test bundles: the binary sits three levels further down, inside
+        // <name>.xctest/Contents/MacOS.
         "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../../../Vendor",
         "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../../../../Vendor",
+        "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../../../../../Vendor",
     ])
 ]
 
 let package = Package(
     name: "BrailliantConnect",
-    platforms: [.macOS(.v11)],
+    platforms: [.macOS(.v12)],
     products: [
         .executable(name: "brailliant", targets: ["brailliant"]),
         .library(name: "BrailliantKit", targets: ["BrailliantKit"]),

@@ -130,7 +130,9 @@ properties**).
 
 **The app** is `LSUIElement: YES` — a menu bar item, no Dock icon, no window.
 Both targets are hardened-runtime, automatically signed, team `633EG76YX5`,
-deployment target macOS 11.0.
+deployment target macOS 12.0 — raised from 11.0 on 29 Sep 2026, because
+Xcode 27 refuses anything lower and stops the build with an error on the
+project, not on any file.
 
 Adding a source file now means adding it in Xcode, which writes it into
 `project.pbxproj`. A file dropped into the folder alone is invisible to the
@@ -251,8 +253,7 @@ copying does; there is no window in which unplugging can truncate anything.
 
 Writing is asynchronous and the Finder hides it: `cp` into the location returns
 in 0,02 s whatever the size, and the upload follows at ~7 MB/s. The agent reads
-`NSFileProviderManager.globalProgress(for: .uploading)` — available from macOS
-11.3, and readable by the host app, which avoids an App Group the extension
+`NSFileProviderManager.globalProgress(for: .uploading)` — readable by the host app, which avoids an App Group the extension
 cannot have. Two traps in it:
 
 - the aggregate is credited **one whole file at a time**. The bytes our
