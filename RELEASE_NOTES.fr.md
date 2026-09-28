@@ -1,8 +1,8 @@
 # Notes de version
 
-## v1.1.1 — 09/09/2026
+## v1.1.1 — 29/09/2026
 
-Trois choses que l'application faisait en silence, elle les dit maintenant — et
+Quatre choses que l'application faisait en silence, elle les dit maintenant — et
 une qu'elle ne pouvait pas faire du tout sur macOS 13, elle la fait.
 
 Un signalement est arrivé d'une BI 40X sous macOS 13 : plage branchée,
@@ -10,7 +10,8 @@ transfert de fichiers activé, câbles vérifiés — et rien dans le Finder. Ch
 « Ouvrir dans le Finder » depuis la barre des menus ne produisait rien du tout.
 La description était exacte. Le reproduire a demandé un Mac virtuel sous ce
 même macOS, et la cause tenait à deux choses que l'application n'avait jamais
-rencontrées sur les systèmes plus récents.
+rencontrées sur les systèmes plus récents. La personne qui l'avait signalé a
+maintenant sa plage dans le Finder, sur ce même Mac.
 
 ### L'emplacement se publie sur macOS 13
 - Sur macOS 13, le service système derrière les emplacements du Finder n'a pas

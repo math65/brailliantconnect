@@ -1,15 +1,16 @@
 # Release notes
 
-## v1.1.1 — 09/09/2026
+## v1.1.1 — 29/09/2026
 
-Three things the app used to do silently, it now says out loud — and one it
+Four things the app used to do silently, it now says out loud — and one it
 could not do at all on macOS 13, it now does.
 
 A report arrived from a BI 40X running macOS 13: the display connected, file
 transfer on, cables checked — and nothing in the Finder. Choosing "Open in
 Finder" from the menu bar did nothing at all. The description was exact.
 Reproducing it took a virtual Mac running that same macOS, and the cause turned
-out to be two things the app had never met on newer systems.
+out to be two things the app had never met on newer systems. The person who
+reported it now has the display in the Finder, on that same Mac.
 
 ### The location publishes on macOS 13
 - On macOS 13, the system service behind Finder locations is not allowed to
