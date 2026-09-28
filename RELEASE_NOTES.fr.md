@@ -52,6 +52,18 @@ rencontrées sur les systèmes plus récents.
   n'appuyiez sur Envoyer, avec tout le reste de ce que le signalement contient.
   Le signalement dit aussi si l'emplacement a été activé.
 
+### L'application dit quand elle n'est pas dans Applications
+- Ouverte là où elle avait été décompressée, l'application tournait depuis une
+  copie temporaire que macOS en fait, et s'inscrivait pour démarrer à
+  l'ouverture de session depuis cette copie. Elle disparaît au redémarrage, et
+  l'icône de la barre des menus avec elle, sans un mot. L'application demande
+  maintenant d'abord à être placée dans le dossier Applications, et ne fait
+  rien d'autre tant qu'elle n'y est pas.
+
+### macOS 12 ou plus récent
+- macOS 11 n'est plus pris en charge : les outils qui construisent
+  l'application ne produisent plus rien pour lui.
+
 Rien sur la plage braille n'est touché, et rien d'autre ne change.
 
 ## v1.1.0 — 26/08/2026

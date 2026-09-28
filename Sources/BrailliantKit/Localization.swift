@@ -230,6 +230,11 @@ public enum L {
         Cet agent est normalement piloté par la commande « brailliant ».
         """,
 
+        "Move BrailliantConnect to Applications": "Placez BrailliantConnect dans Applications",
+        "BrailliantConnect only works from the Applications folder. "
+            + "Drag it there with the Finder, then open it again from there.":
+            "BrailliantConnect ne fonctionne que depuis le dossier Applications. "
+            + "Glissez-la dedans avec le Finder, puis ouvrez-la à nouveau depuis là.",
         "Installation failed": "Échec de l'installation",
         "BrailliantConnect could not register itself to start automatically. "
             + "Make sure the app is in the Applications folder, then open it again.":

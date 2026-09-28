@@ -48,6 +48,17 @@ out to be two things the app had never met on newer systems.
   you press Send, along with everything else the report contains. The report
   also says whether the location has been enabled.
 
+### The app says when it is not in Applications
+- Opened from where it was unzipped, the app ran from a temporary copy macOS
+  makes of it, and set itself to start at login from there. That copy is gone
+  after a restart, and the menu bar icon with it, without a word. The app now
+  asks to be moved into the Applications folder first, and does nothing else
+  until it is.
+
+### macOS 12 or later
+- macOS 11 is no longer supported: the tools that build the app no longer
+  produce anything for it.
+
 Nothing on the braille display is touched, and nothing else changes.
 
 ## v1.1.0 — 26/08/2026

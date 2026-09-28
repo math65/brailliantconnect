@@ -467,23 +467,36 @@ case "--install":
     // Without it, the display would come back only until the next logout, and
     // making it permanent would mean typing a command into a path nobody would
     // guess — which is precisely what this project exists not to require.
-    if Installer.register() { exit(0) }
-
+    //
     // Only worth reporting when it fails, and worth reporting visibly: whoever
     // just double-clicked an app has no terminal to read.
-    let message = L.t(
-        "BrailliantConnect could not register itself to start automatically. "
-            + "Make sure the app is in the Applications folder, then open it again.")
-    FileHandle.standardError.write(Data((message + "\n").utf8))
-    let reporter = NSApplication.shared
-    reporter.setActivationPolicy(.accessory)
-    let alert = NSAlert()
-    alert.messageText = L.t("Installation failed")
-    alert.informativeText = message
-    alert.alertStyle = .warning
-    reporter.activate(ignoringOtherApps: true)
-    alert.runModal()
-    exit(1)
+    func refuse(_ title: String, _ message: String) -> Never {
+        FileHandle.standardError.write(Data((message + "\n").utf8))
+        let reporter = NSApplication.shared
+        reporter.setActivationPolicy(.accessory)
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        reporter.activate(ignoringOtherApps: true)
+        alert.runModal()
+        exit(1)
+    }
+
+    guard Installer.isInApplicationsFolder else {
+        refuse(
+            L.t("Move BrailliantConnect to Applications"),
+            L.t(
+                "BrailliantConnect only works from the Applications folder. "
+                    + "Drag it there with the Finder, then open it again from there."))
+    }
+    if Installer.register() { exit(0) }
+
+    refuse(
+        L.t("Installation failed"),
+        L.t(
+            "BrailliantConnect could not register itself to start automatically. "
+                + "Make sure the app is in the Applications folder, then open it again."))
 
 case "--watch":
     // launchd already runs a single copy of the job; this guards against a

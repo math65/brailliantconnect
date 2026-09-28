@@ -63,6 +63,26 @@ enum Installer {
         FileManager.default.fileExists(atPath: agentPlist.path)
     }
 
+    /// Whether the app runs from `/Applications` or `~/Applications`.
+    ///
+    /// Anywhere else is refused before registering, because the path written
+    /// into the launchd job would not last. The trap is App Translocation: an
+    /// app still in quarantine and opened where it was unzipped runs from a
+    /// random copy under `/private/var/folders/…/AppTranslocation/`. It works,
+    /// the agent starts, and after the next restart the job points at a folder
+    /// that no longer exists — no menu bar item, no message. Measured on
+    /// macOS 27 with the published 1.1.0, 29 Sep 2026.
+    static var isInApplicationsFolder: Bool {
+        let parent = Bundle.main.bundleURL.resolvingSymlinksInPath()
+            .deletingLastPathComponent().path
+        let allowed = [
+            "/Applications",
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Applications").resolvingSymlinksInPath().path,
+        ]
+        return allowed.contains(parent)
+    }
+
     /// Registers the agent so it starts again at every login.
     ///
     /// Called on first launch, which is what makes a double-click the whole
