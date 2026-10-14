@@ -30,7 +30,10 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         do {
             completionHandler(try access.item(for: identifier), nil)
         } catch {
-            completionHandler(nil, NSFileProviderError(.noSuchItem))
+            // Translated rather than always "no such item": the display asleep
+            // or held by the CLI said that too, and the system took it as the
+            // item having been deleted.
+            completionHandler(nil, Self.translate(error, identifier: identifier))
         }
         return Progress()
     }
@@ -51,7 +54,8 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             }
             completionHandler(url, item, nil)
         } catch {
-            completionHandler(nil, nil, NSFileProviderError(.serverUnreachable))
+            Ledger.record(.fetch, .error, error: error)
+            completionHandler(nil, nil, Self.translate(error, identifier: itemIdentifier))
         }
         return progress
     }
@@ -78,27 +82,54 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             ) -> Void
     ) -> Progress {
         let progress = uploadProgress()
+        let name = itemTemplate.filename
+        // Before anything else, the root check included: the Finder writes a
+        // .DS_Store into folders it opens, the root among them, and the root
+        // refusal would otherwise post "put the file in a storage" for a file
+        // nobody put anywhere. Refused like the root — no item, no error, so
+        // the system drops its copy — but silently: nobody asked for it.
+        if MacJunk.matches(name) {
+            Ledger.record(.create, .refusedJunk)
+            completionHandler(nil, [], false, nil)
+            return progress
+        }
+        // A name the display cannot store. Thrown as an error, it was mapped to
+        // "no such item" and the file stayed in the Finder, never sent.
+        // Refused, it disappears — so the notification says why.
+        guard RemotePath.isSafeComponent(name) else {
+            Ledger.record(.create, .refusedName)
+            NameRefusal.announce(name: name)
+            completionHandler(nil, [], false, nil)
+            return progress
+        }
         do {
-            let item = try access.create(
-                name: itemTemplate.filename,
+            let created = try access.create(
+                name: name,
                 inParent: itemTemplate.parentItemIdentifier,
                 isFolder: itemTemplate.contentType == .folder,
                 localContents: url,
+                mayAlreadyExist: options.contains(.mayAlreadyExist),
                 progress: { sent, total in
                     Self.report(sent, of: total, to: progress)
                 })
+            if let created, url != nil, !created.isDirectory {
+                Ledger.record(.create, .ok, size: created.size)
+            }
             // No field is left pending and nothing remains to upload: the
-            // display holds the definitive copy already.
-            completionHandler(item, [], false, nil)
+            // display holds the definitive copy already. No item at all is a
+            // replayed import that matched nothing, and the system drops it.
+            completionHandler(created.map { DisplayItem(entry: $0) }, [], false, nil)
         } catch let refusal as RootNotWritable {
             // No item and no error: Apple's documented way of refusing an
             // import. The system then deletes what it wrote locally, instead of
             // keeping a file it will never manage to send — but it deletes it
             // without saying anything, hence the notification.
+            Ledger.record(.create, .refusedRoot)
             RootRefusal.announce(storages: refusal.storages)
             completionHandler(nil, [], false, nil)
         } catch {
-            completionHandler(nil, [], false, translate(error))
+            Ledger.record(.create, .error, error: error, size: url.flatMap(Self.size(of:)))
+            completionHandler(nil, [], false, Self.translate(error))
         }
         return progress
     }
@@ -117,19 +148,45 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             ) -> Void
     ) -> Progress {
         let progress = uploadProgress()
+        // Only the name, the parent and the contents mean anything to the
+        // display. Any other field — dates, tags — leaves all three nil, and
+        // the item comes back with no device I/O at all.
+        let newContents = changedFields.contains(.contents) ? newContents : nil
         do {
-            let modified = try access.modify(
+            let outcome = try access.modify(
                 item.itemIdentifier,
                 newName: changedFields.contains(.filename) ? item.filename : nil,
                 newParent: changedFields.contains(.parentItemIdentifier)
                     ? item.parentItemIdentifier : nil,
-                localContents: changedFields.contains(.contents) ? newContents : nil,
+                localContents: newContents,
+                echo: item,
                 progress: { sent, total in
                     Self.report(sent, of: total, to: progress)
                 })
-            completionHandler(modified, [], false, nil)
+            if let uploaded = outcome.uploaded {
+                Ledger.record(.modify, .ok, size: uploaded)
+            }
+            // A declined move or rename is not an error: the item comes back
+            // where and as it was, with nothing pending, and the system puts
+            // the Mac's side back to match. As an error, the root refusal was
+            // "server unreachable" and retried forever.
+            if let refusal = outcome.refusedRoot {
+                Ledger.record(.modify, .refusedRoot)
+                RootRefusal.announce(storages: refusal.storages)
+            }
+            if outcome.refusedName {
+                Ledger.record(.modify, .refusedName)
+                NameRefusal.announce(name: item.filename)
+            }
+            if outcome.refusedMove {
+                Ledger.record(.modify, .error, error: MTPError.moveIntoItself(path: "", destination: ""))
+            }
+            completionHandler(outcome.item, [], false, nil)
         } catch {
-            completionHandler(nil, [], false, translate(error))
+            Ledger.record(
+                .modify, .error, error: error, size: newContents.flatMap(Self.size(of:)))
+            completionHandler(
+                nil, [], false, Self.translate(error, identifier: item.itemIdentifier))
         }
         return progress
     }
@@ -141,11 +198,25 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         request: NSFileProviderRequest,
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
+        // The root and the storages: their capabilities rule deletion out, but
+        // the Terminal ignores capabilities. Rejected with the item attached,
+        // which is what lets the system restore it rather than guess.
+        if identifier == .rootContainer || StorageIdentifier.parse(identifier) != nil {
+            let survivor: NSFileProviderItem? =
+                identifier == .rootContainer
+                ? DisplayItem(root: true) : (try? access.item(for: identifier))
+            Ledger.record(.delete, .error, error: MTPError.cannotRemoveRoot)
+            completionHandler(
+                survivor.map { NSError.fileProviderErrorForRejectedDeletion(of: $0) }
+                    ?? NSFileProviderError(.deletionRejected))
+            return Progress()
+        }
         do {
-            try access.delete(identifier)
+            try access.delete(identifier, recursive: options.contains(.recursive))
             completionHandler(nil)
         } catch {
-            completionHandler(translate(error))
+            Ledger.record(.delete, .error, error: error)
+            completionHandler(Self.translate(error, identifier: identifier))
         }
         return Progress()
     }
@@ -176,26 +247,53 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         progress.completedUnitCount = Int64(min(sent, total))
     }
 
+    /// Size of a local file, for the ledger.
+    private static func size(of url: URL) -> UInt64? {
+        (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map(UInt64.init)
+    }
+
     /// Maps a protocol error onto what the Finder understands.
     ///
     /// The Finder only acts sensibly on NSFileProviderError values: anything
     /// else surfaces as an opaque failure, so the cases worth distinguishing
     /// are mapped explicitly.
-    private func translate(_ error: Error) -> Error {
+    ///
+    /// "No such item" is the one to be sparing with: the system takes it as the
+    /// item having been deleted, and deletes it on the Mac's side too. Only an
+    /// item the display was actually asked about and does not have earns it —
+    /// never a display that is asleep, unplugged or held by another program.
+    static func translate(
+        _ error: Error, identifier: NSFileProviderItemIdentifier? = nil
+    ) -> Error {
         guard let mtp = error as? MTPError else {
             return NSFileProviderError(.serverUnreachable)
         }
         switch mtp {
-        case .notFound:
+        case .notFound, .notADirectory:
+            if let identifier {
+                return NSError.fileProviderErrorForNonExistentItem(withIdentifier: identifier)
+            }
             return NSFileProviderError(.noSuchItem)
         case .alreadyExists:
             return NSFileProviderError(.filenameCollision)
+        case .moveIntoItself:
+            // modifyItem answers this one with the unmoved item and never gets
+            // here; should another path throw it, a collision at least stops
+            // the system retrying the same move as if the display were away.
+            return NSFileProviderError(.filenameCollision)
         case .notEnoughSpace:
             return NSFileProviderError(.insufficientQuota)
+        case .directoryNotEmpty:
+            return NSFileProviderError(.directoryNotEmpty)
+        case .cannotRemoveRoot:
+            return NSFileProviderError(.deletionRejected)
         case .unsafeRemoteName, .pathEscapesDestination, .invalidRemotePath:
-            return NSFileProviderError(.noSuchItem)
+            // A name or a path no retry will make valid. "No such item" here
+            // told the system a file still on the display had been deleted.
+            return NSFileProviderError(.cannotSynchronize)
         default:
-            // Display unplugged, asleep, or held by another program.
+            // Display unplugged, asleep, or held by another program; a listing
+            // libmtp could not read (listingFailed) belongs here too.
             return NSFileProviderError(.serverUnreachable)
         }
     }
@@ -224,9 +322,13 @@ private final class Enumerator: NSObject, NSFileProviderEnumerator {
             observer.didEnumerate(try access.contents(ofFolder: container))
             observer.finishEnumerating(upTo: nil)
         } catch {
-            // Display unplugged, or busy with another program: MTP only
-            // accepts one session at a time.
-            observer.finishEnumeratingWithError(NSFileProviderError(.serverUnreachable))
+            // Display unplugged, or busy with another program — MTP only
+            // accepts one session at a time — is "unreachable". A folder that
+            // is really gone from the display is "no such item", which is what
+            // makes the Finder drop it rather than retry it forever.
+            Ledger.record(.enumerate, .error, error: error)
+            observer.finishEnumeratingWithError(
+                FileProviderExtension.translate(error, identifier: container))
         }
     }
 

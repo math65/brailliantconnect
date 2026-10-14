@@ -717,5 +717,14 @@ public enum L {
             "Impossible de déplacer « %@ » dans « %@ » : ce dossier se trouve à l'intérieur de l'élément déplacé.",
         "The contents of \"%@\" could not be read from the display.":
             "Le contenu de « %@ » n'a pas pu être lu sur la plage.",
+
+        // MARK: Finder extension — names the display cannot store
+
+        "This name cannot be written to the display":
+            "Ce nom ne peut pas être écrit sur la plage",
+        "The display does not accept a slash or a backslash in a file name. "
+            + "Rename \"%@\" and try again.":
+            "La plage n'accepte ni barre oblique ni barre oblique inversée dans un nom de fichier. "
+            + "Renommez « %@ » puis réessayez.",
     ]
 }

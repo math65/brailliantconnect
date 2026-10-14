@@ -118,7 +118,7 @@ public enum RemotePath {
 /// Junk files macOS creates on external volumes.
 public enum MacJunk {
     static let names: Set<String> = [
-        ".DS_Store", "._.DS_Store", ".Spotlight-V100", ".Trashes",
+        ".DS_Store", "._.DS_Store", ".Spotlight-V100", ".Trash", ".Trashes",
         ".fseventsd", ".TemporaryItems", ".apDisk",
     ]
 
