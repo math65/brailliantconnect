@@ -376,7 +376,19 @@ final class DisplayAccess {
         localContents: URL?,
         progress: @escaping (UInt64, UInt64) -> Void
     ) throws -> NSFileProviderItem {
-        try queue.sync {
+        // The root and the storage folders are not MTP objects, and their
+        // capabilities rule out renaming and moving them. What still reaches
+        // here is metadata — the system pushing a storage folder's new
+        // modification date after a file landed in it. Looked up as an object,
+        // the identifier fell back to the root, walked every storage in search
+        // of it, and answered "the file does not exist": an Error badge on the
+        // folder for a transfer that had succeeded, retried every few minutes,
+        // each retry walking the whole display again. The display keeps no
+        // such metadata, so its current state is the answer.
+        if identifier == .rootContainer || StorageIdentifier.parse(identifier) != nil {
+            return try item(for: identifier)
+        }
+        return try queue.sync {
             let itemID = mtpIdentifier(identifier)
             var current = try entry(withID: itemID, identifier: identifier.rawValue)
             let originalParent = current.parentID
