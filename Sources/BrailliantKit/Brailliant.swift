@@ -129,7 +129,7 @@ public final class Brailliant {
             LIBMTP_Init as @convention(c) () -> Void,
             to: UnsafeRawPointer.self)
         guard dladdr(symbol, &info) != 0, let name = info.dli_fname else {
-            return "(inconnu)"
+            return L.t("(unknown)")
         }
         return String(cString: name)
     }
@@ -149,7 +149,7 @@ public final class Brailliant {
                 Storage(
                     id: current.pointee.id,
                     description: description?.isEmpty == false
-                        ? description! : "stockage \(current.pointee.id)",
+                        ? description! : L.t("storage %@", String(current.pointee.id)),
                     capacity: current.pointee.MaxCapacity,
                     free: current.pointee.FreeSpaceInBytes
                 ))
@@ -208,11 +208,26 @@ public final class Brailliant {
 
     /// Walks the remote tree recursively, folders included.
     public func walk(_ path: String = "/") throws -> [Entry] {
+        let (storageID, parentID, base) = try resolveDirectory(path)
+        return try walk(storageID: storageID, parentID: parentID, base: base)
+    }
+
+    /// Descends by object identifier rather than by path.
+    ///
+    /// Going through `listDirectory(entry.path)` re-resolved every folder from
+    /// the root, one listing per level: a folder at depth d cost d + 1 round
+    /// trips. It also trusted the path joined from device-provided names, and a
+    /// folder called "../b" normalises out of the tree being walked — so such
+    /// a folder is still reported, but not descended into: nothing below it
+    /// has a path anyone could use.
+    private func walk(storageID: UInt32, parentID: UInt32, base: String) throws -> [Entry] {
         var result: [Entry] = []
-        for entry in try listDirectory(path) {
+        for entry in try children(storageID: storageID, parentID: parentID, base: base) {
             result.append(entry)
-            if entry.isDirectory {
-                result.append(contentsOf: try walk(entry.path))
+            if entry.isDirectory && entry.hasSafeName {
+                result.append(
+                    contentsOf: try walk(
+                        storageID: entry.storageID, parentID: entry.itemID, base: entry.path))
             }
         }
         return result
@@ -222,7 +237,20 @@ public final class Brailliant {
         let device = try requireDevice()
         var entries: [Entry] = []
 
+        // libmtp answers NULL both for an empty folder and for a failed
+        // listing; only its error stack tells them apart. Whatever is already
+        // on it belongs to calls whose outcome was dealt with, and would make
+        // an empty folder look like a failure.
+        LIBMTP_Clear_Errorstack(device)
         var node = LIBMTP_Get_Files_And_Folders(device, storageID, parentID)
+        if node == nil, let error = LIBMTP_Get_Errorstack(device) {
+            // Reporting the folder as empty is not harmless: `rm` without -r
+            // would then delete it, and Android's MTP server, for one, deletes
+            // a folder recursively.
+            let detail = error.pointee.error_text.map { String(cString: $0) } ?? ""
+            dumpErrorStack()
+            throw MTPError.listingFailed(path: base, detail: detail)
+        }
         // The list is a linked list and LIBMTP_destroy_file_t frees only a
         // single link: the next node must be saved before the current one is
         // freed, otherwise memory leaks or a freed region gets accessed.
@@ -365,17 +393,38 @@ public final class Brailliant {
                 withIntermediateDirectories: true)
         }
 
+        try fetch(entry, to: target, progress: progress)
+        return target
+    }
+
+    /// Copies a remote file, designated by its entry, to an exact local path.
+    ///
+    /// libmtp truncates its target before the first byte arrives and unlinks
+    /// it if the transfer fails: written to directly, an existing local file
+    /// would be lost to a cable pulled half-way. The data goes to a hidden
+    /// sibling instead, and replaces the target — atomically, being in the
+    /// same folder — only once it is complete.
+    private func fetch(_ entry: Entry, to target: String, progress: ProgressHandler?) throws {
+        let directory = (target as NSString).deletingLastPathComponent
+        let partial = ((directory.isEmpty ? "." : directory) as NSString)
+            .appendingPathComponent(".brailliant-\(UUID().uuidString).part")
+
         let device = try requireDevice()
         let status = withProgress(progress) { callback, context in
-            target.withCString { path in
+            partial.withCString { path in
                 LIBMTP_Get_File_To_File(device, entry.itemID, path, callback, context)
             }
         }
         guard status == 0 else {
             dumpErrorStack()
-            throw MTPError.transferFailed(path: remote, code: status)
+            try? FileManager.default.removeItem(atPath: partial)
+            throw MTPError.transferFailed(path: entry.path, code: status)
         }
-        return target
+        guard Darwin.rename(partial, target) == 0 else {
+            let code = POSIXErrorCode(rawValue: errno) ?? .EIO
+            try? FileManager.default.removeItem(atPath: partial)
+            throw POSIXError(code)
+        }
     }
 
     /// Copies a file from the Mac to the display. `remote` is the full path of
@@ -410,7 +459,11 @@ public final class Brailliant {
         }
 
         let existing = try resolve(normalized)
-        if existing != nil && !overwrite {
+        // A folder is never replaced by a file. The swap below would have done
+        // it: silently for an empty folder, and for a full one by failing to
+        // delete it only after the whole transfer, leaving the hidden
+        // temporary copy behind.
+        if existing?.isDirectory == true || (existing != nil && !overwrite) {
             throw MTPError.alreadyExists(path: normalized)
         }
 
@@ -419,12 +472,11 @@ public final class Brailliant {
 
         // Checking free space before writing avoids failing in the middle of a
         // transfer, and above all after the previous version has been deleted.
+        // The file being replaced frees nothing in time to count: the swap
+        // writes the new copy in full while the old one is still there.
         if let storage = try storages(refresh: true).first(where: { $0.id == storageID }) {
-            let recovered = existing?.size ?? 0
-            if size > storage.free + recovered {
-                throw MTPError.notEnoughSpace(
-                    needed: size,
-                    available: storage.free + recovered)
+            if size > storage.free {
+                throw MTPError.notEnoughSpace(needed: size, available: storage.free)
             }
         }
 
@@ -448,7 +500,7 @@ public final class Brailliant {
                 throw MTPError.notFound(path: temporaryPath)
             }
             // The transfer is finished: removing the old file is now risk-free.
-            try remove(normalized)
+            if let existing { try remove(existing, recursive: false) }
             let status = temporaryName.isEmpty ? -1 : rename(uploaded.itemID, to: name)
             guard status == 0 else {
                 dumpErrorStack()
@@ -522,7 +574,6 @@ public final class Brailliant {
         return candidate.count <= 200 ? candidate : ".brailliant-\(token)"
     }
 
-    /// Deletes a remote file or folder.
     /// Renames an item, keeping it in place.
     ///
     /// - Returns: the entry as it stands after the rename.
@@ -559,6 +610,18 @@ public final class Brailliant {
         guard let entry = try resolve(path) else { throw MTPError.notFound(path: path) }
 
         let destinationFolder = RemotePath.normalize(folderPath)
+        // Decided before anything is created: `createDirectory` would
+        // otherwise make the destination inside the item being moved.
+        let destination: String
+        switch RemotePath.planMove(of: entry.path, named: entry.name, into: destinationFolder) {
+        case .alreadyThere:
+            return entry
+        case .intoItself:
+            throw MTPError.moveIntoItself(path: entry.path, destination: destinationFolder)
+        case .to(let path):
+            destination = path
+        }
+
         let (parentID, storageID): (UInt32, UInt32)
         if destinationFolder == "/" {
             (parentID, storageID) = (filesAndFoldersRoot, try defaultStorage().id)
@@ -567,8 +630,7 @@ public final class Brailliant {
             (parentID, storageID) = (folder.itemID, folder.storageID)
         }
 
-        let destination = RemotePath.join(destinationFolder, entry.name)
-        if destination != entry.path, try resolve(destination) != nil {
+        if try resolve(destination) != nil {
             throw MTPError.alreadyExists(path: destination)
         }
 
@@ -592,15 +654,30 @@ public final class Brailliant {
     ///
     /// The original is deleted only once the copy is in place: an interruption
     /// leaves a duplicate, never a loss.
+    ///
+    /// Everything below the top level is reached through the entries listed,
+    /// never through a path rebuilt from their names: a child called "../b"
+    /// would resolve to a sibling of the folder being moved, which would then
+    /// be downloaded and deleted in its stead.
     private func relocateByCopying(_ entry: Entry, to destination: String) throws -> Entry {
+        // `move` already rules these out; repeated here because getting it
+        // wrong costs the file: the copy lands on the original, and deleting
+        // the original then deletes the copy.
+        guard !RemotePath.isSameOrInside(destination, entry.path) else {
+            throw MTPError.moveIntoItself(path: entry.path, destination: destination)
+        }
+
         if entry.isDirectory {
             let folder = try createDirectory(destination)
             for child in try children(
                 storageID: entry.storageID, parentID: entry.itemID, base: entry.path)
             {
+                // Such a name cannot be recreated at the destination; stopping
+                // leaves a partial copy and the original whole.
+                guard child.hasSafeName else { throw MTPError.unsafeRemoteName(child.name) }
                 _ = try relocateByCopying(child, to: RemotePath.join(destination, child.name))
             }
-            try remove(entry.path, recursive: true)
+            try remove(entry, recursive: true)
             guard let moved = try resolve(folder.path) else {
                 throw MTPError.notFound(path: destination)
             }
@@ -612,9 +689,9 @@ public final class Brailliant {
             + "brailliant-move-\(UUID().uuidString)"
         defer { try? FileManager.default.removeItem(atPath: scratch) }
 
-        _ = try download(entry.path, to: scratch)
+        try fetch(entry, to: scratch, progress: nil)
         let copied = try upload(scratch, to: destination)
-        try remove(entry.path)
+        try remove(entry, recursive: false)
         return copied
     }
 
@@ -624,8 +701,16 @@ public final class Brailliant {
         LIBMTP_Clear_Errorstack(device)
     }
 
+    /// Deletes a remote file or folder.
     public func remove(_ path: String, recursive: Bool = false) throws {
         guard let entry = try resolve(path) else { throw MTPError.notFound(path: path) }
+        try remove(entry, recursive: recursive)
+    }
+
+    /// Deletes an entry, and its contents when `recursive`, by object
+    /// identifier: the contents are never looked up again by a path built from
+    /// names the device chose.
+    private func remove(_ entry: Entry, recursive: Bool) throws {
         if entry.isDirectory {
             let contents = try children(
                 storageID: entry.storageID,
@@ -633,12 +718,12 @@ public final class Brailliant {
             if !contents.isEmpty && !recursive {
                 throw MTPError.directoryNotEmpty(path: entry.path, count: contents.count)
             }
-            for child in contents { try remove(child.path, recursive: true) }
+            for child in contents { try remove(child, recursive: true) }
         }
         let status = LIBMTP_Delete_Object(try requireDevice(), entry.itemID)
         guard status == 0 else {
             dumpErrorStack()
-            throw MTPError.deleteFailed(path: path, code: status)
+            throw MTPError.deleteFailed(path: entry.path, code: status)
         }
     }
 

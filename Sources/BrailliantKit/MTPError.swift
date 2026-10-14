@@ -30,6 +30,8 @@ public enum MTPError: Error, CustomStringConvertible {
     case renameFailed(from: String, to: String, code: Int32)
     case moveFailed(from: String, to: String, code: Int32)
     case interruptedAfterDelete(temporary: String, target: String)
+    case moveIntoItself(path: String, destination: String)
+    case listingFailed(path: String, detail: String)
 
     public var description: String {
         switch self {
@@ -144,6 +146,15 @@ public enum MTPError: Error, CustomStringConvertible {
                     "Your data is intact: it is on the display under the name \"%@\". "
                         + "Rename it to \"%@\", or send it again.",
                     temporary, target)
+        case .moveIntoItself(let path, let destination):
+            return L.t(
+                "Cannot move \"%@\" into \"%@\": that folder is inside the item being moved.",
+                path.sanitizedForDisplay, destination.sanitizedForDisplay)
+        case .listingFailed(let path, let detail):
+            let headline = L.t(
+                "The contents of \"%@\" could not be read from the display.",
+                path.sanitizedForDisplay)
+            return detail.isEmpty ? headline : headline + "\n" + detail.sanitizedForDisplay
         }
     }
 }

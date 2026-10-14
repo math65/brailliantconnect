@@ -708,5 +708,14 @@ public enum L {
             "Déplacé : %@ → %@",
         "Usage: brailliant mv <source> <destination>":
             "Usage : brailliant mv <source> <destination>",
+
+        // MARK: Moves, listings and fallbacks (code review, October 2026)
+
+        "(unknown)": "(inconnu)",
+        "storage %@": "stockage %@",
+        "Cannot move \"%@\" into \"%@\": that folder is inside the item being moved.":
+            "Impossible de déplacer « %@ » dans « %@ » : ce dossier se trouve à l'intérieur de l'élément déplacé.",
+        "The contents of \"%@\" could not be read from the display.":
+            "Le contenu de « %@ » n'a pas pu être lu sur la plage.",
     ]
 }

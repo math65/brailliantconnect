@@ -78,6 +78,41 @@ public enum RemotePath {
         guard !name.unicodeScalars.contains(where: { $0.value == 0 }) else { return false }
         return true
     }
+
+    /// True if `path` is `ancestor` itself or lies anywhere below it.
+    ///
+    /// The comparison is on whole segments: "/ab" is not inside "/a".
+    public static func isSameOrInside(_ path: String, _ ancestor: String) -> Bool {
+        let path = normalize(path)
+        let ancestor = normalize(ancestor)
+        if path == ancestor || ancestor == "/" { return true }
+        return path.hasPrefix(ancestor + "/")
+    }
+
+    /// What moving the item at `path`, called `name`, into `folder` amounts to.
+    enum MovePlan: Equatable {
+        /// The item is already in that folder: there is nothing to do.
+        case alreadyThere
+        /// The folder is the item itself or lies inside it.
+        case intoItself
+        /// The item would end up at this path.
+        case to(String)
+    }
+
+    /// Decides a move before anything touches the display.
+    ///
+    /// Both cases were found by reading the code, not on a display. A move to
+    /// the item's own folder skipped the collision check, the Brailliant
+    /// refuses MoveObject, and the copying fallback uploaded over the original
+    /// before deleting "the original" — that is, the fresh copy. A folder
+    /// moved inside itself was copied child by child into a destination that
+    /// had itself become one of the children, with no end.
+    static func planMove(of path: String, named name: String, into folder: String) -> MovePlan {
+        let destination = join(normalize(folder), name)
+        if destination == normalize(path) { return .alreadyThere }
+        if isSameOrInside(folder, path) { return .intoItself }
+        return .to(destination)
+    }
 }
 
 /// Junk files macOS creates on external volumes.
