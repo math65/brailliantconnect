@@ -452,6 +452,9 @@ enum SingleInstance {
 /// weakly, and a released controller would leave an icon with an empty menu.
 var menuBar: MenuBarController?
 
+/// Retained for the same reason: `NSApplication.delegate` is weak too.
+let agentDelegate = AgentApplicationDelegate()
+
 let arguments = Array(CommandLine.arguments.dropFirst())
 let waiter = DispatchSemaphore(value: 0)
 var exitCode: Int32 = 0
@@ -556,6 +559,12 @@ case "--install":
         exit(1)
     }
 
+    // Sparkle relaunches an updated app by opening it, which lands here. The
+    // launchd job is already bringing the new version up (see AgentHandover),
+    // and registering now would boot it out — and rewrite the plist for
+    // someone who had turned "Open at Login" off.
+    if AgentHandover.isRelaunchAfterUpdate { exit(0) }
+
     guard Installer.isInApplicationsFolder else {
         refuse(
             L.t("Move BrailliantConnect to Applications"),
@@ -572,6 +581,12 @@ case "--install":
                 + "Make sure the app is in the Applications folder, then open it again."))
 
 case "--watch":
+    // Before anything else, the lock included: during an update launchd may
+    // have restarted the old binary while the bundle was being replaced, and
+    // this is where it waits for the new one and hands over to it. See
+    // AgentHandover, and "Updates" in CLAUDE.md.
+    AgentHandover.awaitNewVersionIfInstalling()
+
     // launchd already runs a single copy of the job; this guards against a
     // second one started by hand.
     // Logged before leaving: launchd restarts a job that exits, so a copy
@@ -583,6 +598,16 @@ case "--watch":
     }
 
     log(L.t("agent started"))
+
+    // A new build: the Finder extension inside it is registered again before
+    // the location is published, so that the system serves this one rather
+    // than what it remembers of the bundle that was at this path before.
+    if UpdateNotice.recordStart() {
+        log(
+            Installer.registerExtension()
+                ? L.t("Finder extension registered again for the new version")
+                : L.t("the Finder extension could not be registered"))
+    }
 
     transfers.onCompletion = { total in
         // The progress ends the same way whether the files landed or the
@@ -605,7 +630,13 @@ case "--watch":
     // .accessory: an item in the menu bar, no Dock icon and no window.
     application.setActivationPolicy(.accessory)
     application.mainMenu = KeyboardMenu.make()
+    // NSApplication holds its delegate weakly.
+    application.delegate = agentDelegate
     menuBar = MenuBarController(onChange: { syncWithHardware() })
+
+    // After NSApplication exists, which Sparkle's windows need. Scheduled
+    // checks run about once a day, never during a transfer.
+    Updates.start()
 
     // Only once the app is a running application does the notification centre
     // have anything to attach a permission dialog to. Asked for before that,
@@ -619,13 +650,20 @@ case "--watch":
         Welcome.showIfFirstLaunch(shortcut: shortcutInPlace)
     }
 
-    // The only channel back to the people who installed this: no update
-    // mechanism, no account, and a forum post reaches whoever reads forums.
-    // It waits for the welcome window to be gone before saying anything.
+    // A channel back to the people who installed this, for what an update
+    // cannot say — and the only one reaching versions before Sparkle (1.1.1
+    // and older). It waits for the welcome window to be gone before saying
+    // anything.
     Announcements.checkAtLaunch()
 
     TransferNotice.delivery = { log($0) }
-    DispatchQueue.main.async { TransferNotice.requestPermission(report: { log($0) }) }
+    DispatchQueue.main.async {
+        TransferNotice.requestPermission(
+            report: { log($0) },
+            // Once the permission is known: on a first run, asking for it is
+            // what makes delivery possible at all.
+            then: { UpdateNotice.announceIfUpdated() })
+    }
 
     // Align the state as soon as we start: the display may already be
     // connected, or a location may be left over from a previous session.

@@ -101,6 +101,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(disabled(L.t("No display connected")))
         }
 
+        // Said once after an update, in case the notification was missed or
+        // notifications are off: until this menu has been opened once.
+        if let updated = UpdateNotice.menuLine {
+            menu.addItem(disabled(updated))
+        }
+
         // The end of a transfer is announced by a notification, and nothing
         // else reaches someone who has walked away from the screen. Refused
         // once — a reflex on a dialog that appears at first launch — it stays
@@ -127,6 +133,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // only fail when pressed is worse than one that is not there.
         if Feedback.isAvailable {
             add(menu, L.t("Report a Problem…"), #selector(reportProblem))
+        }
+        // Absent when Sparkle refused to start — a build without the real
+        // public key — for the same reason.
+        if Updates.isAvailable {
+            add(menu, L.t("Check for Updates…"), #selector(checkForUpdates))
         }
         add(menu, L.t("Uninstall BrailliantConnect…"), #selector(uninstall))
         add(menu, L.t("Quit"), #selector(quit), key: "q")
@@ -245,6 +256,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func reportProblem() {
         Feedback.show()
+    }
+
+    @objc private func checkForUpdates() {
+        Updates.shared?.checkForUpdates()
+    }
+
+    /// The update line has been in front of the reader once: it goes at the
+    /// next opening. Here rather than in `menuNeedsUpdate`, which AppKit also
+    /// calls to look up key equivalents without showing anything.
+    func menuWillOpen(_ menu: NSMenu) {
+        UpdateNotice.menuWasSeen()
     }
 
     @objc private func openNotificationSettings() {

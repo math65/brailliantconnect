@@ -47,7 +47,17 @@ enum Installer {
                 "Library/Application Scripts/com.mathieumartin.BrailliantConnect"),
             home.appendingPathComponent(
                 "Library/Application Scripts/com.mathieumartin.BrailliantConnect.FileProvider"),
+            // Also where Sparkle keeps its downloads and installations
+            // (`org.sparkle-project.Sparkle` inside it) and the URL cache of
+            // its feed requests: one folder covers the three.
             home.appendingPathComponent("Library/Caches/com.mathieumartin.BrailliantConnect"),
+            // Cookies and HSTS state of Sparkle's URLSession, which uses the
+            // default configuration — the backend client's is ephemeral and
+            // writes none. Both names, as with the group containers: the
+            // folder on recent systems, the single file on older ones.
+            home.appendingPathComponent("Library/HTTPStorages/com.mathieumartin.BrailliantConnect"),
+            home.appendingPathComponent(
+                "Library/HTTPStorages/com.mathieumartin.BrailliantConnect.binarycookies"),
             home.appendingPathComponent("Library/Containers/com.mathieumartin.BrailliantConnect"),
             home.appendingPathComponent(
                 "Library/Containers/com.mathieumartin.BrailliantConnect.FileProvider"),

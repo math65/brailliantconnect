@@ -118,6 +118,21 @@ model, serial number and storage areas of the display as they were last read.
 That is the whole of what leaves your machine, along with the address you type
 in so an answer can reach you. Suggestions and questions send the message alone.
 
+### Updates
+
+From version 1.2.0, BrailliantConnect keeps itself up to date. About once a
+day it checks for a new version and, when there is one, installs it on its own
+and starts again — never while a copy to the display is running: it waits for
+the transfer to end. A notification says which version was installed, and the
+menu says it once more the next time you open it, in case notifications are
+off.
+
+**Check for Updates…** in the menu bar checks at once and shows what is new
+before installing.
+
+Version 1.1.1 and earlier have no updater: download 1.2.0 once by hand, and
+every version after it arrives by itself.
+
 ### Uninstall
 
 **Uninstall BrailliantConnect…** in the menu bar removes the agent, the Finder
@@ -235,12 +250,17 @@ constraint on file names, and a device can return whatever it likes.
   agent, and `/usr/bin/pluginkit` to register the Finder extension and to
   remove it on uninstall. For a problem report, when the extension has never
   described the display, the agent also runs the bundled `brailliant doctor`.
-- **Network: two requests, both from the agent.** *Report a Problem…* sends
-  the message and diagnosis described above, and once per start the agent asks
-  the author's server (`mathieumartin.ovh`) whether there is an announcement —
-  the only way to reach people who installed the app, since it has no update
-  mechanism and no account. Nothing else leaves the machine; the extension and
-  the command-line tool make no network request.
+- **Network: three kinds of request, all from the agent.** *Report a
+  Problem…* sends the message and diagnosis described above; once per start
+  the agent asks the author's server (`mathieumartin.ovh`) whether there is an
+  announcement; and about once a day [Sparkle](https://sparkle-project.org)
+  reads the update feed — `appcast.xml` in this repository, over HTTPS from
+  GitHub — with nothing about the Mac attached, and downloads an update from
+  this repository's releases when there is one. An update is installed only if
+  it carries an EdDSA signature made with the author's key and is signed by
+  the same Apple developer team. Nothing else leaves the machine; the
+  extension and the command-line tool make no network request, and only the
+  agent contains Sparkle.
 - **No privileges.** No setuid, nothing that asks for an administrator
   password. PIE and stack protections enabled.
 
@@ -251,7 +271,7 @@ no errors.
 
 ```bash
 swift build -c release   # CLI — run from the repository root
-swift test               # 70 tests
+swift test               # 86 tests
 ```
 
 `Package.swift` links libmtp through a **relative** path, so builds must run
@@ -353,6 +373,12 @@ Both are **LGPL-2.1**. Redistribution is permitted here because linking stays
 **dynamic**, users can **replace** the libraries by substituting the `.dylib`
 files, and both the licence texts (`Vendor/LICENSE-*.txt`) and the rebuild
 script are included.
+
+[Sparkle](https://sparkle-project.org) 2.10.0, which installs updates, is a
+Swift Package dependency of the Xcode project, pinned to that exact version
+and fetched by Xcode at build time — nothing to install. It is linked into the
+background agent only. MIT licence, shipped as `LICENSE-Sparkle.txt` in the
+app's resources.
 
 ## Contributing
 

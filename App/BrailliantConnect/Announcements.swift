@@ -4,9 +4,10 @@ import AppKit
 /// the user — a bad release to skip, a firmware that breaks MTP, a version that
 /// has to be replaced by hand.
 ///
-/// There is otherwise no way to reach the people who installed this: the app
-/// has no update mechanism and no account, and a forum post reaches whoever
-/// happens to read the forum.
+/// Updates (Sparkle, from 1.2.0) replace the app but say nothing that does not
+/// fit in release notes, and reach nobody still on 1.1.1 or older, which have
+/// no updater; the app has no account, and a forum post reaches whoever
+/// happens to read the forum. This is the remaining way to reach people.
 ///
 /// `once` is enforced here, not by the server, which always returns the live
 /// announcement: the IDs already shown are kept in UserDefaults. The server is

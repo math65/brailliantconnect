@@ -768,5 +768,44 @@ public enum L {
         "Select All": "Tout sélectionner",
         "Window": "Fenêtre",
         "Close Window": "Fermer la fenêtre",
+
+        // MARK: Agent — updates (Sparkle)
+
+        "Check for Updates…": "Rechercher les mises à jour…",
+        "Updated to %@ on %@": "Mis à jour en version %@ le %@",
+        "BrailliantConnect %@ installed": "BrailliantConnect %@ installé",
+        "The update is in place and BrailliantConnect is running again.":
+            "La mise à jour est en place et BrailliantConnect fonctionne de nouveau.",
+        "BrailliantConnect %@ is available": "BrailliantConnect %@ est disponible",
+        "Choose Check for Updates… in the BrailliantConnect menu to install it.":
+            "Choisissez Rechercher les mises à jour… dans le menu de BrailliantConnect pour l'installer.",
+        "updates disabled: %@": "mises à jour désactivées : %@",
+        "updates: scheduled check skipped — a transfer is running":
+            "mises à jour : vérification programmée sautée — un transfert est en cours",
+        "updates: version %@ found": "mises à jour : version %@ trouvée",
+        "updates: %@": "mises à jour : %@",
+        "updates: version %@ downloaded": "mises à jour : version %@ téléchargée",
+        "updates: installing %@ once the transfer is over":
+            "mises à jour : installation de %@ à la fin du transfert",
+        "updates: installing %@ — the agent restarts":
+            "mises à jour : installation de %@ — l'agent redémarre",
+        "updates: a transfer started — installing %@ once it is over":
+            "mises à jour : un transfert a commencé — installation de %@ quand il sera terminé",
+        "updates: version %@ needs to be confirmed":
+            "mises à jour : la version %@ doit être confirmée",
+        "updates: quit refused — a transfer is running":
+            "mises à jour : arrêt refusé — un transfert est en cours",
+        "update: version %@ in place — starting it":
+            "mise à jour : version %@ en place — démarrage",
+        "update: waiting for version %@ to be put in place":
+            "mise à jour : attente de la mise en place de la version %@",
+        "update: version %@ never arrived — carrying on":
+            "mise à jour : la version %@ n'est jamais arrivée — on continue",
+        "update: could not start the new version (%@) — exiting":
+            "mise à jour : impossible de démarrer la nouvelle version (%@) — arrêt",
+        "updated to version %@ (build %@, previously %@)":
+            "mis à jour en version %@ (build %@, auparavant %@)",
+        "Finder extension registered again for the new version":
+            "extension du Finder réenregistrée pour la nouvelle version",
     ]
 }

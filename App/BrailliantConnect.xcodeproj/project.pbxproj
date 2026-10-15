@@ -32,6 +32,9 @@
 		46753BABEDBC00F55AA0A21D /* AppBackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D7022C56467EFD25914EB2 /* AppBackendClient.swift */; };
 		8B03859FCD9C6BF50824426A /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F728C3AC9F92009F39346154 /* Diagnostics.swift */; };
 		ED9533F701818C03CB1A1BEA /* Feedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85872038C4062358AF828F0D /* Feedback.swift */; };
+		5A11E0C0B2D74F1E8C3A9D01 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5A11E0C0B2D74F1E8C3A9D02 /* Sparkle */; };
+		5A11E0C0B2D74F1E8C3A9D07 /* Updates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11E0C0B2D74F1E8C3A9D06 /* Updates.swift */; };
+		5A11E0C0B2D74F1E8C3A9D09 /* UpdateHandover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11E0C0B2D74F1E8C3A9D08 /* UpdateHandover.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +60,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5A11E0C0B2D74F1E8C3A9D04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A11E0C0B2D74F1E8C3A9D01 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXFileReference section */
 		05EC8B312499EBB3890E549A /* Installer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Installer.swift; sourceTree = "<group>"; };
@@ -88,6 +102,9 @@
 		46D7022C56467EFD25914EB2 /* AppBackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBackendClient.swift; sourceTree = "<group>"; };
 		F728C3AC9F92009F39346154 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		85872038C4062358AF828F0D /* Feedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feedback.swift; sourceTree = "<group>"; };
+		5A11E0C0B2D74F1E8C3A9D05 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		5A11E0C0B2D74F1E8C3A9D06 /* Updates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updates.swift; sourceTree = "<group>"; };
+		5A11E0C0B2D74F1E8C3A9D08 /* UpdateHandover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateHandover.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -101,6 +118,7 @@
 				C1B71AE26C3A5EE40C47C8C4 /* Models.swift */,
 				77C857E31CCA0B3409A387AE /* MTPError.swift */,
 				12A669216EF3A8B0083C304A /* RemotePath.swift */,
+				5A11E0C0B2D74F1E8C3A9D08 /* UpdateHandover.swift */,
 			);
 			path = BrailliantKit;
 			sourceTree = "<group>";
@@ -113,11 +131,13 @@
 				0BC9644AB568273EC86B51B0 /* BrailliantConnect.entitlements */,
 				F728C3AC9F92009F39346154 /* Diagnostics.swift */,
 				85872038C4062358AF828F0D /* Feedback.swift */,
+				5A11E0C0B2D74F1E8C3A9D05 /* Info.plist */,
 				05EC8B312499EBB3890E549A /* Installer.swift */,
 				D1BD58195308FCA37B7A92A9 /* main.swift */,
 				B6EC76DB0FEE5EB191F7CC71 /* MenuBarController.swift */,
 				E80EF061C908BD7421206248 /* TransferMonitor.swift */,
 				25F03888E9C8A71445A2EB9A /* TransferNotice.swift */,
+				5A11E0C0B2D74F1E8C3A9D06 /* Updates.swift */,
 				2C818E46A4F403AF7BC702B5 /* USBWatcher.swift */,
 				157ED0DE86C73B2CB96F406C /* Welcome.swift */,
 			);
@@ -216,6 +236,7 @@
 			buildConfigurationList = E0298B7E96A61BAE8AB22601 /* Build configuration list for PBXNativeTarget "BrailliantConnect" */;
 			buildPhases = (
 				BE924285A27D8040BF16EC57 /* Sources */,
+				5A11E0C0B2D74F1E8C3A9D04 /* Frameworks */,
 				27F719D04CA9CA26597B1DC2 /* Embed Foundation Extensions */,
 				2F2871272A98AB03FB8554C2 /* Embed libmtp and libusb */,
 			);
@@ -226,6 +247,7 @@
 			);
 			name = BrailliantConnect;
 			packageProductDependencies = (
+				5A11E0C0B2D74F1E8C3A9D02 /* Sparkle */,
 			);
 			productName = BrailliantConnect;
 			productReference = 1974255A03AF58FE6880D9F7 /* BrailliantConnect.app */;
@@ -258,6 +280,9 @@
 				en,
 			);
 			mainGroup = 6B55FFAA2E5C9BCCBB7C8919;
+			packageReferences = (
+				5A11E0C0B2D74F1E8C3A9D03 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DDDA65A7A551161E1950BC9D /* Products */;
@@ -287,7 +312,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -eu\n\n# The extension finds these through its rpath, four levels up into the app's\n# Contents/Frameworks; the agent itself does not link them. Each library is\n# signed on its own: signing the bundle with --deep would overwrite the\n# extension's entitlements, and it would then refuse to load.\nDEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n\n# The backend key is not in the repository, which is public: it is copied\n# when it exists. Without it the app builds and works; it simply does not\n# offer to send a report. A missing key must never fail the build.\nKEY=\"$SRCROOT/BrailliantConnect/AppBackendSecret.plist\"\nif [ -f \"$KEY\" ]; then\n  RES=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  mkdir -p \"$RES\"\n  cp -f \"$KEY\" \"$RES/AppBackendSecret.plist\"\nfi\n";
+			shellScript = "set -eu\n\n# The extension finds these through its rpath, four levels up into the app's\n# Contents/Frameworks; the agent itself does not link them. Each library is\n# signed on its own: signing the bundle with --deep would overwrite the\n# extension's entitlements, and it would then refuse to load.\nDEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n\n# Sparkle's own executables arrive signed ad hoc, and Xcode re-signs only the\n# framework around them. Its installer swaps the old bundle for the new one\n# atomically only when it is signed by the update's team, so they are signed\n# here, inside out, as make-dist.sh does for a release: a build tested on\n# this machine then installs updates the way a shipped one does.\nSPARKLE=\"$DEST/Sparkle.framework/Versions/B\"\nif [ -d \"$SPARKLE\" ] && [ \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" != \"-\" ]; then\n  for xpc in \"$SPARKLE\"/XPCServices/*.xpc; do\n    [ -d \"$xpc\" ] && codesign --force -o runtime --preserve-metadata=entitlements --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$xpc\"\n  done\n  codesign --force -o runtime --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$SPARKLE/Autoupdate\"\n  codesign --force -o runtime --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$SPARKLE/Updater.app\"\n  codesign --force -o runtime --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \"$DEST/Sparkle.framework\"\nfi\n\n# The backend key is not in the repository, which is public: it is copied\n# when it exists. Without it the app builds and works; it simply does not\n# offer to send a report. A missing key must never fail the build.\nKEY=\"$SRCROOT/BrailliantConnect/AppBackendSecret.plist\"\nif [ -f \"$KEY\" ]; then\n  RES=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  mkdir -p \"$RES\"\n  cp -f \"$KEY\" \"$RES/AppBackendSecret.plist\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -325,6 +350,8 @@
 				B1965EB159D521F618C7696B /* MenuBarController.swift in Sources */,
 				002A19D13A55F5F37E4D6B74 /* TransferMonitor.swift in Sources */,
 				7BC3DD43DF775DAEF979D43F /* TransferNotice.swift in Sources */,
+				5A11E0C0B2D74F1E8C3A9D09 /* UpdateHandover.swift in Sources */,
+				5A11E0C0B2D74F1E8C3A9D07 /* Updates.swift in Sources */,
 				9A6DFDD504B2679C247C78F9 /* USBWatcher.swift in Sources */,
 				0E455DAB4D91EDB1A3EBDA5E /* Welcome.swift in Sources */,
 			);
@@ -409,6 +436,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BrailliantConnect/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -531,6 +559,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BrailliantConnect/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -573,6 +602,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5A11E0C0B2D74F1E8C3A9D03 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5A11E0C0B2D74F1E8C3A9D02 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5A11E0C0B2D74F1E8C3A9D03 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9B07CB9A0ABDD3DA207F9A40 /* Project object */;
 }

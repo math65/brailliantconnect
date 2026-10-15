@@ -30,7 +30,10 @@
 #       xcrun notarytool history --keychain-profile "$NOTARY_PROFILE"
 #     Profiles are not tied to an app, hence reusing the ttaccessible one;
 #   - App/BrailliantConnect/AppBackendSecret.plist (git-ignored): without it
-#     the shipped app has no Report a Problem and no announcements.
+#     the shipped app has no Report a Problem and no announcements;
+#   - the real SUPublicEDKey in App/BrailliantConnect/Info.plist, in place of
+#     the placeholder (`generate_keys -p` prints it): without it the shipped
+#     app can never be updated, and Sparkle refuses to start at all.
 
 set -euo pipefail
 
@@ -43,6 +46,8 @@ NOTARY_PROFILE="ttaccessible-notary"
 TEAM_ID="633EG76YX5"
 PROFILE="$ROOT/App/BrailliantConnect/BrailliantConnect.provisionprofile"
 BACKEND_KEY="$ROOT/App/BrailliantConnect/AppBackendSecret.plist"
+APP_INFO="$ROOT/App/BrailliantConnect/Info.plist"
+FEED_URL="https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml"
 # A certificate closer than this to its end gets a warning, so that renewing
 # it and regenerating the profile is planned rather than discovered.
 CERT_WARNING_DAYS=60
@@ -148,6 +153,24 @@ fi
 [ -f "$BACKEND_KEY" ] \
   || fail "no $BACKEND_KEY: the release would ship without Report a Problem."
 
+log "Update key and feed"
+
+# A release carrying the placeholder could never be updated again: Sparkle
+# refuses to start without a valid key, and the only way to fix that would be
+# asking every user to download the next version by hand.
+ED_KEY="$(plutil -extract SUPublicEDKey raw -o - "$APP_INFO" 2>/dev/null || true)"
+case "$ED_KEY" in
+  ""|PLACEHOLDER*)
+    fail "SUPublicEDKey in $APP_INFO is still the placeholder. Print the public
+key with Sparkle's generate_keys -p (default keychain account) and paste it there." ;;
+esac
+[ "$(printf '%s' "$ED_KEY" | base64 -D 2>/dev/null | wc -c | tr -d ' ')" = "32" ] \
+  || fail "SUPublicEDKey in $APP_INFO is not an Ed25519 public key (32 bytes, base64)."
+echo "    public key: $ED_KEY"
+[ "$(plutil -extract SUFeedURL raw -o - "$APP_INFO" 2>/dev/null || true)" = "$FEED_URL" ] \
+  || fail "SUFeedURL in $APP_INFO is not $FEED_URL."
+echo "    feed: $FEED_URL"
+
 # --- Tests --------------------------------------------------------------------
 # No package may ship if a test fails: they cover path confinement, which is
 # what keeps a hostile file name from writing outside its destination.
@@ -236,6 +259,16 @@ APP="$DIST/$APP_NAME.app"
 [ -f "$APP/Contents/Resources/AppBackendSecret.plist" ] \
   || fail "the bundle carries no AppBackendSecret.plist: Report a Problem would be missing."
 
+# Xcode merges App/BrailliantConnect/Info.plist into the generated one; a lost
+# INFOPLIST_FILE setting would ship an app with no feed and no key, and nothing
+# would fail before a user waited for an update that never comes.
+[ "$(plutil -extract SUPublicEDKey raw -o - "$APP/Contents/Info.plist" 2>/dev/null || true)" = "$ED_KEY" ] \
+  || fail "the bundle's Info.plist does not carry the SUPublicEDKey of $APP_INFO."
+[ "$(plutil -extract SUFeedURL raw -o - "$APP/Contents/Info.plist" 2>/dev/null || true)" = "$FEED_URL" ] \
+  || fail "the bundle's Info.plist does not carry the update feed."
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+[ -d "$SPARKLE" ] || fail "Sparkle.framework is not in the bundle."
+
 # The CLI travels beside the agent, and finds the libraries through the same
 # Frameworks folder the extension uses. The development rpaths (…/Vendor,
 # relative to the build tree) are removed first: in the bundle they would
@@ -256,6 +289,11 @@ fi
 
 mkdir -p "$APP/Contents/Resources"
 cp "$VENDOR/LICENSE-libmtp.txt" "$VENDOR/LICENSE-libusb.txt" "$APP/Contents/Resources/"
+# Sparkle is MIT: its notice travels with the copy. Taken from the package
+# this build resolved, so it always matches the version inside the bundle.
+SPARKLE_LICENSE="$DIST/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/LICENSE"
+[ -f "$SPARKLE_LICENSE" ] || fail "Sparkle's licence not found ($SPARKLE_LICENSE)."
+cp "$SPARKLE_LICENSE" "$APP/Contents/Resources/LICENSE-Sparkle.txt"
 
 # --- Signing ------------------------------------------------------------------
 # Inside out: signing the app seals what it contains, so anything modified
@@ -283,6 +321,26 @@ for lib in "$APP/Contents/Frameworks"/*.dylib; do
   [ -f "$lib" ] && codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" "$lib"
 done
 
+# Sparkle carries code of its own inside its framework, each piece signed on
+# its own and inside out, as Sparkle documents for Developer ID — never with
+# --deep. The XPC services are unused by an app that is not sandboxed, but
+# they ship inside the framework and notarization checks every executable.
+# The Downloader keeps whatever entitlements Sparkle gave it.
+#
+# Autoupdate signed with our team is not only for notarization: Sparkle swaps
+# the old bundle for the new one atomically only when its installer and the
+# update are signed by the same team, and otherwise falls back to moving the
+# old app away and the new one in — leaving a moment with no executable at the
+# path launchd restarts the agent from.
+SPARKLE_B="$SPARKLE/Versions/B"
+for xpc in "$SPARKLE_B/XPCServices"/*.xpc; do
+  [ -d "$xpc" ] && codesign --force "${RUNTIME_FLAGS[@]}" --preserve-metadata=entitlements \
+    --sign "$SIGN_IDENTITY" "$xpc"
+done
+codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" "$SPARKLE_B/Autoupdate"
+codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" "$SPARKLE_B/Updater.app"
+codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" "$SPARKLE"
+
 # Only the CLI was added after the build, so only it needs signing.
 codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" \
   "$APP/Contents/MacOS/brailliant"
@@ -302,6 +360,31 @@ if ! codesign -d --entitlements - "$APP/Contents/PlugIns/FileProviderExtension.a
   fail "the extension lost its sandbox entitlement."
 fi
 echo "    extension: sandbox entitlement present"
+# Sparkle belongs to the agent alone: the extension parses what the device
+# sends, and must stay without a network client or an installer.
+# (Captured first, then matched: `grep -q` leaving a pipe early can make the
+# pipeline fail under pipefail, and the check would pass for the wrong reason.)
+EXT_LIBS="$(otool -L "$APP/Contents/PlugIns/FileProviderExtension.appex/Contents/MacOS/FileProviderExtension")"
+case "$EXT_LIBS" in
+  *Sparkle*) fail "the extension links Sparkle." ;;
+esac
+echo "    extension: does not link Sparkle"
+for part in "$SPARKLE_B/XPCServices/Installer.xpc" "$SPARKLE_B/XPCServices/Downloader.xpc" \
+            "$SPARKLE_B/Autoupdate" "$SPARKLE_B/Updater.app" "$SPARKLE"; do
+  [ -e "$part" ] || continue
+  codesign --verify --strict "$part" 2>/dev/null \
+    || fail "$(basename "$part") does not verify."
+  PART_INFO="$(codesign -dv "$part" 2>&1)"
+  case "$PART_INFO" in
+    *"TeamIdentifier=$TEAM_ID"*) ;;
+    *) fail "$(basename "$part") is not signed by team $TEAM_ID." ;;
+  esac
+  case "$PART_INFO" in
+    *"flags="*runtime*) ;;
+    *) fail "$(basename "$part") lacks the hardened runtime." ;;
+  esac
+done
+echo "    Sparkle: every component signed by $TEAM_ID, hardened"
 # The distributed agent must claim its identity and carry the profile that
 # backs the claim: one without the other is an app that macOS 13 cannot serve,
 # or one that macOS kills at launch.
@@ -370,3 +453,6 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 log "Done"
 echo "  App     : $APP"
 echo "  Archive : $ZIP ($(du -h "$ZIP" | cut -f1))"
+# The tool that signs this archive for the appcast came with the package the
+# build just resolved; the release skill takes it from here.
+echo "  sign_update: $DIST/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"

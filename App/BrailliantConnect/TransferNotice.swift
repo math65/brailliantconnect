@@ -56,14 +56,21 @@ enum TransferNotice {
     /// Requested at startup rather than at the first transfer: asking in the
     /// middle of one means the answer arrives too late to announce it. The
     /// system only ever shows the dialog once, whatever the answer.
-    static func requestPermission(report: @escaping (String) -> Void) {
+    ///
+    /// - Parameter then: called on the main queue once the answer is known.
+    static func requestPermission(
+        report: @escaping (String) -> Void, then: (() -> Void)? = nil
+    ) {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound]) { granted, error in
             // Logged because it is otherwise invisible: a refused permission
             // and a working one look exactly alike until a transfer ends and
             // nothing happens.
             center.getNotificationSettings { settings in
-                DispatchQueue.main.async { authorization = settings.authorizationStatus }
+                DispatchQueue.main.async {
+                    authorization = settings.authorizationStatus
+                    then?()
+                }
                 let state: String
                 switch settings.authorizationStatus {
                 case .authorized, .provisional: state = "authorized"
