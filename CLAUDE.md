@@ -300,7 +300,43 @@ plugged into the display invisible with no way to reach it. Consequences:
 
 **No log from the extension reaches `log show`**, at any level, for any
 predicate. Diagnosing it means writing to a file in its own container, which
-is sandbox-writable and readable from outside.
+is sandbox-writable and readable by the agent. Not by everyone: from a Claude
+Code shell, macOS's app-data protection answers "Operation not permitted",
+sandbox or not, and so does the Finder driven through `osascript` (measured
+15 Oct 2026). What reached the display is better read on the display itself:
+`brailliant finder off`, then `brailliant tree`.
+
+## Packages
+
+Measured 15 Oct 2026 (macOS 27.0.1, BI 40X), after a user's Pages document
+failed to copy:
+
+- a package — Pages, Keynote, RTFD, anything conforming to
+  `com.apple.package` — reaches `createItem` as **one item**: its
+  `contentType` is the package type, not `.folder`, and its contents URL is
+  the package directory. Its files are never created on their own;
+  `fileproviderctl evaluate` knows none of them.
+- tested with `== .folder`, it was taken for a file sent without contents:
+  `localFileMissing`, mapped to "server unreachable" and retried. Creating
+  the folder alone, the first fix, was worse: an empty folder on the display,
+  and `isUploaded = 1` on the Mac.
+- so the extension sends the tree itself (`uploadContents`), replaces it
+  through a temporary name when it changes (`replaceFolder`), and answers
+  `fetchContents` with a directory (`downloadContents`) — which the system
+  accepts for a package, although the SDK header asks for a regular file.
+  The listing gives a folder whose extension is a *declared* package type that
+  type back, or it would return to the Mac as a plain folder.
+- an RTFD and a real Pages document went there and back with `diff -r`
+  empty and their type intact; editing a file inside the package on the Mac
+  replaced it on the display.
+- `NSExtensionFileProviderSupportsUnzippedPackages`, an undocumented key found
+  in the system's shared cache, changed nothing.
+  `NSExtensionFileProviderWantsFlattenedPackages` was not tried.
+- around them: a symbolic link fails with `cannotSynchronize` (MTP stores
+  none), which the SDK says is not retried until the item or the extension
+  changes; an alias and an empty file go through as files;
+  an iCloud document not downloaded is downloaded by the Finder before the
+  copy, and arrives whole.
 
 ## Deleting is not slow
 

@@ -367,7 +367,12 @@ final class DisplayAccess {
             let destination = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
             let display = try target(entry.storageID)
-            _ = try display.download(entry.path, to: destination.path, progress: progress)
+            if entry.isDirectory {
+                // Only a package is ever fetched: a folder is enumerated.
+                try display.downloadContents(of: entry.path, into: destination, progress: progress)
+            } else {
+                _ = try display.download(entry.path, to: destination.path, progress: progress)
+            }
             return (destination, DisplayItem(entry: entry))
         }
     }
@@ -450,8 +455,9 @@ final class DisplayAccess {
     ///   cannot know about a file created on the display since it last looked,
     ///   and overwriting it would destroy it without a word. Reported, the
     ///   collision makes the system rename the incoming item instead.
-    /// - Returns: the created entry, or nil when a replayed import matches
-    ///   nothing — which tells the system to drop its copy.
+    /// - Returns: the created entry and the bytes sent, if any; nil when a
+    ///   replayed import matches nothing — which tells the system to drop its
+    ///   copy.
     func create(
         name: String,
         inParent parent: NSFileProviderItemIdentifier,
@@ -459,7 +465,7 @@ final class DisplayAccess {
         localContents: URL?,
         mayAlreadyExist: Bool,
         progress: @escaping (UInt64, UInt64) -> Void
-    ) throws -> Entry? {
+    ) throws -> (entry: Entry, sent: UInt64?)? {
         try serialized {
             guard RemotePath.isSafeComponent(name) else {
                 throw MTPError.unsafeRemoteName(name)
@@ -469,17 +475,35 @@ final class DisplayAccess {
             let display = try target(storageID)
 
             let created: Entry
+            var sent: UInt64?
             if isFolder {
                 // createDirectory hands back a folder that already exists:
                 // right for a replay, which merges, and a collision otherwise.
-                if !mayAlreadyExist, try display.resolve(destination) != nil {
+                let existed = try display.resolve(destination) != nil
+                if !mayAlreadyExist, existed {
                     throw MTPError.alreadyExists(path: destination)
                 }
                 created = try display.createDirectory(destination)
+                // A package comes as one item: its files are never created
+                // on their own (measured 15 Oct 2026 — the display received
+                // an empty folder, and the system knew none of them). What it
+                // holds is behind its contents URL; a plain folder has none.
+                if let localContents, Self.isFolder(localContents) {
+                    do {
+                        sent = try display.uploadContents(
+                            of: localContents, into: destination, progress: progress)
+                    } catch {
+                        // Half a document is worse than none: the retry starts
+                        // clean. Only what this call created is removed.
+                        if !existed { try? display.remove(destination, recursive: true) }
+                        throw error
+                    }
+                }
             } else if let localContents {
                 created = try display.upload(
                     localContents.path, to: destination, progress: progress,
                     overwrite: mayAlreadyExist)
+                sent = created.size
             } else if mayAlreadyExist {
                 // A replayed import of a file the Mac holds no contents for:
                 // the system asks whether the display has it, and only that.
@@ -491,8 +515,12 @@ final class DisplayAccess {
             }
             index[created.itemID] = created
             invalidate(container: parent)
-            return created
+            return (created, sent)
         }
+    }
+
+    private static func isFolder(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
     }
 
     /// Renames an item, moves it, or replaces its contents.
@@ -561,9 +589,18 @@ final class DisplayAccess {
             // doing it after a rename would undo that rename.
             var uploaded: UInt64?
             if let localContents {
-                current = try target(current.storageID).upload(
-                    localContents.path, to: current.path, progress: progress)
-                uploaded = current.size
+                let display = try target(current.storageID)
+                if current.isDirectory {
+                    // A package edited on the Mac: the whole of it again.
+                    let replaced = try display.replaceFolder(
+                        current.path, with: localContents, progress: progress)
+                    current = replaced.entry
+                    uploaded = replaced.sent
+                } else {
+                    current = try display.upload(
+                        localContents.path, to: current.path, progress: progress)
+                    uploaded = current.size
+                }
             }
             var refusedMove = false
             if let destination {
@@ -751,9 +788,12 @@ final class DisplayAccess {
 ///
 ///     <ISO 8601 UTC date> \t <operation> \t <outcome> \t <detail>
 ///
-/// The detail names the error and its codes, and the size when one is known —
-/// never a file name. A report is sent to someone else; what the user keeps on
-/// their display is not part of it.
+/// The detail names the error and its codes, then, for a failed import, the
+/// type the system declared and what it handed over as contents
+/// (`type=com.apple.rtfd contents=none`), and the size when one is known —
+/// never a file name. A type names at most the file's extension. A report is
+/// sent to someone else; what the user keeps on their display is not part of
+/// it.
 enum Ledger {
 
     enum Operation: String {
@@ -784,9 +824,13 @@ enum Ledger {
 
     /// Appends one event. Never throws, never fails the operation it describes.
     static func record(
-        _ operation: Operation, _ outcome: Outcome, error: Error? = nil, size: UInt64? = nil
+        _ operation: Operation, _ outcome: Outcome, error: Error? = nil,
+        contents: String? = nil, size: UInt64? = nil
     ) {
         var detail = error.map(describe) ?? ""
+        if let contents {
+            detail += (detail.isEmpty ? "" : " ") + contents
+        }
         if let size {
             detail += (detail.isEmpty ? "" : " ") + "size=\(size)"
         }

@@ -525,6 +525,158 @@ public final class Brailliant {
         return calibrateClock(with: result, sentBetween: sendStarted, and: Date())
     }
 
+    // MARK: - Folders sent as one document
+
+    /// Copies what a local folder holds into `remote`, created if missing.
+    ///
+    /// Written for packages — a Pages document, an RTFD — which the system
+    /// hands over as a single item: what they hold never arrives on its own.
+    /// Symbolic links are left out, since MTP stores none, and Mac junk as
+    /// everywhere else. Every name is checked before anything is written, so
+    /// that one the display cannot store leaves nothing behind.
+    ///
+    /// - Returns: the number of bytes sent.
+    @discardableResult
+    public func uploadContents(
+        of local: URL, into remote: String, progress: ProgressHandler? = nil
+    ) throws -> UInt64 {
+        let items = try Self.localTree(local)
+        let total = items.reduce(0) { $0 + $1.size }
+        let folder = try createDirectory(remote)
+        // The same check as for a single file, for the whole of it: running
+        // out of space halfway would leave half a document on the display.
+        if let storage = try storages(refresh: true).first(where: { $0.id == folder.storageID }),
+            total > storage.free
+        {
+            throw MTPError.notEnoughSpace(needed: total, available: storage.free)
+        }
+        var sent: UInt64 = 0
+        for item in items {
+            let path = RemotePath.join(folder.path, item.relative)
+            if item.isDirectory {
+                try createDirectory(path)
+                continue
+            }
+            let base = sent
+            let step: ProgressHandler? = progress.map { report in
+                { done, _ in report(base + done, total) }
+            }
+            try upload(item.path, to: path, progress: step)
+            sent += item.size
+        }
+        return sent
+    }
+
+    /// Replaces a remote folder by what a local one holds, the way `upload`
+    /// replaces a file: the new copy is written in full under a temporary
+    /// name, and the old one is only removed once it has landed.
+    ///
+    /// - Returns: the folder as it stands afterwards, and the bytes sent.
+    public func replaceFolder(
+        _ remote: String, with local: URL, progress: ProgressHandler? = nil
+    ) throws -> (entry: Entry, sent: UInt64) {
+        let normalized = RemotePath.normalize(remote)
+        guard let existing = try resolve(normalized) else {
+            throw MTPError.notFound(path: normalized)
+        }
+        guard existing.isDirectory else { throw MTPError.notADirectory(path: normalized) }
+        let (parentPath, name) = RemotePath.split(normalized)
+        let temporaryName = Brailliant.temporaryName(for: name)
+        let temporaryPath = RemotePath.join(parentPath, temporaryName)
+
+        let sent: UInt64
+        do {
+            sent = try uploadContents(of: local, into: temporaryPath, progress: progress)
+        } catch {
+            // Only what this call wrote: the previous version is untouched.
+            try? remove(temporaryPath, recursive: true)
+            throw error
+        }
+        try remove(existing, recursive: true)
+        do {
+            return (try rename(temporaryPath, to: name), sent)
+        } catch {
+            throw MTPError.interruptedAfterDelete(temporary: temporaryName, target: name)
+        }
+    }
+
+    /// Copies what a remote folder holds into a local folder, created if
+    /// missing — the way back for a package sent by `uploadContents`.
+    ///
+    /// Unlike `brailliant get`, a name unusable on the disk aborts the whole
+    /// copy rather than skipping one item: a document returned with a piece
+    /// missing is not the document that was sent.
+    @discardableResult
+    public func downloadContents(
+        of remote: String, into local: URL, progress: ProgressHandler? = nil
+    ) throws -> UInt64 {
+        let normalized = RemotePath.normalize(remote)
+        let entries = try walk(normalized).filter { entry in
+            let relative = String(entry.path.dropFirst(normalized.count))
+            return !relative.split(separator: "/").contains { MacJunk.matches(String($0)) }
+        }
+        let total = entries.filter { !$0.isDirectory }.reduce(0) { $0 + $1.size }
+        try FileManager.default.createDirectory(at: local, withIntermediateDirectories: true)
+        var received: UInt64 = 0
+        for entry in entries {
+            let relative = String(entry.path.dropFirst(normalized.count))
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            // Every segment comes from the device.
+            let target = try LocalPath.confine(root: local.path, relative: relative)
+            if entry.isDirectory {
+                try FileManager.default.createDirectory(
+                    atPath: target, withIntermediateDirectories: true)
+                continue
+            }
+            let base = received
+            let step: ProgressHandler? = progress.map { report in
+                { done, _ in report(base + done, total) }
+            }
+            try download(entry.path, to: target, progress: step)
+            received += entry.size
+        }
+        return received
+    }
+
+    private struct LocalItem {
+        let path: String
+        let relative: String
+        let isDirectory: Bool
+        let size: UInt64
+    }
+
+    /// What a local folder holds, parents before their children.
+    private static func localTree(_ root: URL) throws -> [LocalItem] {
+        guard let walker = FileManager.default.enumerator(atPath: root.path) else {
+            throw MTPError.localFileMissing(path: root.path)
+        }
+        var items: [LocalItem] = []
+        for case let relative as String in walker {
+            let components = relative.split(separator: "/").map(String.init)
+            let type = walker.fileAttributes?[.type] as? FileAttributeType
+            if let name = components.last, MacJunk.matches(name) {
+                if type == .typeDirectory { walker.skipDescendants() }
+                continue
+            }
+            for component in components where !RemotePath.isSafeComponent(component) {
+                throw MTPError.unsafeRemoteName(component)
+            }
+            let path = (root.path as NSString).appendingPathComponent(relative)
+            switch type {
+            case .typeDirectory?:
+                items.append(LocalItem(path: path, relative: relative, isDirectory: true, size: 0))
+            case .typeRegular?:
+                let size = (walker.fileAttributes?[.size] as? NSNumber)?.uint64Value ?? 0
+                items.append(
+                    LocalItem(path: path, relative: relative, isDirectory: false, size: size))
+            default:
+                // A symbolic link, or anything else a display cannot hold.
+                continue
+            }
+        }
+        return items
+    }
+
     /// Learns how the display's clock relates to UTC from a file it has just
     /// stamped, and returns the entry with its date read accordingly.
     ///

@@ -106,19 +106,23 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             let created = try access.create(
                 name: name,
                 inParent: itemTemplate.parentItemIdentifier,
-                isFolder: itemTemplate.contentType == .folder,
+                // A package — a Pages document, an RTFD — is a folder on disk,
+                // handed over as one item whose contents URL is that folder.
+                // Taken for a file, it failed for want of a file to send, and
+                // a Pages document never reached the display.
+                isFolder: itemTemplate.contentType?.conforms(to: .directory) ?? false,
                 localContents: url,
                 mayAlreadyExist: options.contains(.mayAlreadyExist),
                 progress: { sent, total in
                     Self.report(sent, of: total, to: progress)
                 })
-            if let created, url != nil, !created.isDirectory {
-                Ledger.record(.create, .ok, size: created.size)
+            if let sent = created?.sent {
+                Ledger.record(.create, .ok, size: sent)
             }
             // No field is left pending and nothing remains to upload: the
             // display holds the definitive copy already. No item at all is a
             // replayed import that matched nothing, and the system drops it.
-            completionHandler(created.map { DisplayItem(entry: $0) }, [], false, nil)
+            completionHandler(created.map { DisplayItem(entry: $0.entry) }, [], false, nil)
         } catch let refusal as RootNotWritable {
             // No item and no error: Apple's documented way of refusing an
             // import. The system then deletes what it wrote locally, instead of
@@ -128,7 +132,10 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             RootRefusal.announce(storages: refusal.storages)
             completionHandler(nil, [], false, nil)
         } catch {
-            Ledger.record(.create, .error, error: error, size: url.flatMap(Self.size(of:)))
+            Ledger.record(
+                .create, .error, error: error,
+                contents: Self.handedOver(itemTemplate.contentType, fields: fields, contents: url),
+                size: url.flatMap(Self.size(of:)))
             completionHandler(nil, [], false, Self.translate(error))
         }
         return progress
@@ -179,12 +186,18 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
                 NameRefusal.announce(name: item.filename)
             }
             if outcome.refusedMove {
-                Ledger.record(.modify, .error, error: MTPError.moveIntoItself(path: "", destination: ""))
+                Ledger.record(
+                    .modify, .error, error: MTPError.moveIntoItself(path: "", destination: ""))
             }
             completionHandler(outcome.item, [], false, nil)
         } catch {
             Ledger.record(
-                .modify, .error, error: error, size: newContents.flatMap(Self.size(of:)))
+                .modify, .error, error: error,
+                // A failed rename or move handed nothing over: no detail.
+                contents: newContents.map {
+                    Self.handedOver(item.contentType, fields: changedFields, contents: $0)
+                },
+                size: newContents.flatMap(Self.size(of:)))
             completionHandler(
                 nil, [], false, Self.translate(error, identifier: item.itemIdentifier))
         }
@@ -252,6 +265,38 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map(UInt64.init)
     }
 
+    /// What the system handed over with an item, for the ledger: the type it
+    /// declared, whether `.contents` was among the fields, and what stood at
+    /// the contents URL.
+    ///
+    /// A copy that failed for want of contents was logged as
+    /// `localFileMissing` and nothing else, which fits a package, a symbolic
+    /// link and a file sent without its data alike — three causes with three
+    /// different remedies, and a report that could not tell them apart.
+    private static func handedOver(
+        _ type: UTType?, fields: NSFileProviderItemFields, contents url: URL?
+    ) -> String {
+        var parts = ["type=\(type?.identifier ?? "none")"]
+        if !fields.contains(.contents) { parts.append("fields=no-contents") }
+        let state: String
+        if let url {
+            let values = try? url.resourceValues(forKeys: [
+                .isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey,
+            ])
+            switch (values?.isSymbolicLink, values?.isRegularFile, values?.isDirectory) {
+            case (nil, _, _): state = "missing"
+            case (true?, _, _): state = "symlink"
+            case (_, true?, _): state = "file"
+            case (_, _, true?): state = "directory"
+            default: state = "other"
+            }
+        } else {
+            state = "none"
+        }
+        parts.append("contents=\(state)")
+        return parts.joined(separator: " ")
+    }
+
     /// Maps a protocol error onto what the Finder understands.
     ///
     /// The Finder only acts sensibly on NSFileProviderError values: anything
@@ -290,6 +335,15 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
         case .unsafeRemoteName, .pathEscapesDestination, .invalidRemotePath:
             // A name or a path no retry will make valid. "No such item" here
             // told the system a file still on the display had been deleted.
+            return NSFileProviderError(.cannotSynchronize)
+        case .localFileMissing:
+            // An item the system handed over without contents, or with a
+            // folder where a file's should be. Mapped to "server unreachable"
+            // by the default below, it told the system the display was away:
+            // the report that found it shows six attempts in 78 s, each bound
+            // to fail the same way. "Cannot synchronize" is retried only once
+            // the item changes on disk or the extension is updated — the only
+            // events after which retrying can give another answer.
             return NSFileProviderError(.cannotSynchronize)
         default:
             // Display unplugged, asleep, or held by another program; a listing
@@ -409,8 +463,22 @@ final class DisplayItem: NSObject, NSFileProviderItem {
     var contentType: UTType {
         if storage != nil { return .folder }
         guard let entry else { return .folder }
-        if entry.isDirectory { return .folder }
         let fileExtension = (entry.name as NSString).pathExtension
+        if entry.isDirectory {
+            // The display keeps a package as a plain folder; its extension is
+            // what makes it a document again. Listed as a folder, a Pages
+            // document copied over would come back to the Mac as one, and
+            // the SDK does not support an item changing type to or from a
+            // folder.
+            // Only a declared package type counts: a folder that merely has a
+            // dot in its name stays a folder.
+            if let package = UTType(filenameExtension: fileExtension, conformingTo: .package),
+                package.isDeclared
+            {
+                return package
+            }
+            return .folder
+        }
         return UTType(filenameExtension: fileExtension) ?? .data
     }
 
