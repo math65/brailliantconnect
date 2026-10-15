@@ -257,7 +257,8 @@ enum Diagnostics {
         extensionFolder?.appendingPathComponent("events.log")
     }
 
-    private static var extensionFolder: URL? {
+    /// Shared with `UploadLedger`, which watches the ledger beside the snapshot.
+    static var extensionFolder: URL? {
         let appex = Bundle.main.bundleURL
             .appendingPathComponent("Contents/PlugIns/FileProviderExtension.appex")
         guard let identifier = Bundle(url: appex)?.bundleIdentifier else { return nil }

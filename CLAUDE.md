@@ -322,6 +322,21 @@ cannot have. Two traps in it:
   at zero.
 - it emits no reliable final change when the last file lands, so a one-second
   timer is armed **only while a transfer runs** to catch the end.
+- it **misses short transfers altogether**. Measured 15 Oct 2026: a 12 KB file
+  landed and the agent logged nothing, even after the monitor learned to read
+  old values. The extension sends a file in full before returning its
+  `Progress`, so a small one is over before the system counts it in flight.
+
+So the progress only says what is **in flight** (the menu, `isIdle` for
+Sparkle). What **arrived** comes from the extension's own account:
+`UploadLedger` (in `TransferMonitor.swift`) watches `events.log` beside
+`last-device.json` through kernel events — no polling — and counts `create` and
+`modify` lines: `ok` arrived, `error` with a `size=` failed to send; refusals
+are told by the extension itself. A run is announced once the file has been
+quiet for two seconds and nothing is in flight: one 12 KB file, then five at
+once, gave one "Transfer complete" each (measured the same day). Only when the
+ledger cannot be watched does the progress still announce, as every release
+before 1.2 did.
 
 ## Security properties
 

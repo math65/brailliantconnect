@@ -102,6 +102,21 @@ enum TransferNotice {
         }
     }
 
+    /// Says that some files did not reach the display. Never "you can
+    /// unplug": the system may still retry what failed.
+    static func announceIncomplete(sent: Int, failed: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = L.t("Transfer incomplete")
+        content.body = [filesCould(notBeSent: failed), sent > 0 ? files(arrived: sent) : nil]
+            .compactMap { $0 }.joined(separator: " ")
+        content.sound = .default
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error { delivery?("notification refused: \(error.localizedDescription)") }
+        }
+    }
+
     /// Says the display is safe to unplug.
     static func announceCompletion(of total: Int64) {
         let content = UNMutableNotificationContent()

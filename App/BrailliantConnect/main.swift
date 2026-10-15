@@ -112,6 +112,17 @@ func log(_ message: String) {
 /// Reads how much is still on its way to the display, for the menu bar.
 let transfers = TransferMonitor()
 
+/// Reads what actually reached the display, from the extension's own account.
+let uploads = UploadLedger()
+
+/// Starts both readers once the location is published.
+func followTransfers() {
+    transfers.follow(domain: domainIdentifier)
+    if let folder = Diagnostics.extensionFolder {
+        uploads.start(folder: folder, isIdle: { transfers.isIdle })
+    }
+}
+
 /// Whether the extension has already been registered again in this session.
 ///
 /// One attempt per agent. A single plug fires several IOKit notifications, and
@@ -168,7 +179,7 @@ func settle(_ error: Error?, _ completion: @escaping (Error?) -> Void) {
         createShortcut()
         // A domain removed and re-added is a new one, so its progress has to be
         // picked up again rather than kept from last time.
-        transfers.follow(domain: domainIdentifier)
+        followTransfers()
         // Published is not yet served: the user's click may still be missing.
         publishedState { _, userEnabled in trackApproval(userEnabled: userEnabled) }
     }
@@ -181,6 +192,7 @@ func unpublish(_ completion: @escaping (Error?) -> Void) {
         // The shortcut goes with the domain: leaving it would point nowhere.
         removeShortcut()
         transfers.stop()
+        uploads.stop()
         // Nothing left to wait for. The consent itself is kept by the system,
         // so the next publication comes back enabled.
         DispatchQueue.main.async {
@@ -403,7 +415,7 @@ private func reconcile(then finish: @escaping () -> Void) {
             // progress still has to be picked up — as does the consent, which
             // may have been given, or not, while no agent was watching.
             if published {
-                transfers.follow(domain: domainIdentifier)
+                followTransfers()
                 trackApproval(userEnabled: userEnabled)
             }
             finish()
@@ -609,7 +621,32 @@ case "--watch":
                 : L.t("the Finder extension could not be registered"))
     }
 
+    // The extension's account is the one that says what arrived: when it is
+    // watched, it announces, and the global progress only says what is in
+    // flight. The progress keeps announcing only where the ledger cannot be
+    // read, which is how every release before this one worked.
+    uploads.onRun = { run in
+        guard USBWatcher.availability() == .ready else {
+            log(
+                L.t(
+                    "transfer interrupted — %@ not confirmed, display no longer reachable",
+                    humanBytes(run.bytes)))
+            return
+        }
+        if run.failed == 0 {
+            TransferNotice.announceCompletion(of: run.bytes)
+            log(L.t("transfer finished — %@", humanBytes(run.bytes)))
+        } else {
+            TransferNotice.announceIncomplete(sent: run.sent, failed: run.failed)
+            log(
+                L.t(
+                    "transfer incomplete — arrived: %@, failed: %@", String(run.sent),
+                    String(run.failed)))
+        }
+    }
+
     transfers.onCompletion = { total in
+        guard !uploads.isAttached else { return }
         // The progress ends the same way whether the files landed or the
         // display was pulled out mid-way, and "you can unplug" said after the
         // latter is the one message this app must never get wrong. A display

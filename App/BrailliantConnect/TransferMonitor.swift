@@ -209,6 +209,244 @@ final class TransferMonitor {
     }
 }
 
+/// Learns from the extension what actually reached the display.
+///
+/// The global progress misses short transfers. Measured 15 Oct 2026: a 12 KB
+/// file landed on the display and the agent logged nothing. The extension sends
+/// a file in full before it returns its `Progress`, so a small one is over
+/// before the system counts it as in flight. The extension, though, writes one
+/// line per upload it completes or fails into `events.log` (`Ledger`, in
+/// DisplayAccess.swift), inside its own container, which the agent may read.
+/// That account misses nothing, whatever the size.
+///
+/// Watched through kernel events, not polled: the agent stays asleep while
+/// nothing moves. A run is announced once the file has been quiet for a moment
+/// and the global progress has nothing in flight either, so a folder of forty
+/// files gives one notification, not forty.
+final class UploadLedger {
+
+    struct Run {
+        var sent = 0
+        var bytes: Int64 = 0
+        var failed = 0
+        var isEmpty: Bool { sent == 0 && failed == 0 }
+    }
+
+    /// Called on the main queue once a run has settled.
+    var onRun: ((Run) -> Void)?
+
+    /// Whether the ledger is being watched. While it is, it alone announces
+    /// the end of a run; the global progress only says what is in flight.
+    var isAttached: Bool {
+        dispatchPrecondition(condition: .onQueue(.main))
+        return folderSource != nil
+    }
+
+    /// How long the file must stay quiet before a run counts as over.
+    private static let quiet: TimeInterval = 2
+
+    private var folder: URL?
+    private var isIdle: () -> Bool = { true }
+    private var folderSource: DispatchSourceFileSystemObject?
+    private var fileSource: DispatchSourceFileSystemObject?
+    private var reader: FileHandle?
+    private var readerInode: UInt64?
+    private var offset: UInt64 = 0
+    private var partialLine = Data()
+    private var run = Run()
+    private var settle: DispatchWorkItem?
+    private var waitForFolder: Timer?
+
+    /// Starts watching the ledger in `folder`. Repeat calls are ignored.
+    func start(folder: URL, isIdle: @escaping () -> Bool) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.start(folder: folder, isIdle: isIdle) }
+            return
+        }
+        guard self.folder != folder else { return }
+        stop()
+        self.folder = folder
+        self.isIdle = isIdle
+        attachFolder()
+    }
+
+    /// Stops watching. A run not yet announced is dropped: reaching here means
+    /// the location is gone, and "you can unplug" would come too late to help.
+    func stop() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.stop() }
+            return
+        }
+        folderSource?.cancel()
+        folderSource = nil
+        detachFile()
+        waitForFolder?.invalidate()
+        waitForFolder = nil
+        settle?.cancel()
+        settle = nil
+        run = Run()
+        folder = nil
+    }
+
+    // MARK: - Watching
+
+    /// The folder appears when the extension first connects, which follows the
+    /// publication by a moment: until then it is looked for every few seconds,
+    /// and only until then.
+    private func attachFolder() {
+        guard let folder else { return }
+        let descriptor = open(folder.path, O_EVTONLY)
+        guard descriptor >= 0 else {
+            waitForFolder =
+                waitForFolder
+                ?? Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+                    self?.attachFolder()
+                }
+            return
+        }
+        waitForFolder?.invalidate()
+        waitForFolder = nil
+        // Entries added, removed or renamed in the folder: the ledger appearing
+        // for the first time, or replaced when it is cut down to its last part.
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: descriptor, eventMask: .write, queue: .main)
+        source.setEventHandler { [weak self] in self?.attachFile(skippingHistory: false) }
+        source.setCancelHandler { close(descriptor) }
+        source.resume()
+        folderSource = source
+        attachFile(skippingHistory: true)
+    }
+
+    /// Opens the ledger, or the new file that replaced it.
+    ///
+    /// - Parameter skippingHistory: true when watching starts, so that what
+    ///   the file already holds is not announced again.
+    private func attachFile(skippingHistory: Bool) {
+        guard let folder else { return }
+        let path = folder.appendingPathComponent("events.log").path
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+            let inode = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value
+        else { return }
+        // The folder also changes when the device snapshot beside it is
+        // written: nothing to do if the ledger is the one already open.
+        if inode == readerInode { return }
+        let replacing = readerInode != nil
+        // Whatever the old file received before being replaced is still
+        // readable through the handle open on it.
+        readNewLines()
+        detachFile()
+        guard let handle = FileHandle(forReadingAtPath: path) else { return }
+        reader = handle
+        readerInode = inode
+        let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+        // A replacement holds the most recent part of the old file, already
+        // read; a file appearing for the first time holds only new lines. A
+        // line written between the cut and this point would be missed — a
+        // window of milliseconds, once every 64 KB of ledger.
+        offset = (skippingHistory || replacing) ? size : 0
+        partialLine = Data()
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: handle.fileDescriptor, eventMask: [.extend, .write, .delete, .rename],
+            queue: .main)
+        source.setEventHandler { [weak self, weak source] in
+            guard let self, let source else { return }
+            self.readNewLines()
+            if !source.data.isDisjoint(with: [.delete, .rename]) {
+                self.attachFile(skippingHistory: false)
+            }
+        }
+        // The descriptor belongs to the source until it is cancelled: closed
+        // any earlier, its number could be reused under the source's feet.
+        source.setCancelHandler { try? handle.close() }
+        source.resume()
+        fileSource = source
+        readNewLines()
+    }
+
+    private func detachFile() {
+        fileSource?.cancel()
+        fileSource = nil
+        reader = nil
+        readerInode = nil
+    }
+
+    // MARK: - Reading
+
+    private func readNewLines() {
+        guard let reader else { return }
+        guard (try? reader.seek(toOffset: offset)) != nil,
+            let data = try? reader.readToEnd(), !data.isEmpty
+        else { return }
+        offset += UInt64(data.count)
+        partialLine.append(data)
+        var counted = false
+        while let newline = partialLine.firstIndex(of: UInt8(ascii: "\n")) {
+            let line = String(
+                decoding: partialLine[partialLine.startIndex..<newline], as: UTF8.self)
+            partialLine.removeSubrange(partialLine.startIndex...newline)
+            counted = count(line) || counted
+        }
+        if counted { scheduleSettle() }
+    }
+
+    /// Adds one ledger line to the current run. Returns whether it was an
+    /// upload.
+    ///
+    /// Uploads are `create` or `modify` lines that either succeeded or failed
+    /// with contents attached (`size=`): a failed rename or move carries no
+    /// size and sent nothing. Refusals are told by the extension itself.
+    private func count(_ line: String) -> Bool {
+        let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
+        guard fields.count >= 3, fields[1] == "create" || fields[1] == "modify" else {
+            return false
+        }
+        let detail = fields.count > 3 ? String(fields[3]) : ""
+        let size = detail.range(of: #"size=(\d+)"#, options: .regularExpression)
+            .flatMap { Int64(detail[$0].dropFirst("size=".count)) }
+        switch fields[2] {
+        case "ok":
+            run.sent += 1
+            run.bytes += size ?? 0
+            return true
+        case "error" where size != nil:
+            run.failed += 1
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func scheduleSettle() {
+        settle?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.run.isEmpty else { return }
+            // Files may still be queued behind the last one written: the run
+            // ends when the system has nothing more in flight.
+            guard self.isIdle() else {
+                self.scheduleSettle()
+                return
+            }
+            let finished = self.run
+            self.run = Run()
+            self.onRun?(finished)
+        }
+        settle = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.quiet, execute: work)
+    }
+}
+
+/// "1 file" or "3 files", with the verb agreeing in French.
+func filesCould(notBeSent count: Int) -> String {
+    count == 1
+        ? L.t("1 file could not be sent to the display.")
+        : L.t("%@ files could not be sent to the display.", String(count))
+}
+
+func files(arrived count: Int) -> String {
+    count == 1 ? L.t("1 file arrived.") : L.t("%@ files arrived.", String(count))
+}
+
 /// Formats a byte count for display.
 ///
 /// `ByteCountFormatter` was the obvious choice and produced "Zero KB" inside a

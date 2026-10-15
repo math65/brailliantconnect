@@ -731,6 +731,16 @@ public enum L {
 
         // MARK: Agent — menu bar, report window, transfers (review, Oct 2026)
 
+        "Transfer incomplete": "Transfert incomplet",
+        "1 file could not be sent to the display.":
+            "1 fichier n'a pas pu être envoyé à la plage.",
+        "%@ files could not be sent to the display.":
+            "%@ fichiers n'ont pas pu être envoyés à la plage.",
+        "1 file arrived.": "1 fichier est arrivé.",
+        "%@ files arrived.": "%@ fichiers sont arrivés.",
+        "transfer incomplete — arrived: %@, failed: %@":
+            "transfert incomplet — arrivés : %@, en échec : %@",
+
         "reconciliation still unanswered after 60 seconds — moving on":
             "réconciliation toujours sans réponse après 60 secondes — on passe à la suite",
         "another agent already holds the lock — this copy exits":
