@@ -31,21 +31,37 @@ plainly there. Files are added in Xcode; `project.pbxproj` is what decides.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-./.build/release/brailliant finder off 2>/dev/null
+swift build -c release 2>&1 | tail -1
+./.build/release/brailliant finder off
 pkill -f "BrailliantConnect.app/Contents/MacOS" 2>/dev/null
 ```
+
+The CLI is built first: `finder off` here and `finder on` in step 4 run
+whatever sits in `.build/release`, which may be missing or older than the
+sources. `finder off` boots the agent out of launchd
+(`gui/$UID/com.mathieumartin.BrailliantConnect.agent`), removes its plist and
+unpublishes the location. Without the bootout, `KeepAlive` restarts the old copy
+from `/Applications` while it is being replaced.
 
 ## 3. Reinstall and re-register
 
 ```bash
-SRC=$(find ~/Library/Developer/Xcode/DerivedData/BrailliantConnect-*/Build/Products/Debug \
-  -maxdepth 1 -name "BrailliantConnect.app" | head -1)
+cd "$(git rev-parse --show-toplevel)"
+SRC="$(xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
+  -configuration Debug -showBuildSettings 2>/dev/null \
+  | awk '$1 == "BUILT_PRODUCTS_DIR" { print $3; exit }')/BrailliantConnect.app"
+[ -d "$SRC" ] || { echo "No build at $SRC — run step 1"; exit 1; }
 pluginkit -r /Applications/BrailliantConnect.app/Contents/PlugIns/FileProviderExtension.appex 2>/dev/null
 rm -rf /Applications/BrailliantConnect.app
 ditto "$SRC" /Applications/BrailliantConnect.app
 pluginkit -a /Applications/BrailliantConnect.app/Contents/PlugIns/FileProviderExtension.appex
 pluginkit -e use -i com.mathieumartin.BrailliantConnect.FileProvider
 ```
+
+`SRC` is asked of the project, not found by searching DerivedData: every
+checkout and worktree has its own folder there, and a `find` picks whichever
+comes first — or nothing, and `rm -rf` then removes the installed app before
+`ditto` fails. The guard stops before anything is deleted.
 
 The copy into `/Applications` is not optional: the system refuses to load an
 extension from `DerivedData`. The `-r` before `-a` matters too — otherwise
@@ -64,14 +80,22 @@ sleep 8
 ls ~/Brailliant/
 ```
 
-Expect the display's real folders (`books`, `documents`, `notes`…).
+Expect one folder per storage (`mémoire interne`, and `usb` when a stick is
+plugged into the display), with the display's real folders one level down
+(`books`, `documents`, `notes`…).
 
-If it is empty or hangs, read the extension's own log rather than guessing:
+If it is empty or hangs:
 
-```bash
-log show --last 2m --predicate 'subsystem == "com.mathieumartin.BrailliantConnect"' \
-  --style compact | tail -10
-```
+- `fileproviderd` may still serve a cached verdict about the previous build:
+  `killall fileproviderd` (launchd restarts it), then list again;
+- a location that has never been enabled lists nothing: the Finder sidebar
+  shows an **Enable** button under Locations until it is clicked once;
+- do not reach for `log show` — no log from the extension reaches it, at any
+  level, for any predicate. Read the files instead: the agent's log,
+  `~/Library/Logs/BrailliantConnect.log`, and what the extension writes into
+  its own container,
+  `~/Library/Containers/com.mathieumartin.BrailliantConnect.FileProvider/Data/Library/Application Support/BrailliantConnect/`
+  (`last-device.json` is written as it connects to the display).
 
 ## When it fails
 

@@ -52,8 +52,14 @@ audience:
   French (`AccèsPlage`, `créerRaccourci`, `nombreDePlagesBranchées`). A
   migration is planned — write anything new in English, and translate what you
   touch.
-- **User-facing strings: localised**, French and English, via the standard
-  macOS mechanism. Error messages in `MTPError` are currently French-only.
+- **User-facing strings: localised**, French and English — **not** through
+  `NSLocalizedString` and `.lproj` folders, which neither a SwiftPM executable
+  nor the extension can use, but through a table of our own:
+  `L.t("English text")` in `Sources/BrailliantKit/Localization.swift` returns
+  the French entry when the user is French (`LC_ALL`/`LC_MESSAGES`/`LANG`
+  first, then `Locale.preferredLanguages`), and the English key otherwise. A
+  string missing from the table is shown in English, silently. `MTPError`'s
+  messages go through it too.
 - **Commit messages: English**, subject plus a body explaining *why*. The nine
   existing commits are in French; do not rewrite them.
 
@@ -61,7 +67,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 53 tests
+swift test                    # 62 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -75,15 +81,29 @@ xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
   -configuration Debug -allowProvisioningUpdates build
 ```
 
-`./tools/make-dist.sh` produces the distributable bundle. It runs the test suite
-first and refuses to package if anything fails. Add **`--notarize`** for anything
-leaving this machine: without it the bundle is signed ad-hoc and Gatekeeper
-refuses it everywhere else. The identity and the notary profile are constants at
-the top of the script — there is no `CODESIGN_IDENTITY` variable, whatever this
+`./tools/make-dist.sh --notarize` produces the distributable bundle, and
+**`--notarize` is required**: the script refuses to run without it. The ad-hoc
+mode it used to offer could not produce a working bundle — Xcode's automatic
+signing gives the extension `get-task-allow` in Release as in Debug (measured
+15 Oct 2026), which the script refuses since it never re-signs the extension,
+and ad-hoc libraries fail library validation in the hardened extension. To try
+a change locally, use `/extension`.
+
+Before building, the script checks that the keychain's Developer ID
+certificate is among those in `BrailliantConnect.provisionprofile` (by SHA-1),
+prints the **certificate's** expiry (not the profile's, which outlives it by
+years), and refuses to start without `AppBackendSecret.plist` — then checks
+the built bundle carries it. It runs the test suite and refuses to package if
+anything fails. The CLI's path is asked of SwiftPM (`--show-bin-path`) and
+both architectures are checked: Xcode 27 moved the product, and 1.1.1 shipped
+a stale CLI found at the old path. Long steps log into `dist/*.log` and print
+their tail on failure. The identity and the notary profile are constants at the
+top of the script — there is no `CODESIGN_IDENTITY` variable, whatever this
 file said until 20 Aug 2026.
 
 `./tools/build-vendor.sh` rebuilds libmtp and libusb as universal binaries into
-`Vendor/`. Rarely needed — only to change versions, and the one script here that
+`Vendor/`, refusing any tarball whose SHA-256 differs from the one pinned beside
+its version. Rarely needed — only to change versions, and the one script here that
 leaves `App/` alone: `make-dist.sh` builds the app through `xcodebuild` and
 signs it against the entitlements in the tree.
 
@@ -124,9 +144,13 @@ properties**).
   levels up, because the libraries travel in the *app's* `Contents/Frameworks`
   and the extension sits inside the app.
 
-**Both targets** run a post-build script that copies `libmtp.9.dylib` and
-`libusb-1.0.0.dylib` into `Contents/Frameworks` and signs each one
-**separately**, never the bundle as a whole.
+**The app target** runs a build phase ("Embed libmtp and libusb", `set -eu`)
+that copies `libmtp.9.dylib` and `libusb-1.0.0.dylib` into the **app's**
+`Contents/Frameworks` and signs each one **separately**, never the bundle as a
+whole; the same phase copies `AppBackendSecret.plist` when it exists. The
+extension target used to run a copy of it into its own `Contents/Frameworks`,
+which nothing loaded — its only rpath points at the app's — and was removed on
+15 Oct 2026.
 
 **The app** is `LSUIElement: YES` — a menu bar item, no Dock icon, no window.
 Both targets are hardened-runtime, automatically signed, team `633EG76YX5`,
@@ -392,8 +416,9 @@ way.
 
 ## Documentation drift
 
-`Vendor/README.txt` claims the libraries are loaded "par ctypes" — a leftover
-from the retired Python prototype.
+`Vendor/README.txt` is written by hand. `build-vendor.sh` used to regenerate
+it from a heredoc with older wording on every run; it now leaves it alone and
+only warns when the versions it names differ from the ones it built.
 
 The `usage` string in `Sources/brailliant/main.swift` is a single translation
 key: **editing it without editing the matching key in `Localization.swift`

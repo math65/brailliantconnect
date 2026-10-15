@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut and publish a new version — version numbers, release notes, notarized bundle, GitHub release. Use whenever a version is being published; the version number lives in two places and the notes in two languages, and every step here exists because skipping it ships something broken.
+description: Cut and publish a new version — version numbers, release notes, notarized bundle, GitHub release. Use whenever a version is being published; the version lives in three places and the notes in two languages, and every step here exists because skipping it ships something broken.
 ---
 
 # Publish a version
@@ -20,25 +20,35 @@ Semantic versioning, read from the user's point of view rather than the code's:
 - **minor** (1.**1**.0) — something the user can now do that they could not;
 - **major** (**2**.0.0) — something they knew how to do no longer works that way.
 
-## 2. Set it in both places
+## 2. Set it in all three places
 
-`MARKETING_VERSION` appears **twice** in `project.pbxproj` — once per target —
-and both must move: the extension carries its own version, and a mismatch is
-what makes an install look updated while its Finder side is not.
+- `MARKETING_VERSION` — the version users see. It appears **twice** in
+  `project.pbxproj`, in the **project-level** Debug and Release
+  configurations; neither target sets its own, so the app and the extension
+  both inherit it. Both lines must move, or a Release build and a Debug build
+  of the same commit report different versions.
+- `CURRENT_PROJECT_VERSION` — the build number (`CFBundleVersion`), also
+  twice, also project-level. It goes up with **every** bundle that leaves this
+  machine, betas included, and never repeats (1.1.1 is build 6, the beta
+  before it build 5). Nothing checks it — a forgotten bump ships a bundle
+  that macOS cannot tell from the previous one.
+- `Sources/BrailliantKit/Version.swift` — what `brailliant --version` and
+  `doctor` report. It is not read from the bundle: the CLI runs from
+  `.build/release/` where there is no bundle at all.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 NEW=1.2.3   # <- the number decided above
+BUILD=7     # <- the previous CURRENT_PROJECT_VERSION plus one
 sed -i '' "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $NEW;/g" \
+  App/BrailliantConnect.xcodeproj/project.pbxproj
+sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD;/g" \
   App/BrailliantConnect.xcodeproj/project.pbxproj
 sed -i '' "s/public static let current = \".*\"/public static let current = \"$NEW\"/" \
   Sources/BrailliantKit/Version.swift
 grep -c "MARKETING_VERSION = $NEW;" App/BrailliantConnect.xcodeproj/project.pbxproj  # expect 2
+grep -c "CURRENT_PROJECT_VERSION = $BUILD;" App/BrailliantConnect.xcodeproj/project.pbxproj  # expect 2
 ```
-
-`Version.swift` is what `brailliant --version` and `doctor` report, and it is
-not read from the bundle — the CLI runs from `.build/release/` where there is
-no bundle at all.
 
 ## 3. Let the test prove they agree
 
@@ -46,9 +56,10 @@ no bundle at all.
 swift test 2>&1 | grep -E "Executed [0-9]+ tests" | tail -1
 ```
 
-`VersionTests` parses the Xcode project and compares. It is the only thing
-standing between two numbers that quietly disagree — read its failure, never
-work around it.
+`VersionTests` parses the Xcode project and compares `MARKETING_VERSION` with
+`Version.swift`. It is the only thing standing between two numbers that
+quietly disagree — read its failure, never work around it. It does not look at
+the build number.
 
 ## 4. Write the notes, in both languages
 
@@ -66,14 +77,33 @@ they were the original. Neither is allowed to carry a fact the other does not.
 ./tools/make-dist.sh --notarize
 ```
 
-**Never without `--notarize`.** Without it the bundle is signed ad-hoc:
-Gatekeeper accepts it on this machine and refuses it on every other, which is
-precisely the failure nobody can reproduce locally.
+The script refuses to run without `--notarize`: the ad-hoc mode it once had
+could not produce a bundle that works (see the header of `make-dist.sh`).
 
-The script runs the test suite first and refuses to package if anything fails.
-It also refuses a bundle carrying `get-task-allow` — a debug build, which any
-process could attach to. If it stops there, `/Applications` or the archive is
-holding a Debug build: see step 6.
+Before building, it checks what would otherwise fail only after a ten-minute
+build, or only on a user's Mac:
+
+- the Developer ID certificate in the keychain is one of those inside the
+  provisioning profile — compared by SHA-1. If not, the agent would be killed
+  at launch; regenerate the profile (below);
+- the certificate's own expiry date, printed, with a warning under 60 days;
+- `App/BrailliantConnect/AppBackendSecret.plist` exists, and after the build
+  that the bundle carries it: without it the release has no *Report a
+  Problem* and never sees an announcement.
+
+Then it runs the test suite and refuses to package if anything fails. It also
+refuses a bundle carrying `get-task-allow`. Xcode adds that entitlement
+whenever it signs for **development** (an *Apple Development* identity) — in
+Release as in Debug — and never with the Developer ID identity the archive is
+signed with. If the script stops there, the archive was signed for development:
+look at the signing settings Xcode used (`dist/xcodebuild-archive.log`), not at
+`/Applications`, which the script never reads.
+
+Every step that can fail long leaves a log in `dist/` (`swift-test.log`,
+`swift-build.log`, `xcodebuild-archive.log`, `xcodebuild-export.log`,
+`notarytool.log`) and prints its tail on failure. A refused notarisation
+prints Apple's own log for the submission. A Gatekeeper rejection after
+stapling stops the script.
 
 Notarizing takes a few minutes. The script staples the ticket and re-zips, so
 the archive works offline.
@@ -83,17 +113,20 @@ With `--notarize` the agent is also signed with
 carries `App/BrailliantConnect/BrailliantConnect.provisionprofile` as
 `Contents/embedded.provisionprofile`: that is what lets macOS 13 publish the
 location at all (see **macOS 13** in `CLAUDE.md`). The script refuses to
-package without either. The profile expires on 4 September 2044 but embeds the
-Developer ID certificate, which expires in **February 2027**: after renewing
-the certificate, regenerate the profile on the portal (Profiles → Developer ID
-→ App ID `com.mathieumartin.BrailliantConnect`) and replace the file.
+package without either. The profile itself expires in 2044, which means
+nothing: it is only valid together with the certificates it lists. The one it
+was made with (9 Sep 2026) expires on 1 February 2027; the keychain has held a
+renewed certificate since 2 October 2026 (expires 17 September 2031), which the
+committed profile does **not** list. After any certificate renewal, regenerate
+the profile on the portal (Profiles → Developer ID → App ID
+`com.mathieumartin.BrailliantConnect`, with the current certificate) and
+replace the file — the script refuses to package until they match.
 
 ## 6. If the `/extension` loop ran recently
 
 Testing the extension puts a **Debug** build in `/Applications`. It is not the
-one to ship, and it is the usual cause of a `get-task-allow` refusal. The
-release build in `dist/` is the artifact; install it over the Debug one before
-claiming anything about how the app behaves.
+one to ship. The release build in `dist/` is the artifact; install it over the
+Debug one before claiming anything about how the app behaves.
 
 ## 7. Commit, tag, publish
 

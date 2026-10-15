@@ -222,10 +222,27 @@ constraint on file names, and a device can return whatever it likes.
 - **Vendor filtering.** An Android phone is an MTP device like any other, so
   only HumanWare devices (`0x1C71`) are considered by default. `--any-device`
   lifts the restriction.
-- **No external execution.** The program never calls `system`, `exec`, or any
-  third-party process: there is no command-injection surface.
-- **No privileges.** No setuid, no entitlements beyond USB access for the
-  extension, no network access. PIE and stack protections enabled.
+- **The code that reads the device is confined.** libmtp, which parses
+  whatever the USB device sends, runs inside the Finder extension, which is
+  sandboxed with USB access and nothing more: no network, no files outside its
+  container. The background agent is not sandboxed and does not contain
+  libmtp at all. The command-line tool does link it, outside any sandbox —
+  one reason it is an instrument rather than part of the everyday path.
+- **System tools only, with fixed arguments.** Nothing goes through a shell
+  (`system`, `sh -c`), so there is no command-injection surface. The agent and
+  `brailliant finder` run Apple's own tools, by absolute path and with argument
+  lists built in code: `/bin/launchctl` to register and stop the background
+  agent, and `/usr/bin/pluginkit` to register the Finder extension and to
+  remove it on uninstall. For a problem report, when the extension has never
+  described the display, the agent also runs the bundled `brailliant doctor`.
+- **Network: two requests, both from the agent.** *Report a Problem…* sends
+  the message and diagnosis described above, and once per start the agent asks
+  the author's server (`mathieumartin.ovh`) whether there is an announcement —
+  the only way to reach people who installed the app, since it has no update
+  mechanism and no account. Nothing else leaves the machine; the extension and
+  the command-line tool make no network request.
+- **No privileges.** No setuid, nothing that asks for an administrator
+  password. PIE and stack protections enabled.
 
 Memory behaviour was verified under **AddressSanitizer** across every operation:
 no errors.
@@ -234,7 +251,7 @@ no errors.
 
 ```bash
 swift build -c release   # CLI — run from the repository root
-swift test               # 51 tests
+swift test               # 62 tests
 ```
 
 `Package.swift` links libmtp through a **relative** path, so builds must run
@@ -248,16 +265,19 @@ xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
   -configuration Debug -allowProvisioningUpdates build
 ```
 
-`tools/make-dist.sh` produces the distributable bundle. It runs the tests first
-and refuses to package if any fail. For public distribution:
+`tools/make-dist.sh` produces the distributable bundle — signed with Developer
+ID, notarized and stapled. It runs the tests first and refuses to package if
+any fail:
 
 ```bash
 ./tools/make-dist.sh --notarize
 ```
 
-Without `--notarize` the bundle is signed ad-hoc: fine to test on the machine
-that built it, refused by Gatekeeper anywhere else. The Developer ID identity
-and the notary profile are named at the top of the script.
+`--notarize` is required. An ad-hoc signed bundle of this app does not work
+(the extension's development signature and its library validation see to
+that), so the script does not pretend to make one; to try a change locally,
+build in Xcode and install the Debug build into `/Applications`. The Developer
+ID identity and the notary profile are named at the top of the script.
 
 `tools/build-vendor.sh` rebuilds libmtp and libusb from upstream sources as
 universal binaries — only needed to change versions.
