@@ -1,5 +1,81 @@
 # Release notes
 
+## v1.2.0 — 15/10/2026
+
+BrailliantConnect now updates itself. This is the last version you will have to
+download by hand.
+
+It also comes out of a report titled "file not copied". The file had been
+copied; what the Finder showed said otherwise. Following that thread through
+the whole app turned up more of the same: things that worked and said they had
+failed, things that failed and said nothing.
+
+### Updates install themselves
+- About once a day, BrailliantConnect checks for a new version and installs it
+  by itself, then tells you with a notification. It never checks or restarts
+  while a file is on its way to the display.
+- "Check for Updates…" in the menu bar shows what a new version brings and
+  lets you choose when to install it. The notes read as a web page, with
+  headings and lists.
+- If notifications are switched off, the menu says which version was installed,
+  until you have opened it once.
+
+### No more error on a folder that received a file
+- After a copy, the Finder showed an Error button beside the storage folder,
+  saying the file did not exist — although the file had arrived. The system
+  then tried again every few minutes, reading the whole display each time. It
+  no longer happens.
+
+### Every transfer is announced, small files included
+- "Transfer complete — you can unplug the display" used to come for large files
+  only: a small document arrived without a word. Every file is now announced,
+  and several files copied together give a single notification.
+- When a file does not reach the display, a notification says so, with how
+  many did not arrive.
+- If the display is unplugged during a transfer, the app no longer says you can
+  unplug it.
+
+### Dates are right
+- Files on the display showed a time two hours early in summer, one hour in
+  winter. They now show the Mac's time. A copied file shows when it reached the
+  display, not its date on the Mac: the display records that itself.
+
+### Your files are safer
+- Moving an item into the folder it was already in could delete it.
+- Copying a file onto one of the same name added on the display since the
+  folder was last shown replaced it without asking.
+- Deleting a folder that looked empty on the Mac also deleted what had been put
+  into it on the display.
+- Renaming a folder and then saving into it could recreate the old folder.
+- Moving a folder from a USB stick to the internal memory failed, and was tried
+  again forever.
+- All of these are fixed. The hidden files macOS leaves everywhere, such as
+  .DS_Store, are no longer sent to the display.
+
+### Switched-off notifications are no longer silent
+- When notifications are refused for BrailliantConnect, nothing told you, and
+  every message the app has for you went nowhere. The menu now says so, with an
+  item that opens the settings.
+
+### The Report a Problem window
+- Copy, Paste, Select All and Undo work in its fields; they did nothing before.
+- Tab moves on from the message instead of typing a tab.
+- The window opens on the subject, VoiceOver says what changes when you pick
+  one, and says "Sending…" once you have pressed Send.
+- The report now carries the last error the Finder extension met and whether
+  notifications are on.
+
+### News from the developer reaches you
+- The channel meant for announcements never showed a single one, in any
+  version. It now does.
+
+### Uninstalling
+- When the app cannot be moved to the Trash, it now says so instead of
+  vanishing from the menu bar. Its settings no longer come back after a
+  reinstall.
+
+Nothing on the braille display itself is touched.
+
 ## v1.1.1 — 29/09/2026
 
 Four things the app used to do silently, it now says out loud — and one it

@@ -1,5 +1,85 @@
 # Notes de version
 
+## v1.2.0 — 15/10/2026
+
+BrailliantConnect se met maintenant à jour tout seul. C'est la dernière version
+que vous aurez à télécharger à la main.
+
+Elle part aussi d'un signalement intitulé « fichier non copié ». Le fichier
+avait bien été copié ; c'est ce que montrait le Finder qui disait le contraire.
+En suivant ce fil à travers toute l'application, on a trouvé d'autres cas du
+même genre : des choses qui marchaient et se disaient en échec, des choses qui
+échouaient sans rien dire.
+
+### Les mises à jour s'installent toutes seules
+- Environ une fois par jour, BrailliantConnect cherche une nouvelle version,
+  l'installe de lui-même, puis vous prévient par une notification. Il ne
+  cherche ni ne redémarre jamais pendant qu'un fichier part vers la plage.
+- « Rechercher les mises à jour… », dans la barre des menus, montre ce
+  qu'apporte une nouvelle version et vous laisse choisir quand l'installer. Les
+  notes se lisent comme une page web, avec des titres et des listes.
+- Si les notifications sont désactivées, le menu indique quelle version a été
+  installée, jusqu'à ce que vous l'ayez ouvert une fois.
+
+### Plus d'erreur sur un dossier qui a reçu un fichier
+- Après une copie, le Finder affichait un bouton Erreur à côté du dossier du
+  stockage, disant que le fichier n'existait pas — alors qu'il était bien
+  arrivé. Le système réessayait ensuite toutes les quelques minutes, en relisant
+  à chaque fois toute la plage. Ça n'arrive plus.
+
+### Chaque transfert est annoncé, petits fichiers compris
+- « Transfert terminé — vous pouvez débrancher la plage » ne venait que pour
+  les gros fichiers : un petit document arrivait sans un mot. Chaque fichier est
+  maintenant annoncé, et plusieurs fichiers copiés ensemble ne donnent qu'une
+  seule notification.
+- Quand un fichier n'arrive pas sur la plage, une notification le dit, avec le
+  nombre de fichiers qui manquent.
+- Si la plage est débranchée pendant un transfert, l'application ne vous dit
+  plus que vous pouvez la débrancher.
+
+### Les dates sont justes
+- Les fichiers de la plage affichaient une heure en avance de deux heures en
+  été, d'une heure en hiver. Ils affichent maintenant l'heure du Mac. Un fichier
+  copié indique quand il est arrivé sur la plage, pas sa date sur le Mac : c'est
+  la plage elle-même qui la note.
+
+### Vos fichiers sont mieux protégés
+- Déplacer un élément dans le dossier où il se trouvait déjà pouvait l'effacer.
+- Copier un fichier par-dessus un fichier du même nom, ajouté sur la plage
+  depuis le dernier affichage du dossier, le remplaçait sans rien demander.
+- Supprimer un dossier qui semblait vide sur le Mac effaçait aussi ce qu'on y
+  avait mis depuis la plage.
+- Renommer un dossier puis enregistrer dedans pouvait recréer l'ancien dossier.
+- Déplacer un dossier d'une clé USB vers la mémoire interne échouait, et était
+  retenté sans fin.
+- Tout cela est corrigé. Les fichiers cachés que macOS laisse partout, comme
+  .DS_Store, ne sont plus envoyés à la plage.
+
+### Des notifications désactivées ne passent plus inaperçues
+- Quand les notifications étaient refusées pour BrailliantConnect, rien ne vous
+  le disait, et tous les messages que l'application a pour vous se perdaient.
+  Le menu le signale maintenant, avec un élément qui ouvre les réglages.
+
+### La fenêtre Signaler un problème
+- Copier, Coller, Tout sélectionner et Annuler fonctionnent dans ses champs ;
+  ils ne faisaient rien.
+- Tab passe à la suite au lieu d'insérer une tabulation dans le message.
+- La fenêtre s'ouvre sur le sujet, VoiceOver annonce ce qui change quand vous en
+  choisissez un, et dit « Envoi… » une fois que vous avez appuyé sur Envoyer.
+- Le signalement contient maintenant la dernière erreur rencontrée par
+  l'extension du Finder, et dit si les notifications sont activées.
+
+### Les nouvelles du développeur vous parviennent
+- Le canal prévu pour les annonces n'en a jamais affiché une seule, dans aucune
+  version. C'est réparé.
+
+### La désinstallation
+- Quand l'application ne peut pas être mise à la corbeille, elle le dit au lieu
+  de disparaître de la barre des menus. Ses réglages ne reviennent plus après
+  une réinstallation.
+
+Rien n'est modifié sur la plage braille elle-même.
+
 ## v1.1.1 — 29/09/2026
 
 Quatre choses que l'application faisait en silence, elle les dit maintenant — et
