@@ -16,6 +16,36 @@ to a 404. Each item's enclosure carries the EdDSA signature of that exact zip.
     <description>Updates to BrailliantConnect</description>
     <language>en</language>
     <item>
+      <title>BrailliantConnect 1.2.1</title>
+      <pubDate>Thu, 15 Oct 2026 17:25:42 GMT</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<div lang="en">
+<p>Pages documents now reach the display.</p>
+<h2>Pages, Keynote and Numbers documents are copied</h2>
+<ul><li>A Pages document copied to the display never arrived: the Finder kept trying to send it, and never managed. The same went for every document macOS keeps as a package — Keynote and Numbers files, TextEdit documents with pictures (.rtfd), and others.</li><li>They are now sent whole, and come back to the Mac intact: copied back from the display, a Pages document is exactly the one that was sent. Editing it on the Mac updates the copy on the display.</li><li>The display's own apps do not open these documents. To read one in braille, export it from Pages as a Word or text file first.</li></ul>
+<h2>An item that cannot be sent is no longer tried again and again</h2>
+<ul><li>When an item cannot go to the display at all — a symbolic link, which the display has no way to store — the Finder no longer keeps retrying it every few seconds.</li></ul>
+<h2>Clearer reports</h2>
+<ul><li>When a copy fails, Report a Problem now says what kind of item it was, never its name.</li></ul>
+</div>
+]]></description>
+      <description xml:lang="fr"><![CDATA[
+<div lang="fr">
+<p>Les documents Pages arrivent maintenant sur la plage.</p>
+<h2>Les documents Pages, Keynote et Numbers sont copiés</h2>
+<ul><li>Un document Pages copié sur la plage n'y arrivait jamais : le Finder essayait de l'envoyer, encore et encore, sans y parvenir. Même chose pour tous les documents que macOS range sous forme de paquet — fichiers Keynote et Numbers, documents TextEdit avec images (.rtfd), et d'autres.</li><li>Ils sont maintenant envoyés en entier, et reviennent intacts sur le Mac : recopié depuis la plage, un document Pages est exactement celui qui était parti. Le modifier sur le Mac met à jour sa copie sur la plage.</li><li>Les applications de la plage n'ouvrent pas ces documents. Pour en lire un en braille, exportez-le d'abord depuis Pages en Word ou en texte.</li></ul>
+<h2>Un élément impossible à envoyer n'est plus retenté sans fin</h2>
+<ul><li>Quand un élément ne peut pas aller sur la plage — un lien symbolique, que la plage n'a aucun moyen de conserver —, le Finder ne réessaie plus de l'envoyer toutes les quelques secondes.</li></ul>
+<h2>Des rapports plus clairs</h2>
+<ul><li>Quand une copie échoue, Signaler un problème indique maintenant de quel genre d'élément il s'agissait, jamais son nom.</li></ul>
+</div>
+]]></description>
+      <enclosure url="https://github.com/math65/brailliantconnect/releases/download/v1.2.1/BrailliantConnect.zip" sparkle:edSignature="1xw4BsclFA8UUyUDWTpyMoBQPxNgyVuhFRmoOXR9ONxDKqB6qh6e/gNuQQHMD5cNZGbO0DaRfJXxgmMt3v7sDA==" length="2501907" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>BrailliantConnect 1.2.0</title>
       <pubDate>Thu, 15 Oct 2026 10:07:08 GMT</pubDate>
       <sparkle:version>7</sparkle:version>
