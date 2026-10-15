@@ -251,7 +251,7 @@ no errors.
 
 ```bash
 swift build -c release   # CLI — run from the repository root
-swift test               # 62 tests
+swift test               # 70 tests
 ```
 
 `Package.swift` links libmtp through a **relative** path, so builds must run

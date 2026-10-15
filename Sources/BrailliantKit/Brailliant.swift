@@ -45,6 +45,9 @@ public final class Brailliant {
     public private(set) var vendorID: UInt16 = 0
     public private(set) var productID: UInt16 = 0
 
+    /// How far this display's clock reads ahead of UTC. See `DisplayClock`.
+    private var clockOffset: TimeInterval = 0
+
     /// Opens the first display detected.
     /// - Parameters:
     ///   - vendorID: restricts the search to one vendor (nil = all of them).
@@ -106,6 +109,7 @@ public final class Brailliant {
         model = Brailliant.takeCString(LIBMTP_Get_Modelname(opened))
         serialNumber = Brailliant.takeCString(LIBMTP_Get_Serialnumber(opened))
         friendlyName = Brailliant.takeCString(LIBMTP_Get_Friendlyname(opened))
+        clockOffset = DisplayClock.storedOffset(forSerial: serialNumber)
     }
 
     deinit { close() }
@@ -266,7 +270,9 @@ public final class Brailliant {
                     storageID: current.pointee.storage_id,
                     name: name,
                     size: current.pointee.filesize,
-                    modified: stamp > 0 ? Date(timeIntervalSince1970: TimeInterval(stamp)) : nil,
+                    modified: stamp > 0
+                        ? DisplayClock.instant(fromLibMTPStamp: stamp, clockOffset: clockOffset)
+                        : nil,
                     isDirectory: isDirectory,
                     path: RemotePath.join(base, name)
                 ))
@@ -490,6 +496,7 @@ public final class Brailliant {
         let temporaryName = needsSwap ? Brailliant.temporaryName(for: name) : name
         let temporaryPath = RemotePath.join(parentPath, temporaryName)
 
+        let sendStarted = Date()
         try sendFile(
             source: source, name: temporaryName, size: size,
             parentID: parentID, storageID: storageID,
@@ -515,7 +522,29 @@ public final class Brailliant {
         guard let result = try resolve(normalized) else {
             throw MTPError.notFound(path: normalized)
         }
-        return result
+        return calibrateClock(with: result, sentBetween: sendStarted, and: Date())
+    }
+
+    /// Learns how the display's clock relates to UTC from a file it has just
+    /// stamped, and returns the entry with its date read accordingly.
+    ///
+    /// A fresh upload is the one date whose true value is known: the display
+    /// stamps the file with its own clock as it is written (libmtp sends it no
+    /// date), so the stamp must read "now".
+    private func calibrateClock(with entry: Entry, sentBetween start: Date, and end: Date) -> Entry
+    {
+        guard let stamped = entry.modified,
+            let offset = DisplayClock.offset(
+                reading: stamped, readWith: clockOffset, sentBetween: start, and: end),
+            offset != clockOffset
+        else { return entry }
+        let corrected = stamped.addingTimeInterval(clockOffset - offset)
+        clockOffset = offset
+        DisplayClock.store(offset, forSerial: serialNumber)
+        return Entry(
+            itemID: entry.itemID, parentID: entry.parentID, storageID: entry.storageID,
+            name: entry.name, size: entry.size, modified: corrected,
+            isDirectory: entry.isDirectory, path: entry.path)
     }
 
     /// Sends a local file under a given name, with no overwrite handling.
@@ -777,5 +806,79 @@ public final class Brailliant {
             }
         }
         throw MTPError.localeUnavailable
+    }
+}
+
+/// Turns the dates the display reports into real instants.
+///
+/// Measured on a BI 40X, 15 Oct 2026: a file written at 01:37 Paris time came
+/// back dated 23:37 the previous evening — exactly the Mac's offset from UTC.
+/// Two causes stack up. The display writes its dates as a bare wall-clock
+/// reading, and its clock reads UTC. libmtp then parses that reading with
+/// `mktime`, i.e. as if it were the Mac's local time. A constant correction
+/// would be wrong: `mktime` applies the Mac's daylight saving for each file's
+/// own date, so the error is two hours in summer and one in winter.
+///
+/// The fix undoes `mktime` exactly, recovering the display's reading, then
+/// subtracts how far the display's clock runs ahead of UTC. That offset is
+/// assumed to be zero — what was measured — until an upload proves otherwise:
+/// a display whose owner set it to local time is learned from the first file
+/// sent to it, and remembered per serial number.
+enum DisplayClock {
+
+    /// Time zones are whole quarter hours; anything finer is clock drift.
+    static let granularity: TimeInterval = 15 * 60
+
+    /// The instant a libmtp date stands for, given the display's offset.
+    static func instant(
+        fromLibMTPStamp stamp: Int, clockOffset: TimeInterval,
+        macZone: TimeZone = .current
+    ) -> Date {
+        let parsed = Date(timeIntervalSince1970: TimeInterval(stamp))
+        // The offset `mktime` applied is the Mac's offset at that instant —
+        // ambiguous only during the hour repeated when clocks go back.
+        let readingAsUTC = parsed.addingTimeInterval(
+            TimeInterval(macZone.secondsFromGMT(for: parsed)))
+        return readingAsUTC.addingTimeInterval(-clockOffset)
+    }
+
+    /// The display's offset implied by the date it gave a file sent between
+    /// `start` and `end`, or nil when the measure cannot be trusted.
+    ///
+    /// - Parameter readWith: the offset `stamped` was computed with, so that the
+    ///   display's own reading can be recovered from it.
+    static func offset(
+        reading stamped: Date, readWith previous: TimeInterval,
+        sentBetween start: Date, and end: Date
+    ) -> TimeInterval? {
+        // Whether the display stamps the start or the end of the transfer is
+        // unknown: past a few minutes the two could round differently.
+        let duration = end.timeIntervalSince(start)
+        guard duration >= 0, duration < granularity / 3 else { return nil }
+        let reading = stamped.addingTimeInterval(previous)
+        let ahead = reading.timeIntervalSince(start.addingTimeInterval(duration / 2))
+        let rounded = (ahead / granularity).rounded() * granularity
+        // A clock several minutes off, or an offset no time zone has, means
+        // the clock is simply wrong: guessing would make every date worse.
+        guard abs(ahead - rounded) <= 5 * 60, abs(rounded) <= 14 * 3600 else { return nil }
+        return rounded
+    }
+
+    private static func key(forSerial serial: String) -> String {
+        "displayClockOffset." + serial
+    }
+
+    /// What was learned about this display, or zero (UTC) when nothing was.
+    static func storedOffset(
+        forSerial serial: String, in defaults: UserDefaults = .standard
+    ) -> TimeInterval {
+        serial.isEmpty ? 0 : defaults.double(forKey: key(forSerial: serial))
+    }
+
+    static func store(
+        _ offset: TimeInterval, forSerial serial: String, in defaults: UserDefaults = .standard
+    ) {
+        guard !serial.isEmpty else { return }
+        defaults.set(offset, forKey: key(forSerial: serial))
     }
 }

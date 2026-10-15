@@ -67,7 +67,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 62 tests
+swift test                    # 70 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -235,6 +235,14 @@ Each of these produces an error that points somewhere other than its cause.
   that hung.
 - **MTP emits no change notifications.** Anything edited on the display itself
   goes unnoticed until re-enumeration.
+- **The display's clock reads UTC, and libmtp reads its dates as local time.**
+  Measured 15 Oct 2026 on a BI 40X: every date came back early by the Mac's
+  offset from UTC — two hours in summer, one in winter, because libmtp's
+  `mktime` applies daylight saving per date. `DisplayClock` (end of
+  `Brailliant.swift`) undoes `mktime` and subtracts the display's own offset,
+  assumed zero and recalibrated from each fresh upload, which the display
+  stamps with its clock (libmtp sends no date). A copied file therefore shows
+  when it reached the display, never its date on the Mac.
 
 ## Storages
 
