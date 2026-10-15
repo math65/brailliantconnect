@@ -28,7 +28,12 @@ enum Announcements {
     static func checkAtLaunch(after delay: TimeInterval = 5, attemptsLeft: Int = 6) {
         guard AppBackendClient.isConfigured else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            if NSApp.windows.contains(where: { $0.isVisible }) {
+            // Our own windows, named one by one, plus any modal alert. Asking
+            // whether *any* window was visible was the first version, and it
+            // never once let an announcement through: the menu bar item is
+            // itself a window, always visible, so every attempt deferred until
+            // the last one gave up.
+            if Welcome.isOnScreen || Feedback.isOnScreen || NSApp.modalWindow != nil {
                 guard attemptsLeft > 1 else { return }
                 checkAtLaunch(after: 10, attemptsLeft: attemptsLeft - 1)
                 return

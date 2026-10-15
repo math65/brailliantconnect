@@ -16,6 +16,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     /// Called after the user changes something, so the agent can act on it.
     private let onChange: () -> Void
 
+    /// Present in every build of the menu, hidden unless notifications are
+    /// refused — so the answer that arrives once the menu is already open can
+    /// show it in place rather than rebuilding everything under the reader.
+    private weak var notificationsItem: NSMenuItem?
+
     init(onChange: @escaping () -> Void) {
         self.onChange = onChange
         super.init()
@@ -94,6 +99,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(disabled(L.t("On the display: Options, User settings, MTP")))
         case .absent:
             menu.addItem(disabled(L.t("No display connected")))
+        }
+
+        // The end of a transfer is announced by a notification, and nothing
+        // else reaches someone who has walked away from the screen. Refused
+        // once — a reflex on a dialog that appears at first launch — it stays
+        // refused in silence, and "safe to unplug" is never said again. The
+        // item says so, and opens the one page where it can be undone.
+        let notifications = add(
+            menu, L.t("Notifications are off — Open Notification Settings…"),
+            #selector(openNotificationSettings))
+        notifications.isHidden = !TransferNotice.isDenied
+        notificationsItem = notifications
+        TransferNotice.refreshAuthorization { [weak self] in
+            self?.notificationsItem?.isHidden = !TransferNotice.isDenied
         }
 
         menu.addItem(.separator())
@@ -228,6 +247,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         Feedback.show()
     }
 
+    @objc private func openNotificationSettings() {
+        TransferNotice.openSettings()
+    }
+
     @objc private func toggleStartup() {
         if Installer.isRegistered {
             Installer.unregister()
@@ -259,7 +282,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             guard confirmInterruption(transfer, then: .uninstall) else { return }
         }
 
-        Installer.uninstall(removeApp: true) { binned in
+        // Nothing may publish the location again while the removal runs, or
+        // between its end and the alert below being dismissed.
+        shuttingDown = true
+        // The agent is not stopped by `uninstall` here: booting the job out
+        // kills this process, and the alert below — the only place a bundle
+        // left in Applications is reported — would never be shown.
+        Installer.uninstall(removeApp: true, stopAgentWhenDone: false) { binned in
             DispatchQueue.main.async {
                 // Quitting on success would hide a bundle still sitting in
                 // Applications, doing nothing, with no way left to remove it
@@ -274,6 +303,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
                     NSApp.activate(ignoringOtherApps: true)
                     failure.runModal()
                 }
+                // Last, because it terminates us when launchd started us.
+                // Without it KeepAlive would bring the agent back ten seconds
+                // later — from a bundle that, on success, is in the Trash.
+                Installer.stopAgent()
                 NSApp.terminate(nil)
             }
         }
@@ -291,6 +324,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // flag is safe to read unguarded because both are funnelled onto the
         // main queue for that single purpose: `unpublish` calls back on a queue
         // of the system's choosing.
+        shuttingDown = true
         var left = false
         let leave = {
             guard !left else { return }
@@ -363,5 +397,60 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // "Wait" is the first button, so Return — the reflex answer — is the
         // safe one.
         return alert.runModal() == .alertSecondButtonReturn
+    }
+}
+
+/// The application's main menu, which nobody sees.
+///
+/// An accessory app shows no menu bar, and so was given none — but the menu bar
+/// is also where AppKit looks up ⌘A, ⌘C, ⌘V, ⌘X, ⌘Z and ⌘W. Without it, none of
+/// them did anything in "Report a Problem…": a message could not be pasted in,
+/// nor selected to be read back. Checked with a throwaway accessory app: ⌘A
+/// selects nothing in a text view or a text field with no main menu, and
+/// selects everything once this one is installed; ⌘W closes the window.
+///
+/// No Quit item, deliberately: ⌘Q would terminate the agent without booting it
+/// out, and KeepAlive would bring it back ten seconds later. Quitting is the
+/// menu bar item's business.
+enum KeyboardMenu {
+
+    static func make() -> NSMenu {
+        let main = NSMenu()
+
+        // The first item is always taken as the application menu, whatever it
+        // holds. Left empty, it keeps the Edit menu out of that slot.
+        let application = NSMenuItem()
+        application.submenu = NSMenu()
+        main.addItem(application)
+
+        let edit = NSMenu(title: L.t("Edit"))
+        // Sent to the first responder, as the standard Edit menu is: the text
+        // view or field that has the focus answers each of these itself.
+        edit.addItem(withTitle: L.t("Undo"), action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = edit.addItem(
+            withTitle: L.t("Redo"), action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        edit.addItem(withTitle: L.t("Cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(
+            withTitle: L.t("Copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(
+            withTitle: L.t("Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(
+            withTitle: L.t("Select All"), action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a")
+        let editItem = NSMenuItem()
+        editItem.submenu = edit
+        main.addItem(editItem)
+
+        let window = NSMenu(title: L.t("Window"))
+        window.addItem(
+            withTitle: L.t("Close Window"), action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: "w")
+        let windowItem = NSMenuItem()
+        windowItem.submenu = window
+        main.addItem(windowItem)
+
+        return main
     }
 }

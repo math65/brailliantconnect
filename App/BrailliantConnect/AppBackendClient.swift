@@ -43,6 +43,10 @@ final class AppBackendClient {
         case network
         case rateLimited
         case validation
+        /// HTTP 401: the key this build carries was refused. Retrying later
+        /// cannot help — the server rotated the key, or this build predates
+        /// it — so it gets its own message rather than "try again later".
+        case unauthorized
         case server
 
         var message: String {
@@ -56,6 +60,10 @@ final class AppBackendClient {
             case .validation:
                 return L.t(
                     "The email address or message wasn't accepted. Check them, then try again.")
+            case .unauthorized:
+                return L.t(
+                    "The server no longer accepts messages from this version of the app. "
+                        + "Please update BrailliantConnect.")
             case .server:
                 return L.t("The server didn't accept the message. Try again later.")
             }
@@ -117,8 +125,18 @@ final class AppBackendClient {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     }
 
+    /// What the contact route keeps of a message, in UTF-8 bytes. The server
+    /// cuts there without saying so, which is why the window warns first.
+    static let contactMessageLimit = 2000
+
     /// Ephemeral: nothing about these requests is worth writing to disk.
-    private let session = URLSession(configuration: .ephemeral)
+    ///
+    /// One for the whole process. A session per client — and every window
+    /// and the announcements each made one — is never invalidated, and so
+    /// never freed, along with its delegate queue.
+    private static let session = URLSession(configuration: .ephemeral)
+
+    private var session: URLSession { Self.session }
 
     // MARK: - Feedback
 
@@ -198,16 +216,19 @@ final class AppBackendClient {
 
         session.dataTask(with: request) { data, response, error in
             let result: Result<Announcement?, BackendError>
-            if error != nil {
+            let status = (response as? HTTPURLResponse)?.statusCode
+            if let error {
+                Self.logFailure(request, error.localizedDescription)
                 result = .failure(.network)
-            } else if let http = response as? HTTPURLResponse, http.statusCode == 200,
+            } else if status == 200,
                 let data,
                 let decoded = try? JSONDecoder().decode(CheckResponse.self, from: data),
                 decoded.ok
             {
                 result = .success(decoded.announcement)
             } else {
-                result = .failure(.server)
+                Self.logFailure(request, status.map { "HTTP \($0)" } ?? "no HTTP response")
+                result = .failure(status == 401 ? .unauthorized : .server)
             }
             DispatchQueue.main.async { completion(result) }
         }.resume()
@@ -247,7 +268,25 @@ final class AppBackendClient {
         else { return }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
-        session.dataTask(with: request).resume()
+        session.dataTask(with: request) { _, response, error in
+            let status = (response as? HTTPURLResponse)?.statusCode
+            if let error {
+                Self.logFailure(request, error.localizedDescription)
+            } else if status != 200 {
+                Self.logFailure(request, status.map { "HTTP \($0)" } ?? "no HTTP response")
+            }
+        }.resume()
+    }
+
+    /// Writes a failed request to the agent's log.
+    ///
+    /// Every one of them, including the fire-and-forget ones: a report that
+    /// never arrived otherwise left nothing behind on either side, and the
+    /// next report — which carries this log — is where it gets noticed.
+    /// The route and the status only; never the body, which holds the
+    /// user's address and message.
+    private static func logFailure(_ request: URLRequest, _ reason: String) {
+        log(L.t("backend: %@ failed — %@", request.url?.path ?? "?", reason))
     }
 
     private func makeRequest(path: String) -> URLRequest? {
@@ -264,7 +303,8 @@ final class AppBackendClient {
     ) {
         session.dataTask(with: request) { data, response, error in
             let result: Result<Void, BackendError>
-            if error != nil {
+            if let error {
+                Self.logFailure(request, error.localizedDescription)
                 result = .failure(.network)
             } else if let http = response as? HTTPURLResponse {
                 if http.statusCode == 200 {
@@ -273,13 +313,22 @@ final class AppBackendClient {
                     let decoded = data.flatMap {
                         try? JSONDecoder().decode(APIResponse.self, from: $0)
                     }
-                    switch decoded?.errorCode {
-                    case "rate_limited": result = .failure(.rateLimited)
-                    case "validation_error", "invalid_json": result = .failure(.validation)
-                    default: result = .failure(.server)
+                    Self.logFailure(
+                        request,
+                        "HTTP \(http.statusCode)"
+                            + (decoded?.errorCode.map { " (\($0))" } ?? ""))
+                    if http.statusCode == 401 {
+                        result = .failure(.unauthorized)
+                    } else {
+                        switch decoded?.errorCode {
+                        case "rate_limited": result = .failure(.rateLimited)
+                        case "validation_error", "invalid_json": result = .failure(.validation)
+                        default: result = .failure(.server)
+                        }
                     }
                 }
             } else {
+                Self.logFailure(request, "no HTTP response")
                 result = .failure(.network)
             }
             DispatchQueue.main.async { completion(result) }

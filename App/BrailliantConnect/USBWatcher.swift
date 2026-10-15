@@ -30,6 +30,9 @@ final class USBWatcher {
 
     private let onChange: () -> Void
 
+    /// The reconciliation waiting for the bus to settle, if one is.
+    private var pending: DispatchWorkItem?
+
     init(onChange: @escaping () -> Void) {
         self.onChange = onChange
     }
@@ -187,7 +190,13 @@ final class USBWatcher {
             let source = IONotificationPortGetRunLoopSource(notificationPort)?
                 .takeUnretainedValue()
         else { return }
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .defaultMode)
+        // Common modes, not the default one: a modal alert (an announcement, a
+        // confirmation) and an open menu both run the loop in a mode of their
+        // own, and a source added to the default mode alone is not served
+        // while they are up. A display unplugged under an open alert then went
+        // unnoticed until the alert was dismissed — with the location still
+        // published and the folder hanging.
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
 
         let context = Unmanaged.passUnretained(self).toOpaque()
 
@@ -227,12 +236,23 @@ final class USBWatcher {
     ///
     /// Interface events carry no vendor of their own, so anything USB-related
     /// triggers a re-evaluation. Deciding is cheap; missing a wake-up is not.
+    ///
+    /// One plug fires several notifications — the device, then each of its
+    /// interfaces — within a few milliseconds. Each one used to schedule its
+    /// own reconciliation, and they then published concurrently: two
+    /// `createShortcut` calls racing each other can leave "~/Brailliant 2"
+    /// beside "~/Brailliant". Each event now pushes the one pending
+    /// reconciliation back instead, so a burst ends in a single pass.
     private func handle(_ iterator: io_iterator_t) {
         drain(iterator)
-        // A freshly connected device takes a moment to become usable over MTP.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+        pending?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.pending = nil
             self?.onChange()
         }
+        pending = work
+        // A freshly connected device takes a moment to become usable over MTP.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
     }
 
     /// Drains the iterator; returns true if a HumanWare display was among them.

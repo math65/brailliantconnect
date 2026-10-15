@@ -432,13 +432,15 @@ public enum L {
             "Un transfert est en cours. Le fichier n'est peut-être pas encore arrivé.",
 
         "This report includes a diagnostic: the version of the app and of macOS, "
-            + "the state of the display, whether the location is published, this app's "
-            + "own log, and — once the display has been read — its model, serial "
-            + "number and storage areas.":
+            + "whether VoiceOver is on, whether notifications are allowed, the state "
+            + "of the display, whether the location is published, this app's own log "
+            + "and the Finder extension's error log, and — once the display has been "
+            + "read — its model, serial number and storage areas.":
             "Ce signalement inclut un diagnostic : la version de l'app et de macOS, "
+            + "l'activation ou non de VoiceOver, l'autorisation ou non des notifications, "
             + "l'état de la plage, la publication ou non de l'emplacement, le journal "
-            + "de l'app et, dès que la plage a été lue, son modèle, son numéro de série "
-            + "et ses stockages.",
+            + "de l'app et celui des erreurs de l'extension Finder, et, dès que la plage "
+            + "a été lue, son modèle, son numéro de série et ses stockages.",
 
         "Enter the email address where you'd like to receive a reply.":
             "Saisissez l'adresse e-mail à laquelle vous souhaitez recevoir une réponse.",
@@ -726,5 +728,45 @@ public enum L {
             + "Rename \"%@\" and try again.":
             "La plage n'accepte ni barre oblique ni barre oblique inversée dans un nom de fichier. "
             + "Renommez « %@ » puis réessayez.",
+
+        // MARK: Agent — menu bar, report window, transfers (review, Oct 2026)
+
+        "reconciliation still unanswered after 60 seconds — moving on":
+            "réconciliation toujours sans réponse après 60 secondes — on passe à la suite",
+        "another agent already holds the lock — this copy exits":
+            "un autre agent tient déjà le verrou — cette copie s'arrête",
+        "transfer interrupted — %@ not confirmed, display no longer reachable":
+            "transfert interrompu — %@ non confirmés, plage plus joignable",
+        "backend: %@ failed — %@": "serveur : échec de %@ — %@",
+        "Notifications are off — Open Notification Settings…":
+            "Notifications désactivées — Ouvrir les réglages des notifications…",
+        "Notifications are turned off for BrailliantConnect, so the end of a "
+            + "transfer is never announced. The menu bar item has an item to "
+            + "turn them back on.":
+            "Les notifications sont désactivées pour BrailliantConnect : la fin d'un "
+            + "transfert n'est donc jamais annoncée. Le menu de la barre des menus "
+            + "propose de les réactiver.",
+        "This message is too long to arrive whole":
+            "Ce message est trop long pour arriver en entier",
+        "Suggestions and questions are cut after 2,000 bytes — about 2,000 "
+            + "characters, fewer with accented letters. The rest would be lost.":
+            "Les suggestions et les questions sont coupées après 2 000 octets — environ "
+            + "2 000 caractères, moins avec des lettres accentuées. La suite serait perdue.",
+        "Edit Message": "Modifier le message",
+        "Send Anyway": "Envoyer quand même",
+        "Sending…": "Envoi en cours…",
+        "The server no longer accepts messages from this version of the app. "
+            + "Please update BrailliantConnect.":
+            "Le serveur n'accepte plus les messages de cette version de l'app. "
+            + "Mettez BrailliantConnect à jour.",
+        "Edit": "Édition",
+        "Undo": "Annuler",
+        "Redo": "Rétablir",
+        "Cut": "Couper",
+        "Copy": "Copier",
+        "Paste": "Coller",
+        "Select All": "Tout sélectionner",
+        "Window": "Fenêtre",
+        "Close Window": "Fermer la fenêtre",
     ]
 }

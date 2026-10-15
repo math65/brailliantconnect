@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import UserNotifications
 
 /// Announces the end of a transfer.
@@ -14,6 +14,43 @@ enum TransferNotice {
     /// lands in its log rather than nowhere.
     static var delivery: ((String) -> Void)?
 
+    /// The permission as last read from the system, nil until it has been.
+    /// Main queue only.
+    ///
+    /// Kept so the menu can say when notifications are off. Logging it was the
+    /// first answer, and it only told the author: the person whose transfer
+    /// ended in silence had no way to learn why, nor where to turn it back on.
+    private(set) static var authorization: UNAuthorizationStatus?
+
+    /// True when the user has refused notifications, in the dialog or later in
+    /// System Settings. Main queue only.
+    static var isDenied: Bool { authorization == .denied }
+
+    /// Reads the permission again, then calls back on the main queue.
+    ///
+    /// The menu calls this every time it opens: the setting lives in System
+    /// Settings, which says nothing when it changes.
+    static func refreshAuthorization(then done: (() -> Void)? = nil) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                authorization = settings.authorizationStatus
+                done?()
+            }
+        }
+    }
+
+    /// Opens our own page of the Notifications settings.
+    ///
+    /// The identifier narrows it to this app; should a future macOS ignore it,
+    /// the Notifications pane itself is still the right place to land.
+    static func openSettings() {
+        let pane = "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+        let identifier = Bundle.main.bundleIdentifier ?? "com.mathieumartin.BrailliantConnect"
+        for address in [pane + "?id=" + identifier, pane] {
+            if let url = URL(string: address), NSWorkspace.shared.open(url) { return }
+        }
+    }
+
     /// Asks once for permission to notify.
     ///
     /// Requested at startup rather than at the first transfer: asking in the
@@ -26,6 +63,7 @@ enum TransferNotice {
             // and a working one look exactly alike until a transfer ends and
             // nothing happens.
             center.getNotificationSettings { settings in
+                DispatchQueue.main.async { authorization = settings.authorizationStatus }
                 let state: String
                 switch settings.authorizationStatus {
                 case .authorized, .provisional: state = "authorized"

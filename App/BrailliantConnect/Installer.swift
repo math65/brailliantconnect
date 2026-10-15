@@ -19,6 +19,13 @@ enum Installer {
 
     private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 
+    /// The app's own identifier, which names its preferences domain. Spelled
+    /// out as a fallback only: the CLI reaches `--uninstall` through the app's
+    /// executable, so the bundle is always ours.
+    private static var bundleIdentifier: String {
+        Bundle.main.bundleIdentifier ?? "com.mathieumartin.BrailliantConnect"
+    }
+
     static var agentPlist: URL {
         home.appendingPathComponent("Library/LaunchAgents/\(agentLabel).plist")
     }
@@ -35,8 +42,7 @@ enum Installer {
         [
             agentPlist,
             logFile,
-            home.appendingPathComponent(
-                "Library/Preferences/com.mathieumartin.BrailliantConnect.plist"),
+            home.appendingPathComponent("Library/Preferences/\(bundleIdentifier).plist"),
             home.appendingPathComponent(
                 "Library/Application Scripts/com.mathieumartin.BrailliantConnect"),
             home.appendingPathComponent(
@@ -168,11 +174,20 @@ enum Installer {
     ///
     /// - Parameters:
     ///   - removeApp: whether to move the bundle to the Trash as well.
+    ///   - stopAgentWhenDone: whether to boot the agent out before calling
+    ///     back. The command line wants it: it runs in a process of its own,
+    ///     and the resident agent is the one being stopped. The menu must pass
+    ///     `false` and call `stopAgent()` itself once it is done: there the
+    ///     resident agent *is* the caller, `bootout` kills it on the spot, and
+    ///     `completion` — with the alert saying the bundle could not be binned
+    ///     — would never run.
     ///   - completion: called on an unspecified queue once everything is done,
     ///     with whether the bundle itself was binned. Everything else is best
     ///     effort by design: a preference file that was never written is not a
     ///     failure, and neither is a domain that was not published.
-    static func uninstall(removeApp: Bool, completion: @escaping (Bool) -> Void) {
+    static func uninstall(
+        removeApp: Bool, stopAgentWhenDone: Bool = true, completion: @escaping (Bool) -> Void
+    ) {
         // The location goes first: a domain left behind would keep an entry in
         // the Finder pointing at an extension that no longer exists.
         unpublish { _ in
@@ -180,6 +195,12 @@ enum Installer {
             // really ours — never a folder the user happens to have named the
             // same way.
             removeDomainFolder()
+
+            // Before the file goes: `cfprefsd` keeps the domain in memory and
+            // writes it back whenever it likes, so a plist deleted from under
+            // it can reappear — the install identifier and "welcome shown"
+            // with it, which a reinstall would then inherit.
+            UserDefaults.standard.removePersistentDomain(forName: bundleIdentifier)
 
             for path in ownedPaths {
                 remove(path)
@@ -205,7 +226,7 @@ enum Installer {
             // Last, because it terminates us. Launched by hand rather than by
             // launchd there is no job to boot out, the command fails
             // harmlessly, and `completion` runs as normal.
-            stopAgent()
+            if stopAgentWhenDone { stopAgent() }
             completion(binned)
         }
     }

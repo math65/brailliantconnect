@@ -24,56 +24,138 @@ final class TransferMonitor {
         var fraction: Double { total > 0 ? Double(sent) / Double(total) : 0 }
     }
 
+    /// Main queue only, like everything else in this class: `follow` and
+    /// `stop` are called from the completion queues of the File Provider
+    /// framework, and the KVO callbacks arrive on whatever thread changed the
+    /// progress. Every entry point hops onto the main queue before touching
+    /// any of this.
     private var progress: Progress?
-    private var following = false
 
     /// Called once each time a run of transfers finishes, with the total size.
+    /// On the main queue.
     var onCompletion: ((Int64) -> Void)?
 
-    private var observation: NSKeyValueObservation?
+    private var observations: [NSKeyValueObservation] = []
     private var fallback: Timer?
     /// Largest total seen during the current run, kept because the progress
     /// object is gone by the time there is something to announce.
     private var runningTotal: Int64 = 0
+
+    /// Bumped by `stop`, so the answer to a `follow` issued before it cannot
+    /// attach to a domain that has since been removed.
+    private var generation = 0
 
     /// Starts reading the progress of the published domain.
     ///
     /// Called whenever the location is published, and again on every
     /// reconciliation: an agent that starts up while the location is already
     /// published never goes through publishing, and would otherwise never know
-    /// a transfer was running. Repeat calls are ignored — the progress object
-    /// belongs to the domain, and only a domain removed and re-added needs a
-    /// new one.
+    /// a transfer was running.
+    ///
+    /// Every call fetches the progress again and compares it with the one
+    /// observed. A flag that ignored repeat calls was the first version, and
+    /// it assumed the system hands out one object per domain for good —
+    /// which nothing documents. The object's address is logged at each call,
+    /// so the log will say whether it is stable.
     func follow(domain identifier: NSFileProviderDomainIdentifier) {
-        guard !following else { return }
-        following = true
-        NSFileProviderManager.getDomainsWithCompletionHandler { [weak self] domains, _ in
-            guard let domain = domains.first(where: { $0.identifier == identifier }),
-                let manager = NSFileProviderManager(for: domain)
-            else { return }
+        // Always queued rather than run inline when already on main: `stop`
+        // is queued the same way, and the two must reach the main queue in
+        // the order they were called.
+        DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let progress = manager.globalProgress(for: .uploading)
-            self.progress = progress
-            // KVO rather than a timer: the agent must stay asleep when nothing
-            // is moving. A one-second timer is armed only while a transfer is
-            // actually running, because the aggregate does not reliably emit a
-            // final change when the last file lands.
-            self.observation = progress.observe(\.fractionCompleted, options: [.new]) {
+            let ticket = self.generation
+            NSFileProviderManager.getDomainsWithCompletionHandler { domains, _ in
+                guard let domain = domains.first(where: { $0.identifier == identifier }),
+                    let manager = NSFileProviderManager(for: domain)
+                else { return }
+                // Fetched here rather than on main: it is a call into the
+                // system, and the menu bar should not wait on it.
+                let fresh = manager.globalProgress(for: .uploading)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.generation == ticket else { return }
+                    let same = fresh === self.progress
+                    log(
+                        "upload progress \(Unmanaged.passUnretained(fresh).toOpaque())"
+                            + (same ? " (unchanged)" : self.progress == nil ? "" : " (new object)"))
+                    guard !same else { return }
+                    self.observe(fresh)
+                }
+            }
+        }
+    }
+
+    /// Main queue only.
+    private func observe(_ progress: Progress) {
+        observations = []
+        self.progress = progress
+
+        // KVO rather than a timer: the agent must stay asleep when nothing is
+        // moving. A one-second timer is armed only while a transfer is
+        // actually running, because the aggregate does not reliably emit a
+        // final change when the last file lands.
+        //
+        // Three properties, each with its old value. `fractionCompleted` alone
+        // misses a single large file entirely — the aggregate credits it whole,
+        // so the fraction jumps from 0 to done in one change, or never moves
+        // before the progress resets. The old values are what make a run that
+        // was never seen in flight still count: a total that was above zero
+        // and is now back to zero, or a progress that just became finished,
+        // is a run of that old total that has just ended.
+        observations = [
+            progress.observe(\.fractionCompleted, options: [.initial, .new]) {
                 [weak self] _, _ in
-                DispatchQueue.main.async { self?.evaluate() }
+                self?.onMain { $0.evaluate() }
+            },
+            progress.observe(\.totalUnitCount, options: [.initial, .old, .new]) {
+                [weak self] _, change in
+                guard let old = change.oldValue, let new = change.newValue else {
+                    self?.onMain { $0.evaluate() }
+                    return
+                }
+                let ended: Int64? = old > 0 && new == 0 ? old : nil
+                self?.onMain { $0.evaluate(endedRunOf: ended) }
+            },
+            progress.observe(\.isFinished, options: [.initial, .old, .new]) {
+                [weak self] progress, change in
+                let ended: Int64? =
+                    change.oldValue == false && change.newValue == true
+                    ? progress.totalUnitCount : nil
+                self?.onMain { $0.evaluate(endedRunOf: ended) }
+            },
+        ]
+    }
+
+    /// Runs inline when already on main, so a change is judged against the
+    /// state it came with rather than whatever the progress says a turn of the
+    /// run loop later — by which time a short run may have come and gone.
+    private func onMain(_ body: @escaping (TransferMonitor) -> Void) {
+        if Thread.isMainThread {
+            body(self)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                body(self)
             }
         }
     }
 
     /// Notices a run starting and, more importantly, finishing.
-    private func evaluate() {
+    ///
+    /// - Parameter ended: the total of a run a KVO change says has just
+    ///   ended, when it says so — counted even if no evaluation ever caught
+    ///   that run in flight.
+    private func evaluate(endedRunOf ended: Int64? = nil) {
+        if let ended, ended > 0 { runningTotal = max(runningTotal, ended) }
         if let current = state {
             runningTotal = max(runningTotal, current.total)
             if fallback == nil {
-                fallback = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) {
-                    [weak self] _ in
+                let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
                     self?.evaluate()
                 }
+                // Common modes, so the end of a transfer is still caught while
+                // an alert or the menu is open.
+                RunLoop.main.add(timer, forMode: .common)
+                fallback = timer
             }
             return
         }
@@ -86,17 +168,32 @@ final class TransferMonitor {
     }
 
     func stop() {
-        observation = nil
-        fallback?.invalidate()
-        fallback = nil
-        // Deliberately not announcing: reaching here means the display went
-        // away, so whatever was in flight did not arrive.
-        runningTotal = 0
-        progress = nil
-        following = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.generation += 1
+            self.observations = []
+            self.fallback?.invalidate()
+            self.fallback = nil
+            // Deliberately not announcing: reaching here means the display
+            // went away, so whatever was in flight did not arrive.
+            self.runningTotal = 0
+            self.progress = nil
+        }
     }
 
-    /// The current transfer, or nil when nothing is in flight.
+    /// True when nothing is on its way to the display. Main queue only.
+    ///
+    /// Cheap — it reads the progress already held, and asks the system for
+    /// nothing — so anything that must not cut a transfer short (quitting,
+    /// installing an update) can ask it as often as it likes. A run the
+    /// fallback timer is still following counts as in flight until that timer
+    /// has seen it end.
+    var isIdle: Bool {
+        dispatchPrecondition(condition: .onQueue(.main))
+        return state == nil && fallback == nil
+    }
+
+    /// The current transfer, or nil when nothing is in flight. Main queue only.
     var state: State? {
         guard let progress, !progress.isFinished, !progress.isCancelled else { return nil }
         let remaining = progress.fileTotalCount ?? 0

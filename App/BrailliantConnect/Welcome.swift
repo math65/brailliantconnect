@@ -19,6 +19,10 @@ final class Welcome: NSObject, NSWindowDelegate {
 
     private var window: NSWindow?
 
+    /// Whether the window is on screen — asked by the announcements, which
+    /// wait for it to be gone.
+    static var isOnScreen: Bool { current?.window?.isVisible == true }
+
     /// Shows the window the first time, and never again on its own.
     ///
     /// Marked as seen only once a window is actually on screen. Marking first
@@ -59,7 +63,12 @@ final class Welcome: NSObject, NSWindowDelegate {
 
         let done = NSButton(title: L.t("Done"), target: self, action: #selector(close))
         done.bezelStyle = .rounded
-        done.keyEquivalent = "\r"
+        // Escape, not Return. As the default button it took Return from the
+        // page, where VoiceOver users press it to act on what they are
+        // reading — and the window closed under them in the middle of it.
+        // Escape and ⌘W close it, and the button itself still answers Space
+        // or VoiceOver's own press once it has the focus.
+        done.keyEquivalent = "\u{1b}"
         done.translatesAutoresizingMaskIntoConstraints = false
 
         let content = NSView(frame: NSRect(x: 0, y: 0, width: 580, height: 452))
@@ -86,6 +95,9 @@ final class Welcome: NSObject, NSWindowDelegate {
         window.delegate = self
         window.center()
         window.isReleasedWhenClosed = false
+        // Nothing to bring back after a restart, and nothing then written to
+        // the Saved Application State folder for the uninstaller to chase.
+        window.isRestorable = false
         self.window = window
 
         // An accessory app never comes to the front by itself; without this the

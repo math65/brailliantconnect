@@ -11,7 +11,7 @@ import AppKit
 /// Plain AppKit, like every other window here. Each control carries its own
 /// accessibility label rather than relying on a neighbouring text field to act
 /// as one, and nothing is announced as a group on the way in.
-final class Feedback: NSObject, NSWindowDelegate {
+final class Feedback: NSObject, NSWindowDelegate, NSTextViewDelegate {
 
     /// What the message is about, chosen first.
     ///
@@ -94,7 +94,22 @@ final class Feedback: NSObject, NSWindowDelegate {
     private let messageView = NSTextView()
     private let noteLabel = NSTextField(labelWithString: "")
     private let sendButton = NSButton()
+    private let cancelButton = NSButton()
     private let progress = NSProgressIndicator()
+
+    /// True from Send until the server has answered. Closing is refused
+    /// meanwhile: the window is what the answer is shown in, and a report
+    /// dropped because its window went away would look sent and never arrive.
+    private var busy = false
+
+    /// What the note last said about the subject, so a change of subject only
+    /// announces what is actually new.
+    private var lastObservation: String?
+    private var lastTransparency: String?
+
+    /// Whether the window is on screen — asked by the announcements, which
+    /// wait for it to be gone.
+    static var isOnScreen: Bool { current?.window?.isVisible == true }
 
     /// Nothing is offered when the build has no key: a menu item that can only
     /// fail is worse than no menu item.
@@ -123,6 +138,9 @@ final class Feedback: NSObject, NSWindowDelegate {
             defer: false)
         window.title = L.t("Contact the Developer")
         window.isReleasedWhenClosed = false
+        // Nothing to bring back after a restart, and nothing then written to
+        // the Saved Application State folder for the uninstaller to chase.
+        window.isRestorable = false
         window.delegate = self
         window.center()
         self.window = window
@@ -136,7 +154,7 @@ final class Feedback: NSObject, NSWindowDelegate {
             typeButton.addItem(withTitle: subject.label)
         }
         typeButton.target = self
-        typeButton.action = #selector(typeChanged)
+        typeButton.action = #selector(typeChanged(_:))
         typeButton.setAccessibilityLabel(L.t("Subject"))
 
         emailField.placeholderString = L.t("name@example.com")
@@ -145,6 +163,11 @@ final class Feedback: NSObject, NSWindowDelegate {
         messageView.isRichText = false
         messageView.font = .systemFont(ofSize: NSFont.systemFontSize)
         messageView.isAutomaticQuoteSubstitutionEnabled = false
+        // Off by default in a text view built in code, and ⌘Z then does
+        // nothing even with the Edit menu in place.
+        messageView.allowsUndo = true
+        // For Tab, which a text view otherwise types as a character.
+        messageView.delegate = self
         messageView.setAccessibilityLabel(L.t("Message"))
         let scroll = NSScrollView()
         scroll.documentView = messageView
@@ -163,7 +186,10 @@ final class Feedback: NSObject, NSWindowDelegate {
         progress.isDisplayedWhenStopped = false
         progress.setAccessibilityElement(false)
 
-        let cancel = NSButton(title: L.t("Cancel"), target: self, action: #selector(close))
+        let cancel = cancelButton
+        cancel.title = L.t("Cancel")
+        cancel.target = self
+        cancel.action = #selector(close)
         cancel.bezelStyle = .rounded
         cancel.keyEquivalent = "\u{1b}"
 
@@ -225,18 +251,40 @@ final class Feedback: NSObject, NSWindowDelegate {
         ])
 
         window.contentView = content
+
+        // Spelled out rather than left to AppKit, which builds no loop for
+        // views added in code: Tab from the message would otherwise go
+        // nowhere. Controls that cannot take the focus — buttons, without
+        // full keyboard access — are skipped on the way.
+        typeButton.nextKeyView = emailField
+        emailField.nextKeyView = messageView
+        messageView.nextKeyView = cancelButton
+        cancelButton.nextKeyView = sendButton
+        sendButton.nextKeyView = typeButton
+        window.initialFirstResponder = typeButton
+
         emailField.stringValue = UserDefaults.standard.string(forKey: Self.savedEmailKey) ?? ""
-        typeChanged()
+        refreshNote(announce: false)
         isPublished { [weak self] published in
             DispatchQueue.main.async {
                 self?.domainPublished = published
-                self?.typeChanged()
+                self?.refreshNote(announce: false)
             }
+        }
+        // The note for "a file didn't copy" says when notifications are off,
+        // and that answer may have changed in System Settings since start.
+        TransferNotice.refreshAuthorization { [weak self] in
+            self?.refreshNote(announce: false)
         }
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        window.makeFirstResponder(emailField.stringValue.isEmpty ? emailField : messageView)
+        // The subject first: it is the first question the window asks, it
+        // decides what the note below says, and landing in the message field
+        // skipped both — a screen reader started in the middle of the form.
+        // A pop-up refuses the focus without full keyboard access; the window
+        // then keeps it, and VoiceOver starts from the top all the same.
+        window.makeFirstResponder(typeButton)
     }
 
     // MARK: - Acting
@@ -282,9 +330,20 @@ final class Feedback: NSObject, NSWindowDelegate {
                 ? nil
                 : L.t("The location isn't published in the Finder, which would explain it.")
         case .transferFailed:
-            return transfers.state == nil
-                ? nil
-                : L.t("A transfer is in progress. The file may not have arrived yet.")
+            var notes: [String] = []
+            if transfers.state != nil {
+                notes.append(L.t("A transfer is in progress. The file may not have arrived yet."))
+            }
+            // The likeliest reason someone believes a copy failed is that
+            // nothing told them it was over.
+            if TransferNotice.isDenied {
+                notes.append(
+                    L.t(
+                        "Notifications are turned off for BrailliantConnect, so the end of a "
+                            + "transfer is never announced. The menu bar item has an item to "
+                            + "turn them back on."))
+            }
+            return notes.isEmpty ? nil : notes.joined(separator: " ")
         default:
             return nil
         }
@@ -293,20 +352,64 @@ final class Feedback: NSObject, NSWindowDelegate {
     /// Says out loud what a problem report carries — whoever presses Send is
     /// entitled to know that the serial number of their display goes with it —
     /// and, above it, what the machine says about the symptom right now.
-    @objc private func typeChanged() {
+    @objc private func typeChanged(_ sender: Any?) {
+        refreshNote(announce: true)
+    }
+
+    /// Rewrites the note, and says what changed when the user changed it.
+    ///
+    /// The note sits below the fields, where a screen reader reaches it only
+    /// by going past the message field — so a subject picked from the pop-up
+    /// gave no sign that the window had just answered it. What is new is read
+    /// out instead: the observation if it changed, otherwise the list of what
+    /// the report carries when it has just appeared. Not when the window
+    /// opens, nor when a late answer from the system rewrites it: those would
+    /// talk over whatever the reader is doing.
+    private func refreshNote(announce: Bool) {
         let subject = selectedSubject
-        noteLabel.stringValue = [observation(for: subject), transparency(for: subject)]
+        let observation = observation(for: subject)
+        let transparency = transparency(for: subject)
+        noteLabel.stringValue = [observation, transparency]
             .compactMap { $0 }
             .joined(separator: "\n\n")
+
+        defer {
+            lastObservation = observation
+            lastTransparency = transparency
+        }
+        guard announce else { return }
+        if let observation, observation != lastObservation {
+            speak(observation, after: 0.3)
+        } else if let transparency, transparency != lastTransparency {
+            speak(transparency, after: 0.3)
+        }
+    }
+
+    /// Hands a sentence to VoiceOver — and to the braille display with it.
+    ///
+    /// - Parameter delay: lets the pop-up finish closing first. VoiceOver
+    ///   reads the newly selected value as the menu goes, and an announcement
+    ///   posted in the same instant can be lost under it.
+    private func speak(_ text: String, after delay: TimeInterval = 0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let window = self?.window, window.isVisible else { return }
+            NSAccessibility.post(
+                element: window, notification: .announcementRequested,
+                userInfo: [
+                    .announcement: text,
+                    .priority: NSAccessibilityPriorityLevel.high.rawValue,
+                ])
+        }
     }
 
     private func transparency(for subject: Subject) -> String? {
         subject.isProblem
             ? L.t(
                 "This report includes a diagnostic: the version of the app and of macOS, "
-                    + "the state of the display, whether the location is published, this app's "
-                    + "own log, and — once the display has been read — its model, serial "
-                    + "number and storage areas.")
+                    + "whether VoiceOver is on, whether notifications are allowed, the state "
+                    + "of the display, whether the location is published, this app's own log "
+                    + "and the Finder extension's error log, and — once the display has been "
+                    + "read — its model, serial number and storage areas.")
             : nil
     }
 
@@ -327,8 +430,35 @@ final class Feedback: NSObject, NSWindowDelegate {
             return
         }
 
-        setBusy(true)
         let subject = selectedSubject
+        // The contact route keeps the first 2,000 bytes and drops the rest,
+        // without a word to either side. Said before sending, while the
+        // message can still be shortened, rather than discovered in a reply
+        // to half a question.
+        if !subject.isProblem, message.utf8.count > AppBackendClient.contactMessageLimit {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = L.t("This message is too long to arrive whole")
+            alert.informativeText = L.t(
+                "Suggestions and questions are cut after 2,000 bytes — about 2,000 "
+                    + "characters, fewer with accented letters. The rest would be lost.")
+            // The safe answer first, so Return keeps the message.
+            alert.addButton(withTitle: L.t("Edit Message"))
+            alert.addButton(withTitle: L.t("Send Anyway"))
+            alert.beginSheetModal(for: window!) { [weak self] response in
+                guard response == .alertSecondButtonReturn else {
+                    self?.window?.makeFirstResponder(self?.messageView)
+                    return
+                }
+                self?.transmit(email: email, message: message, subject: subject)
+            }
+            return
+        }
+        transmit(email: email, message: message, subject: subject)
+    }
+
+    private func transmit(email: String, message: String, subject: Subject) {
+        setBusy(true)
         let completion: (Result<Void, AppBackendClient.BackendError>) -> Void = { [weak self] in
             self?.setBusy(false)
             switch $0 {
@@ -364,7 +494,13 @@ final class Feedback: NSObject, NSWindowDelegate {
     }
 
     private func setBusy(_ busy: Bool) {
+        self.busy = busy
         busy ? progress.startAnimation(nil) : progress.stopAnimation(nil)
+        // The spinner is silent, and kept out of the accessibility tree; a
+        // report takes up to a minute to collect and send, which is a long
+        // time to wonder whether Send did anything.
+        if busy { speak(L.t("Sending…")) }
+        cancelButton.isEnabled = !busy
         sendButton.isEnabled = !busy
         typeButton.isEnabled = !busy
         emailField.isEnabled = !busy
@@ -394,7 +530,32 @@ final class Feedback: NSObject, NSWindowDelegate {
         window?.close()
     }
 
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // The close box and ⌘W, which Cancel being disabled does not cover.
+        !busy
+    }
+
     func windowWillClose(_ notification: Notification) {
         Feedback.current = nil
+    }
+
+    // MARK: - Tab in the message
+
+    /// Moves the focus on Tab and Shift-Tab instead of typing a tab.
+    ///
+    /// A text view takes Tab as a character, so the message field was a trap
+    /// for anyone moving through the form from the keyboard: in, and no way
+    /// out but the mouse. A tab character has no use in a message either.
+    func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        switch selector {
+        case #selector(NSResponder.insertTab(_:)):
+            textView.window?.selectNextKeyView(nil)
+            return true
+        case #selector(NSResponder.insertBacktab(_:)):
+            textView.window?.selectPreviousKeyView(nil)
+            return true
+        default:
+            return false
+        }
     }
 }

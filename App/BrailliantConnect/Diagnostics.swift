@@ -19,10 +19,10 @@ import Foundation
 ///
 /// So that half is not asked for here, it is picked up: the extension writes
 /// what it sees into its own container as it connects, and this reads it. The
-/// bundled `brailliant doctor` is the fallback for the case where there is no
-/// such snapshot — no location published, extension never run — and there its
-/// failure is attached as-is rather than dropped, since the error it prints is
-/// itself the answer to a good half of the reports that will arrive.
+/// bundled `brailliant doctor` runs instead whenever the location is not
+/// published — the session is free then, and a snapshot may be weeks old — and
+/// its failure is attached as-is rather than dropped, since the error it prints
+/// is itself the answer to a good half of the reports that will arrive.
 ///
 /// One text file goes with the report, and the agent's own log always leads it.
 /// The sections say *that* the location is not published; only the log says
@@ -43,11 +43,16 @@ enum Diagnostics {
         symptom: String,
         completion: @escaping (_ sections: [AppBackendClient.ReportSection], _ log: Data?) -> Void
     ) {
+        // Read on main, where the cached answer lives, before going off it.
+        let notifications = notificationsLabel()
         publishedState { published, userEnabled in
             DispatchQueue.global(qos: .userInitiated).async {
+                let events = extensionEvents()
                 var sections = [
-                    application(symptom: symptom), system(),
-                    display(published: published, userEnabled: userEnabled),
+                    application(symptom: symptom), system(notifications: notifications),
+                    display(
+                        published: published, userEnabled: userEnabled,
+                        lastExtensionFailure: events.map { lastFailure(in: $0) }),
                 ]
 
                 // The agent's own log travels with every report, snapshot or
@@ -66,15 +71,28 @@ enum Diagnostics {
                 if let agent = agentLog() {
                     attach("~/Library/Logs/BrailliantConnect.log", agent)
                 }
+                // What the extension itself saw fail. Its own logs never reach
+                // `log show`, so this file in its container is the only
+                // account of a copy that went wrong on the display's side.
+                if let events {
+                    attach("extension", events)
+                }
 
-                // The extension's snapshot first, and when it is there, no
-                // doctor at all: it would only fail. Running it anyway would
-                // cost the user seconds of waiting to attach an error that
-                // says nothing this report does not already say.
-                if let hardware = hardwareFromExtension() {
+                // The extension's snapshot, and no doctor at all — but only
+                // while the location is published. Then the extension holds
+                // the MTP session, the doctor could only fail, and running it
+                // would cost seconds of waiting for an error that says nothing.
+                //
+                // Unpublished, the snapshot is a memory of some earlier
+                // session, possibly of another display, while the doctor can
+                // now reach the one plugged in. It runs, and the snapshot goes
+                // along beside it, dated.
+                let hardware = hardwareFromExtension()
+                if published, let hardware {
                     sections.append(hardware)
                 } else {
                     attach("brailliant doctor", Data(runDoctor().utf8))
+                    if let hardware { sections.append(hardware) }
                 }
 
                 let log = attachment.isEmpty ? nil : attachment
@@ -98,7 +116,18 @@ enum Diagnostics {
             ])
     }
 
-    private static func system() -> AppBackendClient.ReportSection {
+    /// Whether the end of a transfer can be announced at all — the first
+    /// thing to know about a report that says a copy "failed".
+    private static func notificationsLabel() -> String {
+        switch TransferNotice.authorization {
+        case .authorized?, .provisional?: return "autorisées"
+        case .denied?: return "refusées"
+        case .notDetermined?: return "jamais demandées"
+        default: return "inconnu"
+        }
+    }
+
+    private static func system(notifications: String) -> AppBackendClient.ReportSection {
         var machine = utsname()
         uname(&machine)
         let architecture = withUnsafePointer(to: &machine.machine) {
@@ -110,13 +139,17 @@ enum Diagnostics {
                 ("macOS", ProcessInfo.processInfo.operatingSystemVersionString),
                 ("Architecture", architecture),
                 ("VoiceOver actif", NSWorkspace.shared.isVoiceOverEnabled ? "oui" : "non"),
+                ("Notifications", notifications),
             ])
     }
 
     /// The half a report from an untested model turns on: what the USB tree
     /// says, and whether the Finder side of it actually came up.
+    /// - Parameter lastExtensionFailure: nil when the extension has left no
+    ///   ledger at all, in which case the row is left out rather than
+    ///   claiming there was nothing to report.
     private static func display(
-        published: Bool, userEnabled: Bool?
+        published: Bool, userEnabled: Bool?, lastExtensionFailure: String?
     ) -> AppBackendClient.ReportSection {
         // A location can be published and still serve nothing: macOS 13 waits
         // for the user to enable it in the Finder. The first report from such
@@ -133,19 +166,31 @@ enum Diagnostics {
         let shortcut =
             shortcuts.first.map { url -> String in
                 let target = (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path))
-                return "~/\(url.lastPathComponent) → \(target ?? "cible illisible")"
+                // Abbreviated: the absolute path carries the user's account
+                // name, which the report has no use for.
+                return "~/\(url.lastPathComponent) → "
+                    + (target.map { abbreviatingHome($0, home: home) } ?? "cible illisible")
             } ?? "aucun"
 
-        return AppBackendClient.ReportSection(
-            title: "Plage et Finder",
-            rows: [
-                ("État USB", label(for: USBWatcher.availability())),
-                ("Appareils HumanWare branchés", String(USBWatcher.pluggedDisplayCount())),
-                ("Dont joignables en MTP", String(USBWatcher.connectedDisplayCount())),
-                ("Emplacement publié", published ? "oui" : "non"),
-                ("Activé dans le Finder", enabled),
-                ("Raccourci", shortcut),
-            ])
+        var rows: [(label: String, value: String)] = [
+            ("État USB", label(for: USBWatcher.availability())),
+            ("Appareils HumanWare branchés", String(USBWatcher.pluggedDisplayCount())),
+            ("Dont joignables en MTP", String(USBWatcher.connectedDisplayCount())),
+            ("Emplacement publié", published ? "oui" : "non"),
+            ("Activé dans le Finder", enabled),
+            ("Raccourci", shortcut),
+        ]
+        if let lastExtensionFailure {
+            rows.append(("Dernier échec de l'extension", lastExtensionFailure))
+        }
+        return AppBackendClient.ReportSection(title: "Plage et Finder", rows: rows)
+    }
+
+    /// Replaces the home folder at the head of a path with "~".
+    private static func abbreviatingHome(_ path: String, home: URL) -> String {
+        let prefix = home.path.hasSuffix("/") ? String(home.path.dropLast()) : home.path
+        guard path == prefix || path.hasPrefix(prefix + "/") else { return path }
+        return "~" + path.dropFirst(prefix.count)
     }
 
     private static func label(for availability: USBWatcher.Availability) -> String {
@@ -203,13 +248,42 @@ enum Diagnostics {
     /// embedded extension rather than spelled out here, so renaming it cannot
     /// leave this pointing at a path that no longer exists.
     private static var snapshotURL: URL? {
+        extensionFolder?.appendingPathComponent("last-device.json")
+    }
+
+    /// The extension's failure ledger, beside the snapshot: one line per
+    /// operation, `<ISO 8601 date>\t<operation>\t<outcome>\t<detail>`.
+    private static var eventsURL: URL? {
+        extensionFolder?.appendingPathComponent("events.log")
+    }
+
+    private static var extensionFolder: URL? {
         let appex = Bundle.main.bundleURL
             .appendingPathComponent("Contents/PlugIns/FileProviderExtension.appex")
         guard let identifier = Bundle(url: appex)?.bundleIdentifier else { return nil }
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Containers/\(identifier)/Data")
             .appendingPathComponent("Library/Application Support/BrailliantConnect")
-            .appendingPathComponent("last-device.json")
+    }
+
+    /// The tail of the extension's ledger, or nil when it has written none.
+    private static func extensionEvents() -> Data? {
+        eventsURL.flatMap { tail(of: $0) }
+    }
+
+    /// The last line whose outcome is not `ok`, as date, operation and
+    /// outcome — or "aucun" when every line kept says `ok`.
+    ///
+    /// The detail is left to the attached ledger: it can run long, and a row
+    /// is read at a glance.
+    private static func lastFailure(in events: Data) -> String {
+        let lines = String(decoding: events, as: UTF8.self).split(separator: "\n")
+        for line in lines.reversed() {
+            let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
+            guard fields.count >= 3, fields[2] != "ok" else { continue }
+            return "\(fields[0]) — \(fields[1]) — \(fields[2])"
+        }
+        return "aucun"
     }
 
     /// The tail of the agent's own log, or nil when there is none to read.
@@ -222,11 +296,15 @@ enum Diagnostics {
     /// Only the end is kept. The file has no rotation and the agent writes to
     /// it at every login for as long as the app is installed, while what a
     /// report is about happened in the last few minutes.
-    ///
-    /// - Parameter limit: how many bytes of the end to keep.
-    private static func agentLog(limit: Int = 64 * 1024) -> Data? {
-        let url = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/BrailliantConnect.log")
+    private static func agentLog() -> Data? {
+        tail(
+            of: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Logs/BrailliantConnect.log"))
+    }
+
+    /// The last `limit` bytes of a file, starting on a whole line, or nil
+    /// when there is no file or nothing in it.
+    private static func tail(of url: URL, limit: Int = 64 * 1024) -> Data? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
 

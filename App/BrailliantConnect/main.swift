@@ -39,8 +39,19 @@ var domainLocation: URL {
 /// and the log both name the one that actually exists.
 var shortcutInPlace: URL?
 
+/// Serialises every change to the shortcut.
+///
+/// Two callers can reach `createShortcut` at once — a reconciliation and
+/// "Open in Finder" publishing again, each from a queue of the system's
+/// choosing. Interleaved, both remove ours, both find "Brailliant" free, one
+/// link fails and the next attempt settles on "Brailliant 2". Taken in turn,
+/// the second simply replaces the first.
+let shortcutLock = NSLock()
+
 @discardableResult
 func createShortcut() -> Bool {
+    shortcutLock.lock()
+    defer { shortcutLock.unlock() }
     let fm = FileManager.default
     for _ in 0..<20 {
         if fm.fileExists(atPath: domainLocation.path) { break }
@@ -77,6 +88,8 @@ func createShortcut() -> Bool {
 }
 
 func removeShortcut() {
+    shortcutLock.lock()
+    defer { shortcutLock.unlock() }
     // Only ever remove our own links: never a real folder the user may have
     // created under the same name.
     for shortcut in FinderLocation.existingShortcuts(
@@ -275,7 +288,64 @@ func finish(_ message: String, code: Int32 = 0) -> Never {
 /// exactly when it is being consulted.
 var lastKnownAvailability: Bool?
 
+/// Whether a reconciliation is under way, and whether another was asked for
+/// meanwhile. Main queue only.
+///
+/// A reconciliation spans several asynchronous calls into the system, and two
+/// of them overlapping each read "not published", each publish, and each create
+/// a shortcut. One at a time, then, and a request that arrives during a pass
+/// is not dropped: it runs once that pass is over, since the display may have
+/// changed in between.
+var reconciling = false
+var reconcileAgain = false
+/// Identifies the pass under way, so the watchdog below only ever releases
+/// the one it was armed for.
+var reconciliationPass = 0
+
+/// Set once the agent is quitting or uninstalling. Main queue only.
+///
+/// Both take the location down and then wait — on the system, or on an alert —
+/// before the process ends, and a plug in that window would publish it again
+/// behind them: a Finder location with no agent left to remove it.
+var shuttingDown = false
+
+/// Must be called on the main queue: the initial pass, the USB watcher and the
+/// menu all do.
 func syncWithHardware() {
+    dispatchPrecondition(condition: .onQueue(.main))
+    guard !shuttingDown else { return }
+    guard !reconciling else {
+        reconcileAgain = true
+        return
+    }
+    reconciling = true
+    reconciliationPass += 1
+    let pass = reconciliationPass
+
+    var finished = false
+    let finish = {
+        DispatchQueue.main.async {
+            guard !finished, pass == reconciliationPass else { return }
+            finished = true
+            reconciling = false
+            if reconcileAgain {
+                reconcileAgain = false
+                syncWithHardware()
+            }
+        }
+    }
+    // The system is not known to drop a completion handler, but an agent that
+    // waited on one forever would never react to the display again — a far
+    // worse failure than two passes overlapping once.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+        guard !finished, pass == reconciliationPass else { return }
+        log(L.t("reconciliation still unanswered after 60 seconds — moving on"))
+        finish()
+    }
+    reconcile(then: finish)
+}
+
+private func reconcile(then finish: @escaping () -> Void) {
     // "Available" means reachable over MTP, not merely plugged in: a display
     // that is asleep, or in braille terminal mode, stays enumerated and answers
     // nothing.
@@ -292,6 +362,7 @@ func syncWithHardware() {
         switch action {
         case .publish:
             publish { error in
+                defer { finish() }
                 guard worthLogging || error != nil else { return }
                 log(
                     error == nil
@@ -307,6 +378,7 @@ func syncWithHardware() {
             }
         case .unpublish:
             unpublish { error in
+                defer { finish() }
                 guard worthLogging || error != nil else { return }
                 let reason: String
                 switch state {
@@ -334,6 +406,7 @@ func syncWithHardware() {
                 transfers.follow(domain: domainIdentifier)
                 trackApproval(userEnabled: userEnabled)
             }
+            finish()
         }
     }
 }
@@ -501,11 +574,29 @@ case "--install":
 case "--watch":
     // launchd already runs a single copy of the job; this guards against a
     // second one started by hand.
-    guard SingleInstance.claim() else { exit(0) }
+    // Logged before leaving: launchd restarts a job that exits, so a copy
+    // that keeps finding the lock taken shows up here as one line every ten
+    // seconds — and otherwise as nothing at all.
+    guard SingleInstance.claim() else {
+        log(L.t("another agent already holds the lock — this copy exits"))
+        exit(0)
+    }
 
     log(L.t("agent started"))
 
     transfers.onCompletion = { total in
+        // The progress ends the same way whether the files landed or the
+        // display was pulled out mid-way, and "you can unplug" said after the
+        // latter is the one message this app must never get wrong. A display
+        // still reachable is the evidence available here that the run was not
+        // cut short; anything else is logged, and announced to no one.
+        guard USBWatcher.availability() == .ready else {
+            log(
+                L.t(
+                    "transfer interrupted — %@ not confirmed, display no longer reachable",
+                    humanBytes(total)))
+            return
+        }
         TransferNotice.announceCompletion(of: total)
         log(L.t("transfer finished — %@", humanBytes(total)))
     }
@@ -513,6 +604,7 @@ case "--watch":
     let application = NSApplication.shared
     // .accessory: an item in the menu bar, no Dock icon and no window.
     application.setActivationPolicy(.accessory)
+    application.mainMenu = KeyboardMenu.make()
     menuBar = MenuBarController(onChange: { syncWithHardware() })
 
     // Only once the app is a running application does the notification centre
