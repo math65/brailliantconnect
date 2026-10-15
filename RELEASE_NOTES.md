@@ -1,5 +1,29 @@
 # Release notes
 
+## v1.2.1 — 15/10/2026
+
+Pages documents now reach the display.
+
+### Pages, Keynote and Numbers documents are copied
+- A Pages document copied to the display never arrived: the Finder kept
+  trying to send it, and never managed. The same went for every document macOS
+  keeps as a package — Keynote and Numbers files, TextEdit documents with
+  pictures (.rtfd), and others.
+- They are now sent whole, and come back to the Mac intact: copied back from
+  the display, a Pages document is exactly the one that was sent. Editing it
+  on the Mac updates the copy on the display.
+- The display's own apps do not open these documents. To read one in braille,
+  export it from Pages as a Word or text file first.
+
+### An item that cannot be sent is no longer tried again and again
+- When an item cannot go to the display at all — a symbolic link, which the
+  display has no way to store — the Finder no longer keeps retrying it every
+  few seconds.
+
+### Clearer reports
+- When a copy fails, Report a Problem now says what kind of item it was,
+  never its name.
+
 ## v1.2.0 — 15/10/2026
 
 BrailliantConnect now updates itself. This is the last version you will have to

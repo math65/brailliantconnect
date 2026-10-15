@@ -1,5 +1,29 @@
 # Notes de version
 
+## v1.2.1 — 15/10/2026
+
+Les documents Pages arrivent maintenant sur la plage.
+
+### Les documents Pages, Keynote et Numbers sont copiés
+- Un document Pages copié sur la plage n'y arrivait jamais : le Finder
+  essayait de l'envoyer, encore et encore, sans y parvenir. Même chose pour
+  tous les documents que macOS range sous forme de paquet — fichiers Keynote
+  et Numbers, documents TextEdit avec images (.rtfd), et d'autres.
+- Ils sont maintenant envoyés en entier, et reviennent intacts sur le Mac :
+  recopié depuis la plage, un document Pages est exactement celui qui était
+  parti. Le modifier sur le Mac met à jour sa copie sur la plage.
+- Les applications de la plage n'ouvrent pas ces documents. Pour en lire un
+  en braille, exportez-le d'abord depuis Pages en Word ou en texte.
+
+### Un élément impossible à envoyer n'est plus retenté sans fin
+- Quand un élément ne peut pas aller sur la plage — un lien symbolique, que
+  la plage n'a aucun moyen de conserver —, le Finder ne réessaie plus de
+  l'envoyer toutes les quelques secondes.
+
+### Des rapports plus clairs
+- Quand une copie échoue, Signaler un problème indique maintenant de quel
+  genre d'élément il s'agissait, jamais son nom.
+
 ## v1.2.0 — 15/10/2026
 
 BrailliantConnect se met maintenant à jour tout seul. C'est la dernière version
