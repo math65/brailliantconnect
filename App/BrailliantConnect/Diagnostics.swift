@@ -271,17 +271,20 @@ enum Diagnostics {
         eventsURL.flatMap { tail(of: $0) }
     }
 
-    /// The last line whose outcome is not `ok`, as date, operation and
-    /// outcome — or "aucun" when every line kept says `ok`.
+    /// The last line whose outcome is not `ok`, as date, operation, outcome
+    /// and detail — or "aucun" when every line kept says `ok`.
     ///
-    /// The detail is left to the attached ledger: it can run long, and a row
-    /// is read at a glance.
+    /// The detail is shown as written. The extension records an error by its
+    /// case name and codes (`transferFailed(code: -1)`, `<domain> <code>`),
+    /// never a translated message, so there is nothing to interpret here.
+    /// Refusals count as well: a name the display cannot store is exactly
+    /// what someone reporting "a file didn't copy" ran into.
     private static func lastFailure(in events: Data) -> String {
         let lines = String(decoding: events, as: UTF8.self).split(separator: "\n")
         for line in lines.reversed() {
             let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
             guard fields.count >= 3, fields[2] != "ok" else { continue }
-            return "\(fields[0]) — \(fields[1]) — \(fields[2])"
+            return fields.prefix(4).filter { !$0.isEmpty }.joined(separator: " — ")
         }
         return "aucun"
     }
