@@ -199,7 +199,6 @@
 			buildConfigurationList = 3F4448E3CC386ABE83DD7FC4 /* Build configuration list for PBXNativeTarget "FileProviderExtension" */;
 			buildPhases = (
 				130FA8E49F3ECE01DAE8E88F /* Sources */,
-				C573A6C53CBA130B2FCD20FC /* Embarquer libmtp et libusb */,
 			);
 			buildRules = (
 			);
@@ -218,7 +217,7 @@
 			buildPhases = (
 				BE924285A27D8040BF16EC57 /* Sources */,
 				27F719D04CA9CA26597B1DC2 /* Embed Foundation Extensions */,
-				2F2871272A98AB03FB8554C2 /* Embarquer libmtp et libusb */,
+				2F2871272A98AB03FB8554C2 /* Embed libmtp and libusb */,
 			);
 			buildRules = (
 			);
@@ -272,7 +271,7 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		2F2871272A98AB03FB8554C2 /* Embarquer libmtp et libusb */ = {
+		2F2871272A98AB03FB8554C2 /* Embed libmtp and libusb */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -281,32 +280,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Embarquer libmtp et libusb";
+			name = "Embed libmtp and libusb";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "DEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  # Signer chaque bibliothèque séparément. Une signature « --deep »\n  # appliquée à l'application entière écraserait les entitlements de\n  # l'extension, qui refuserait alors de se charger.\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n\n# La cl\u00e9 du backend n'est pas dans le d\u00e9p\u00f4t, qui est public : elle est\n# copi\u00e9e ici quand elle existe. Sans elle, l'application se construit et\n# fonctionne \u2014 elle n'offre simplement pas d'envoyer de message.\nKEY=\"$SRCROOT/BrailliantConnect/AppBackendSecret.plist\"\nif [ -f \"$KEY\" ]; then\n  RES=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  mkdir -p \"$RES\"\n  cp -f \"$KEY\" \"$RES/AppBackendSecret.plist\"\nfi\n";
-		};
-		C573A6C53CBA130B2FCD20FC /* Embarquer libmtp et libusb */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Embarquer libmtp et libusb";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "DEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  # Signer chaque bibliothèque séparément. Une signature « --deep »\n  # appliquée à l'application entière écraserait les entitlements de\n  # l'extension, qui refuserait alors de se charger.\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n";
+			shellScript = "set -eu\n\n# The extension finds these through its rpath, four levels up into the app's\n# Contents/Frameworks; the agent itself does not link them. Each library is\n# signed on its own: signing the bundle with --deep would overwrite the\n# extension's entitlements, and it would then refuse to load.\nDEST=\"$BUILT_PRODUCTS_DIR/$FRAMEWORKS_FOLDER_PATH\"\nmkdir -p \"$DEST\"\nfor lib in libmtp.9.dylib libusb-1.0.0.dylib; do\n  cp -f \"$SRCROOT/../Vendor/$lib\" \"$DEST/$lib\"\n  codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST/$lib\"\ndone\n\n# The backend key is not in the repository, which is public: it is copied\n# when it exists. Without it the app builds and works; it simply does not\n# offer to send a report. A missing key must never fail the build.\nKEY=\"$SRCROOT/BrailliantConnect/AppBackendSecret.plist\"\nif [ -f \"$KEY\" ]; then\n  RES=\"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  mkdir -p \"$RES\"\n  cp -f \"$KEY\" \"$RES/AppBackendSecret.plist\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

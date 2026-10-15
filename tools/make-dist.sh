@@ -4,19 +4,33 @@
 # the command-line tool, in one signed and notarized bundle.
 #
 # Usage:
-#   ./tools/make-dist.sh              # ad-hoc signature, for local testing
 #   ./tools/make-dist.sh --notarize   # Developer ID, notarized and stapled
+#
+# --notarize is required. There used to be an ad-hoc mode without it, and it
+# could not produce a bundle that works anywhere:
+#   - Xcode's automatic signing gives the extension get-task-allow, in Release
+#     as in Debug (measured 15 Oct 2026). The extension is deliberately not
+#     re-signed here, so the check below refused every ad-hoc bundle;
+#   - the hardened extension, signed by a team, enforces library validation,
+#     and the libraries the ad-hoc mode re-signed with "-" would not load in it.
+# To try a change on this machine, use the /extension loop (a Debug build
+# installed into /Applications); this script only makes what ships.
 #
 # Everything ships inside the .app on purpose. A bare command-line executable
 # cannot carry a stapled notarization ticket, whereas an app can — so a user
 # who downloads this gets a bundle Gatekeeper accepts offline, with the CLI
 # inside it rather than as a second, unstapled file.
 #
-# Prerequisites for --notarize (already in place as of 19 Aug 2026):
-#   - "Developer ID Application: Mathieu Martin (633EG76YX5)" in the keychain
+# Prerequisites:
+#   - "Developer ID Application: Mathieu Martin (633EG76YX5)" in the keychain,
+#     and the same certificate inside App/BrailliantConnect/
+#     BrailliantConnect.provisionprofile (checked below — a renewed certificate
+#     means a regenerated profile);
 #   - notarytool profile $NOTARY_PROFILE registered. Check with:
 #       xcrun notarytool history --keychain-profile "$NOTARY_PROFILE"
-#     Profiles are not tied to an app, hence reusing the ttaccessible one.
+#     Profiles are not tied to an app, hence reusing the ttaccessible one;
+#   - App/BrailliantConnect/AppBackendSecret.plist (git-ignored): without it
+#     the shipped app has no Report a Problem and no announcements.
 
 set -euo pipefail
 
@@ -27,6 +41,11 @@ APP_NAME="BrailliantConnect"
 SIGN_IDENTITY="Developer ID Application: Mathieu Martin (633EG76YX5)"
 NOTARY_PROFILE="ttaccessible-notary"
 TEAM_ID="633EG76YX5"
+PROFILE="$ROOT/App/BrailliantConnect/BrailliantConnect.provisionprofile"
+BACKEND_KEY="$ROOT/App/BrailliantConnect/AppBackendSecret.plist"
+# A certificate closer than this to its end gets a warning, so that renewing
+# it and regenerating the profile is planned rather than discovered.
+CERT_WARNING_DAYS=60
 
 NOTARIZE=0
 for arg in "$@"; do
@@ -36,43 +55,146 @@ for arg in "$@"; do
   esac
 done
 
+if [ "$NOTARIZE" -ne 1 ]; then
+  cat >&2 <<'EOF'
+ERROR: --notarize is required.
+Without it this script used to sign ad hoc, and that bundle could not work:
+the extension keeps the get-task-allow that Xcode's automatic signing gives it,
+and ad-hoc libraries fail library validation in the hardened extension.
+To test on this machine, use the /extension loop instead.
+To build what ships: ./tools/make-dist.sh --notarize
+EOF
+  exit 2
+fi
+
 log() { printf '\n=== %s ===\n' "$*"; }
+fail() { echo "ERROR: $*" >&2; exit 1; }
+
+# Runs a command with its output in a log file; on failure, shows the end of
+# that file instead of nothing at all.
+run_logged() {
+  local logfile="$1"; shift
+  if ! "$@" >"$logfile" 2>&1; then
+    echo "ERROR: $1 failed. Last lines of $logfile:" >&2
+    tail -n 40 "$logfile" >&2
+    exit 1
+  fi
+}
 
 cd "$ROOT"
+mkdir -p "$DIST"
+
+# --- Preflight ----------------------------------------------------------------
+# Everything that can be checked before a ten-minute build, is.
+
+log "Signing certificate and provisioning profile"
+
+# The identity codesign will pick: exactly one valid one must carry the name.
+SIGN_SHA1="$(security find-identity -v -p codesigning \
+  | awk -v name="$SIGN_IDENTITY" 'index($0, "\"" name "\"") { print $2 }' | sort -u)"
+[ -n "$SIGN_SHA1" ] || fail "no valid identity \"$SIGN_IDENTITY\" in the keychain."
+[ "$(printf '%s\n' "$SIGN_SHA1" | wc -l | tr -d ' ')" -eq 1 ] \
+  || fail "several valid identities named \"$SIGN_IDENTITY\": $(echo $SIGN_SHA1)."
+
+# The profile authorises the agent's restricted entitlement for the
+# certificates it lists, and no other: signed with a certificate that is not
+# among them, the agent is killed at launch. A renewed certificate therefore
+# means a regenerated profile.
+[ -f "$PROFILE" ] || fail "no provisioning profile at $PROFILE."
+PROFILE_PLIST="$DIST/profile.plist"
+security cms -D -i "$PROFILE" > "$PROFILE_PLIST" 2>/dev/null \
+  || fail "cannot decode $PROFILE."
+PROFILE_MATCH=0
+i=0
+while CERT_B64="$(plutil -extract "DeveloperCertificates.$i" raw -o - "$PROFILE_PLIST" 2>/dev/null)"; do
+  CERT_SHA1="$(printf '%s' "$CERT_B64" | base64 -D | shasum -a 1 | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')"
+  [ "$CERT_SHA1" = "$SIGN_SHA1" ] && PROFILE_MATCH=1
+  i=$((i + 1))
+done
+rm -f "$PROFILE_PLIST"
+if [ "$PROFILE_MATCH" -ne 1 ]; then
+  cat >&2 <<EOF
+ERROR: the signing certificate is not in the provisioning profile.
+  certificate SHA-1: $SIGN_SHA1
+  profile certificates: $i, none of them this one.
+The agent would be killed at launch. Regenerate the profile on the developer
+portal (Profiles, Developer ID, App ID com.mathieumartin.BrailliantConnect,
+with the current certificate) and replace $PROFILE.
+EOF
+  exit 1
+fi
+echo "    certificate $SIGN_SHA1 is in the profile"
+
+# The certificate's end date is the one that matters: the profile outlives it
+# by years, and is useless without it.
+CERT_PEM="$(security find-certificate -a -c "$SIGN_IDENTITY" -Z -p \
+  | awk -v sha="$SIGN_SHA1" '
+      /^SHA-1 hash:/ { keep = ($3 == sha) }
+      keep && /BEGIN CERTIFICATE/ { inside = 1 }
+      keep && inside { print }
+      /END CERTIFICATE/ { inside = 0 }')"
+[ -n "$CERT_PEM" ] || fail "cannot read the certificate $SIGN_SHA1 from the keychain."
+CERT_END="$(printf '%s\n' "$CERT_PEM" | /usr/bin/openssl x509 -noout -enddate | cut -d= -f2)"
+echo "    certificate expires: $CERT_END"
+if ! printf '%s\n' "$CERT_PEM" \
+     | /usr/bin/openssl x509 -noout -checkend $((CERT_WARNING_DAYS * 86400)) >/dev/null; then
+  echo "    WARNING: less than $CERT_WARNING_DAYS days left. Renew the certificate," >&2
+  echo "    then regenerate the provisioning profile with it." >&2
+fi
+
+# Without the key the build succeeds and the app quietly loses Report a
+# Problem and the announcement channel — the only way back to people who
+# installed it. Fine for a contributor's build, never for a release.
+[ -f "$BACKEND_KEY" ] \
+  || fail "no $BACKEND_KEY: the release would ship without Report a Problem."
 
 # --- Tests --------------------------------------------------------------------
 # No package may ship if a test fails: they cover path confinement, which is
 # what keeps a hostile file name from writing outside its destination.
 
 log "Tests"
-if ! swift test 2>&1 | grep -qE "with 0 failures"; then
-  echo "ERROR: the test suite fails, distribution aborted." >&2
-  exit 1
+TEST_LOG="$DIST/swift-test.log"
+if ! swift test >"$TEST_LOG" 2>&1; then
+  tail -n 40 "$TEST_LOG" >&2
+  fail "the test suite fails, distribution aborted (full output: $TEST_LOG)."
 fi
-swift test 2>&1 | grep -E "Executed [0-9]+ tests" | tail -1
+grep -E "Executed [0-9]+ tests" "$TEST_LOG" | tail -1 | sed 's/^[[:space:]]*/    /'
 
 # --- Command-line tool --------------------------------------------------------
+# The product path is asked of SwiftPM, never written here: Xcode 27's SwiftPM
+# moved it from .build/apple/Products/Release to .build/out/Products/Release,
+# and 1.1.1 shipped a CLI left at the old path by an older toolchain. The
+# previous product is removed first, so a stale one cannot be picked up again.
 
 log "Building the CLI (arm64 + x86_64)"
-swift build -c release --arch arm64 --arch x86_64
-CLI="$ROOT/.build/apple/Products/Release/brailliant"
-[ -f "$CLI" ] || { echo "ERROR: CLI not found ($CLI)" >&2; exit 1; }
+CLI_DIR="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+CLI="$CLI_DIR/brailliant"
+rm -f "$CLI"
+run_logged "$DIST/swift-build.log" swift build -c release --arch arm64 --arch x86_64
+[ -f "$CLI" ] || fail "CLI not found ($CLI)."
+CLI_ARCHS="$(lipo -archs "$CLI")"
+for arch in arm64 x86_64; do
+  case " $CLI_ARCHS " in
+    *" $arch "*) ;;
+    *) fail "the CLI lacks $arch (it has: $CLI_ARCHS)." ;;
+  esac
+done
+echo "    $CLI ($CLI_ARCHS)"
 
 # --- App, agent and extension -------------------------------------------------
+# Developer ID requires archiving with manual signing, then exporting: an
+# identity cannot simply be forced onto an automatically signed build, which
+# Xcode rejects as conflicting provisioning settings.
+#
+# The hardened runtime comes with it, and brings library validation: the
+# embedded dylibs must be signed by the same team, which the build phase does.
 
 log "Building the app and the Finder extension"
+ARCHIVE="$DIST/$APP_NAME.xcarchive"
+EXPORT_DIR="$DIST/export"
+rm -rf "$ARCHIVE" "$EXPORT_DIR"
 
-if [ "$NOTARIZE" -eq 1 ]; then
-  # Developer ID requires archiving with manual signing, then exporting: an
-  # identity cannot simply be forced onto an automatically signed build, which
-  # Xcode rejects as conflicting provisioning settings.
-  #
-  # The hardened runtime comes with it, and brings library validation: the
-  # embedded dylibs must be signed by the same team, which the build phase does.
-  ARCHIVE="$DIST/$APP_NAME.xcarchive"
-  EXPORT_DIR="$DIST/export"
-  rm -rf "$ARCHIVE" "$EXPORT_DIR"
-
+run_logged "$DIST/xcodebuild-archive.log" \
   xcodebuild -project App/BrailliantConnect.xcodeproj -scheme "$APP_NAME" \
     -configuration Release -destination 'generic/platform=macOS' \
     -archivePath "$ARCHIVE" -derivedDataPath "$DIST/DerivedData" \
@@ -80,9 +202,9 @@ if [ "$NOTARIZE" -eq 1 ]; then
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
     DEVELOPMENT_TEAM="$TEAM_ID" \
-    ENABLE_HARDENED_RUNTIME=YES >/dev/null
+    ENABLE_HARDENED_RUNTIME=YES
 
-  cat > "$DIST/ExportOptions.plist" <<PLIST
+cat > "$DIST/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -94,18 +216,13 @@ if [ "$NOTARIZE" -eq 1 ]; then
 </plist>
 PLIST
 
+run_logged "$DIST/xcodebuild-export.log" \
   xcodebuild -exportArchive -archivePath "$ARCHIVE" \
     -exportPath "$EXPORT_DIR" \
-    -exportOptionsPlist "$DIST/ExportOptions.plist" >/dev/null
-  APP="$EXPORT_DIR/$APP_NAME.app"
-else
-  xcodebuild -project App/BrailliantConnect.xcodeproj -scheme "$APP_NAME" \
-    -configuration Release -allowProvisioningUpdates \
-    -derivedDataPath "$DIST/DerivedData" build >/dev/null
-  APP="$DIST/DerivedData/Build/Products/Release/$APP_NAME.app"
-fi
+    -exportOptionsPlist "$DIST/ExportOptions.plist"
+APP="$EXPORT_DIR/$APP_NAME.app"
 
-[ -d "$APP" ] || { echo "ERROR: app not found ($APP)" >&2; exit 1; }
+[ -d "$APP" ] || fail "app not found ($APP)."
 
 # --- Assembling ---------------------------------------------------------------
 
@@ -114,18 +231,31 @@ rm -rf "$DIST/$APP_NAME.app" "$DIST/$APP_NAME.zip"
 ditto "$APP" "$DIST/$APP_NAME.app"
 APP="$DIST/$APP_NAME.app"
 
+# The build phase copies the key only when it exists, and says nothing when it
+# does not: check the bundle, not the source tree.
+[ -f "$APP/Contents/Resources/AppBackendSecret.plist" ] \
+  || fail "the bundle carries no AppBackendSecret.plist: Report a Problem would be missing."
+
 # The CLI travels beside the agent, and finds the libraries through the same
-# rpath the agent uses.
+# Frameworks folder the extension uses. The development rpaths (…/Vendor,
+# relative to the build tree) are removed first: in the bundle they would
+# point at /Applications/Vendor or /Vendor, folders nobody controls here.
 cp "$CLI" "$APP/Contents/MacOS/brailliant"
 chmod 755 "$APP/Contents/MacOS/brailliant"
+otool -l "$APP/Contents/MacOS/brailliant" \
+  | awk '$1 == "cmd" && $2 == "LC_RPATH" { getline; getline; print $2 }' \
+  | grep '/Vendor$' | sort -u \
+  | while IFS= read -r rpath; do
+      install_name_tool -delete_rpath "$rpath" "$APP/Contents/MacOS/brailliant"
+    done
 install_name_tool -add_rpath "@executable_path/../Frameworks" \
-  "$APP/Contents/MacOS/brailliant" 2>/dev/null || true
+  "$APP/Contents/MacOS/brailliant"
+if otool -l "$APP/Contents/MacOS/brailliant" | grep -q '/Vendor '; then
+  fail "the bundled CLI still searches a Vendor folder."
+fi
 
-cp "$VENDOR/LICENSE-libmtp.txt" "$VENDOR/LICENSE-libusb.txt" "$APP/Contents/Resources/" \
-  2>/dev/null || {
-    mkdir -p "$APP/Contents/Resources"
-    cp "$VENDOR/LICENSE-libmtp.txt" "$VENDOR/LICENSE-libusb.txt" "$APP/Contents/Resources/"
-  }
+mkdir -p "$APP/Contents/Resources"
+cp "$VENDOR/LICENSE-libmtp.txt" "$VENDOR/LICENSE-libusb.txt" "$APP/Contents/Resources/"
 
 # --- Signing ------------------------------------------------------------------
 # Inside out: signing the app seals what it contains, so anything modified
@@ -133,12 +263,7 @@ cp "$VENDOR/LICENSE-libmtp.txt" "$VENDOR/LICENSE-libusb.txt" "$APP/Contents/Reso
 # extension's entitlements and stop it from loading.
 
 log "Signing"
-IDENTITY="-"
-RUNTIME_FLAGS=()
-if [ "$NOTARIZE" -eq 1 ]; then
-  IDENTITY="$SIGN_IDENTITY"
-  RUNTIME_FLAGS=(--options runtime --timestamp)
-fi
+RUNTIME_FLAGS=(--options runtime --timestamp)
 
 # The distributed agent claims its identity (com.apple.application-identifier)
 # and carries the Developer ID provisioning profile that authorises the claim.
@@ -146,32 +271,27 @@ fi
 # publishing a location, and otherwise reads the bundle from disk, which its
 # sandbox refuses under /Applications — every publication then ends in -2001
 # "The application cannot be used right now" (measured on a pristine 13.2.1,
-# 9 Sep 2026). The ad-hoc bundle keeps the plain entitlements: the claim is
-# restricted, and an app making it without a profile is killed at launch.
-APP_ENTITLEMENTS="$ROOT/App/BrailliantConnect/BrailliantConnect.entitlements"
-if [ "$NOTARIZE" -eq 1 ]; then
-  APP_ENTITLEMENTS="$ROOT/App/BrailliantConnect/BrailliantConnect-distribution.entitlements"
-  cp "$ROOT/App/BrailliantConnect/BrailliantConnect.provisionprofile" \
-    "$APP/Contents/embedded.provisionprofile"
-fi
+# 9 Sep 2026).
+APP_ENTITLEMENTS="$ROOT/App/BrailliantConnect/BrailliantConnect-distribution.entitlements"
+cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
 
 # The extension is deliberately not re-signed: Xcode already signed it with its
 # entitlements during the build. Re-signing without passing --entitlements
 # silently drops them, and the extension then refuses to load with a message
 # that blames something else entirely.
 for lib in "$APP/Contents/Frameworks"/*.dylib; do
-  [ -f "$lib" ] && codesign --force ${RUNTIME_FLAGS[@]+"${RUNTIME_FLAGS[@]}"} --sign "$IDENTITY" "$lib"
+  [ -f "$lib" ] && codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" "$lib"
 done
 
 # Only the CLI was added after the build, so only it needs signing.
-codesign --force ${RUNTIME_FLAGS[@]+"${RUNTIME_FLAGS[@]}"} --sign "$IDENTITY" \
+codesign --force "${RUNTIME_FLAGS[@]}" --sign "$SIGN_IDENTITY" \
   "$APP/Contents/MacOS/brailliant"
 
 # Re-sealing the app must carry its entitlements explicitly, for the same
 # reason as above.
-codesign --force ${RUNTIME_FLAGS[@]+"${RUNTIME_FLAGS[@]}"} \
+codesign --force "${RUNTIME_FLAGS[@]}" \
   --entitlements "$APP_ENTITLEMENTS" \
-  --sign "$IDENTITY" "$APP"
+  --sign "$SIGN_IDENTITY" "$APP"
 
 log "Verifying"
 codesign --verify --strict --verbose=1 "$APP" 2>&1 | sed 's/^/    /'
@@ -179,29 +299,25 @@ codesign --verify --strict --verbose=1 "$APP" 2>&1 | sed 's/^/    /'
 # system refuses to load it, with a message that points elsewhere.
 if ! codesign -d --entitlements - "$APP/Contents/PlugIns/FileProviderExtension.appex" 2>/dev/null \
      | grep -q "app-sandbox"; then
-  echo "ERROR: the extension lost its sandbox entitlement." >&2
-  exit 1
+  fail "the extension lost its sandbox entitlement."
 fi
 echo "    extension: sandbox entitlement present"
 # The distributed agent must claim its identity and carry the profile that
 # backs the claim: one without the other is an app that macOS 13 cannot serve,
 # or one that macOS kills at launch.
-if [ "$NOTARIZE" -eq 1 ]; then
-  if ! codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "application-identifier"; then
-    echo "ERROR: the agent does not claim com.apple.application-identifier." >&2
-    exit 1
-  fi
-  [ -f "$APP/Contents/embedded.provisionprofile" ] \
-    || { echo "ERROR: no embedded.provisionprofile in the agent." >&2; exit 1; }
-  echo "    agent: identity claimed, profile embedded (expires $(security cms -D -i "$APP/Contents/embedded.provisionprofile" 2>/dev/null | plutil -extract ExpirationDate raw -o - - 2>/dev/null | cut -c1-10))"
+if ! codesign -d --entitlements - "$APP" 2>/dev/null | grep -q "application-identifier"; then
+  fail "the agent does not claim com.apple.application-identifier."
 fi
-# get-task-allow lets any process attach to ours. Xcode adds it to debug builds,
-# and a debug build reaching this script would ship a debuggable agent holding a
-# live MTP session over the user's files.
+[ -f "$APP/Contents/embedded.provisionprofile" ] \
+  || fail "no embedded.provisionprofile in the agent."
+echo "    agent: identity claimed, profile embedded"
+echo "    certificate expires: $CERT_END"
+# get-task-allow lets any process attach to ours. Xcode adds it to builds
+# signed for development, and a bundle carrying it would ship a debuggable
+# agent holding a live MTP session over the user's files.
 for target in "$APP" "$APP/Contents/PlugIns/FileProviderExtension.appex"; do
   if codesign -d --entitlements :- "$target" 2>/dev/null | grep -q "get-task-allow"; then
-    echo "ERROR: $(basename "$target") carries get-task-allow — debug build, not distributable." >&2
-    exit 1
+    fail "$(basename "$target") carries get-task-allow — development signature, not distributable."
   fi
 done
 echo "    no get-task-allow: not debuggable"
@@ -213,28 +329,44 @@ ZIP="$DIST/$APP_NAME.zip"
 # ditto preserves signatures and extended attributes, unlike zip.
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 
-if [ "$NOTARIZE" -eq 1 ]; then
-  log "Notarizing"
-  xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
-
-  log "Stapling the ticket"
-  xcrun stapler staple "$APP"
-  xcrun stapler validate "$APP" | sed 's/^/    /'
-
-  log "Gatekeeper"
-  spctl --assess --type execute --verbose=2 "$APP" 2>&1 | sed 's/^/    /' || true
-
-  # Re-zip so the archive carries the stapled ticket: without this the user
-  # would still need a network round trip on first launch.
-  rm -f "$ZIP"
-  ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+log "Notarizing"
+# The verdict is read from notarytool's answer ("Accepted"), not inferred from
+# its exit code. Anything else fetches Apple's log for the submission, the only
+# place that says which file failed and why.
+NOTARY_RESULT="$DIST/notary-result.plist"
+xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait \
+  --output-format plist >"$NOTARY_RESULT" 2>"$DIST/notarytool.log" || true
+SUBMISSION_ID="$(plutil -extract id raw -o - "$NOTARY_RESULT" 2>/dev/null || true)"
+NOTARY_STATUS="$(plutil -extract status raw -o - "$NOTARY_RESULT" 2>/dev/null || true)"
+echo "    submission: ${SUBMISSION_ID:-unknown}"
+echo "    status: ${NOTARY_STATUS:-unknown}"
+if [ "$NOTARY_STATUS" != "Accepted" ]; then
+  if [ -n "$SUBMISSION_ID" ]; then
+    echo "Apple's log for this submission:" >&2
+    xcrun notarytool log "$SUBMISSION_ID" --keychain-profile "$NOTARY_PROFILE" >&2 || true
+  else
+    tail -n 40 "$DIST/notarytool.log" >&2
+  fi
+  fail "notarization was not accepted."
 fi
+
+log "Stapling the ticket"
+xcrun stapler staple "$APP"
+xcrun stapler validate "$APP" | sed 's/^/    /'
+
+log "Gatekeeper"
+# A rejection here stops the release: it is what every user would see.
+if ! SPCTL_OUT="$(spctl --assess --type execute --verbose=2 "$APP" 2>&1)"; then
+  printf '%s\n' "$SPCTL_OUT" | sed 's/^/    /' >&2
+  fail "Gatekeeper rejects the bundle."
+fi
+printf '%s\n' "$SPCTL_OUT" | sed 's/^/    /'
+
+# Re-zip so the archive carries the stapled ticket: without this the user
+# would still need a network round trip on first launch.
+rm -f "$ZIP"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 
 log "Done"
 echo "  App     : $APP"
 echo "  Archive : $ZIP ($(du -h "$ZIP" | cut -f1))"
-if [ "$NOTARIZE" -eq 0 ]; then
-  echo
-  echo "  Ad-hoc signature: fine on this machine, but macOS will warn other"
-  echo "  users. Run with --notarize for a distributable build."
-fi
