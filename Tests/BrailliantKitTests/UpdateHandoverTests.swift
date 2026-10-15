@@ -88,6 +88,9 @@ final class UpdateHandoverTests: XCTestCase {
         XCTAssertFalse(UpdateHandover.wasUpdated(previousBuild: nil, currentBuild: "8"))
         XCTAssertFalse(UpdateHandover.wasUpdated(previousBuild: "8", currentBuild: "8"))
         XCTAssertTrue(UpdateHandover.wasUpdated(previousBuild: "7", currentBuild: "8"))
+        // A downgrade is not news, and "10" comes after "9", not before.
+        XCTAssertFalse(UpdateHandover.wasUpdated(previousBuild: "103", currentBuild: "6"))
+        XCTAssertTrue(UpdateHandover.wasUpdated(previousBuild: "9", currentBuild: "10"))
     }
 
     func testMarkerSurvivesTheUserDefaultsRoundTrip() {

@@ -200,21 +200,21 @@ echo "$SIGNATURE"   # sparkle:edSignature="…" length="…"
 **c. Write the item**, newest first, with both sets of notes. Sparkle shows the
 one matching the user's language; every `description` carries its `xml:lang`,
 since Sparkle only picks among them when all of them do. The notes are the
-same sections cut from the two notes files in step 7, as Markdown (Sparkle 2.9
-and later render it, on macOS 12 and later — the minimum here anyway).
+same sections cut from the two notes files in step 7, turned into HTML by
+`tools/release-notes-html.py`, with no `sparkle:format`: Sparkle then shows
+them as a web page. Its Markdown mode renders styled text in a plain text view
+instead, and the author, reading with VoiceOver and a braille display,
+preferred the page (15 Oct 2026). Check the conversion before writing:
+`python3 -I tools/release-notes-html.py RELEASE_NOTES.fr.md "$NEW"`.
 
 ```bash
 python3 -I - "$NEW" "$BUILD" "$ZIP_URL" "$SIGNATURE" <<'EOF'
-import email.utils, io, re, sys
+import email.utils, importlib.util, io, re, sys
 new, build, url, signature = sys.argv[1:]
-def section(path):
-    s = io.open(path, encoding="utf-8").read()
-    start = s.index("## v" + new)
-    rest = s.find("\n## v", start + 1)
-    body = s[start:rest if rest > 0 else len(s)].split("\n", 1)[1].strip()
-    assert "]]>" not in body
-    return body
-en, fr = section("RELEASE_NOTES.md"), section("RELEASE_NOTES.fr.md")
+spec = importlib.util.spec_from_file_location("notes", "tools/release-notes-html.py")
+notes = importlib.util.module_from_spec(spec); spec.loader.exec_module(notes)
+en = notes.convert(notes.section("RELEASE_NOTES.md", new), "en")
+fr = notes.convert(notes.section("RELEASE_NOTES.fr.md", new), "fr")
 assert re.fullmatch(r'sparkle:edSignature="[A-Za-z0-9+/=]+" length="\d+"', signature), signature
 item = f"""    <item>
       <title>BrailliantConnect {new}</title>
@@ -222,10 +222,10 @@ item = f"""    <item>
       <sparkle:version>{build}</sparkle:version>
       <sparkle:shortVersionString>{new}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-      <description xml:lang="en" sparkle:format="markdown"><![CDATA[
+      <description xml:lang="en"><![CDATA[
 {en}
 ]]></description>
-      <description xml:lang="fr" sparkle:format="markdown"><![CDATA[
+      <description xml:lang="fr"><![CDATA[
 {fr}
 ]]></description>
       <enclosure url="{url}" {signature} type="application/octet-stream"/>

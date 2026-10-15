@@ -465,7 +465,7 @@ are how they hear of it); everything after arrives on its own.
   `raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml`; the
   zips are the GitHub release assets. Items are added by the release skill
   (step 8), only once the asset exists.
-- **Key:** the author's existing EdDSA key, the one his other apps use — the
+- **Key:** the author's existing EdDSA key, the one the author's other apps use — the
   keychain item under Sparkle's **default** account, so no `--account`
   anywhere. Its public half is `SUPublicEDKey` in
   `App/BrailliantConnect/Info.plist`, pasted from `generate_keys -p` on 15 Oct
@@ -570,9 +570,31 @@ Sparkle installs on any termination, launchd restarts the old binary first,
 and no marker was written: the old code keeps running from the replaced bundle
 until the agent next starts, when the update is noticed and announced.
 
-### On the device, before the first release
+### On the device
 
-Nothing above has run against a real installation yet. To measure, with a
+**Measured 15 Oct 2026** on the author's Mac (macOS 27.0.1, BI 40X), three
+updates in a row from a local feed — 1.2.0 → 1.2.1 scheduled, 1.2.1 → 1.2.2
+and 1.2.2 → 1.2.3 chosen from *Check for Updates…*:
+
+- the scheduled one ran at the agent's first start (Sparkle checks then, no
+  forcing needed): found, downloaded and installing in the same second, the
+  new build running eight seconds later;
+- each time: one agent, the launchd job's pid, the inode of the installed
+  binary; the extension registered once, at the new version, from
+  `/Applications`; the location republished; no `killall fileproviderd`;
+- the notification arrived, the menu line showed once and was gone the next
+  time the menu opened;
+- with VoiceOver and a braille display, Sparkle's window read well and its
+  buttons were reachable. Release notes as Markdown rendered as styled text,
+  which the author found awkward; as HTML they show as a web page, which the author
+  preferred — hence `tools/release-notes-html.py` and the release skill's
+  step 8c;
+- going back to an older build by hand was announced as an update, until
+  `wasUpdated` required a newer build.
+
+Still to measure: the quit refused when a transfer starts at the last moment;
+updates with notifications refused; *Open at Login* off; what Sparkle writes
+under `~/Library`. How, with a
 local feed (the test plan is in the report that introduced this; in short:
 two Debug builds with the real key, the higher one zipped and signed, served by
 `python3 -m http.server`, the feed redirected with
@@ -603,8 +625,8 @@ it will update itself to the latest release. Use the `SUFeedURL` override, or
 
 **VoiceOver, manual path:** Sparkle's window is its own AppKit UI. Check that
 it takes the focus when *Check for Updates…* is chosen from the menu bar (the
-agent activates itself first), that the release notes — Markdown, rendered
-by Sparkle — are reachable and read in the user's language, that *Install*,
+agent activates itself first), that the release notes — HTML, shown by
+Sparkle as a web page — are reachable and read in the user's language, that *Install*,
 *Later* and *Skip This Version* are buttons VoiceOver names, and what
 "Up to date" sounds like. Report what is wrong upstream rather than
 re-implementing the window.

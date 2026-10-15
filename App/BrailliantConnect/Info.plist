@@ -12,7 +12,7 @@ two. Everything here is read by Sparkle. See "Updates" in CLAUDE.md.
 	<string>https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml</string>
 	<!--
 	The Ed25519 public key matching the private key in the author's keychain
-	(Sparkle's default account, shared with his other apps). Print it with
+	(Sparkle's default account, shared with the author's other apps). Print it with
 	`generate_keys -p`. make-dist.sh refuses to package while this placeholder
 	is here, and without a valid key Sparkle refuses to start: Debug builds
 	then simply have no "Check for Updates…" item.

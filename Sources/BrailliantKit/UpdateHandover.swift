@@ -106,10 +106,15 @@ public enum UpdateHandover {
         isFresh(marker, now: now)
     }
 
-    /// Whether this start is the first of a different build than the last one
-    /// that ran. A first install has no previous build and is not an update.
+    /// Whether this start is the first of a newer build than the last one that
+    /// ran. A first install has no previous build and is not an update.
+    ///
+    /// Newer, not merely different: going back to an older build — by hand,
+    /// as after the local update tests of 15 Oct 2026 — was announced as
+    /// "updated to version 1.1.1", notification included. Builds compare as
+    /// numbers, the way Sparkle compares them.
     public static func wasUpdated(previousBuild: String?, currentBuild: String) -> Bool {
         guard let previousBuild else { return false }
-        return previousBuild != currentBuild
+        return currentBuild.compare(previousBuild, options: .numeric) == .orderedDescending
     }
 }
