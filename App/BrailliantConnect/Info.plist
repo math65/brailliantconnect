@@ -18,7 +18,7 @@ two. Everything here is read by Sparkle. See "Updates" in CLAUDE.md.
 	then simply have no "Check for Updates…" item.
 	-->
 	<key>SUPublicEDKey</key>
-	<string>PLACEHOLDER-replace-with-the-output-of-generate_keys-p</string>
+	<string>DSDUNhrNE0tBI9oT++xFgxQW4Hs6/8SyiNNDTXfj/to=</string>
 	<!-- Checking is on from the start: no "check automatically?" prompt. -->
 	<key>SUEnableAutomaticChecks</key>
 	<true/>

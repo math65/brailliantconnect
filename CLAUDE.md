@@ -467,11 +467,13 @@ are how they hear of it); everything after arrives on its own.
   (step 8), only once the asset exists.
 - **Key:** the author's existing EdDSA key, the one his other apps use — the
   keychain item under Sparkle's **default** account, so no `--account`
-  anywhere. `SUPublicEDKey` in `App/BrailliantConnect/Info.plist` is a marked
-  placeholder until the public half is pasted there (`generate_keys -p`).
-  With the placeholder Sparkle refuses to start, the agent logs
-  "updates disabled", and *Check for Updates…* is absent; `make-dist.sh`
-  refuses to package.
+  anywhere. Its public half is `SUPublicEDKey` in
+  `App/BrailliantConnect/Info.plist`, pasted from `generate_keys -p` on 15 Oct
+  2026 (`DSDUNhrN…j/to=`). Replace it only together with the private key: a
+  release carrying a key that matches nothing can never be updated again.
+  Without a valid key Sparkle refuses to start, the agent logs "updates
+  disabled", *Check for Updates…* is absent, and `make-dist.sh` refuses to
+  package.
 - **Scheduled checks** about once a day (`SUScheduledCheckInterval`), on from
   the start (`SUEnableAutomaticChecks`, so no permission prompt), and
   **refused while a transfer runs** (`updater(_:mayPerform:)` — the
