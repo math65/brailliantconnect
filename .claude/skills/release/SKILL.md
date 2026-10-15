@@ -31,7 +31,8 @@ Semantic versioning, read from the user's point of view rather than the code's:
   twice, also project-level. It goes up with **every** bundle that leaves this
   machine, betas included, and never repeats (1.1.1 is build 6, the beta
   before it build 5). Nothing checks it — a forgotten bump ships a bundle
-  that macOS cannot tell from the previous one.
+  that macOS cannot tell from the previous one, and that **Sparkle never
+  offers**: it compares `CFBundleVersion`, not the version users see.
 - `Sources/BrailliantKit/Version.swift` — what `brailliant --version` and
   `doctor` report. It is not read from the bundle: the CLI runs from
   `.build/release/` where there is no bundle at all.
@@ -89,7 +90,15 @@ build, or only on a user's Mac:
 - the certificate's own expiry date, printed, with a warning under 60 days;
 - `App/BrailliantConnect/AppBackendSecret.plist` exists, and after the build
   that the bundle carries it: without it the release has no *Report a
-  Problem* and never sees an announcement.
+  Problem* and never sees an announcement;
+- `SUPublicEDKey` in `App/BrailliantConnect/Info.plist` is a real Ed25519
+  public key, not the placeholder, and after the build that the bundle carries
+  it with the feed URL: a release without it could never be updated again.
+
+After the build it signs Sparkle's nested code inside out (XPC services,
+`Autoupdate`, `Updater.app`, the framework) and checks each piece is signed by
+the team with the hardened runtime, and that the extension does not link
+Sparkle.
 
 Then it runs the test suite and refuses to package if anything fails. It also
 refuses a bundle carrying `get-task-allow`. Xcode adds that entitlement
@@ -156,18 +165,124 @@ Publishing is public and hard to take back. Show the user the notes and the
 version number, and get an explicit yes before this step — never as a
 side effect of "make a release".
 
-## 8. Tell the people who already installed it
+## 8. Put it in the appcast
 
-There is no update mechanism: someone running the previous version learns
-nothing on their own.
+Every copy from 1.2.0 on reads
+`https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml`
+about once a day and installs what it finds there **without asking anyone**.
+That makes this the step with no undo: an item that points at a broken zip, or
+carries a wrong signature, reaches every user within a day. Do it only after
+step 7, and in this order.
+
+**a. The asset must exist first.** An item committed before its zip is
+attached sends every installed copy to a 404:
+
+```bash
+ZIP_URL="https://github.com/math65/brailliantconnect/releases/download/v$NEW/BrailliantConnect.zip"
+curl -fsIL "$ZIP_URL" | grep -i -E "^HTTP|content-length" | tail -2
+stat -f %z dist/BrailliantConnect.zip   # must equal the last content-length
+```
+
+**b. Sign the exact zip that was uploaded** — the stapled one `make-dist.sh`
+re-zipped last. Re-zipping afterwards, even identically, changes the bytes and
+voids the signature. `sign_update` came with the Sparkle package the build
+resolved (`make-dist.sh` prints its path), and reads the private key from the
+keychain under Sparkle's **default** account — the key shared with the author's
+other apps, so no `--account`. macOS asks the user to allow the keychain
+access: say so before running it, and never handle the key any other way.
+
+```bash
+SIGN_UPDATE=dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update
+SIGNATURE="$("$SIGN_UPDATE" dist/BrailliantConnect.zip)"
+echo "$SIGNATURE"   # sparkle:edSignature="…" length="…"
+```
+
+**c. Write the item**, newest first, with both sets of notes. Sparkle shows the
+one matching the user's language; every `description` carries its `xml:lang`,
+since Sparkle only picks among them when all of them do. The notes are the
+same sections cut from the two notes files in step 7, as Markdown (Sparkle 2.9
+and later render it, on macOS 12 and later — the minimum here anyway).
+
+```bash
+python3 -I - "$NEW" "$BUILD" "$ZIP_URL" "$SIGNATURE" <<'EOF'
+import email.utils, io, re, sys
+new, build, url, signature = sys.argv[1:]
+def section(path):
+    s = io.open(path, encoding="utf-8").read()
+    start = s.index("## v" + new)
+    rest = s.find("\n## v", start + 1)
+    body = s[start:rest if rest > 0 else len(s)].split("\n", 1)[1].strip()
+    assert "]]>" not in body
+    return body
+en, fr = section("RELEASE_NOTES.md"), section("RELEASE_NOTES.fr.md")
+assert re.fullmatch(r'sparkle:edSignature="[A-Za-z0-9+/=]+" length="\d+"', signature), signature
+item = f"""    <item>
+      <title>BrailliantConnect {new}</title>
+      <pubDate>{email.utils.formatdate(usegmt=True)}</pubDate>
+      <sparkle:version>{build}</sparkle:version>
+      <sparkle:shortVersionString>{new}</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en" sparkle:format="markdown"><![CDATA[
+{en}
+]]></description>
+      <description xml:lang="fr" sparkle:format="markdown"><![CDATA[
+{fr}
+]]></description>
+      <enclosure url="{url}" {signature} type="application/octet-stream"/>
+    </item>
+"""
+s = io.open("appcast.xml", encoding="utf-8").read()
+assert f"<sparkle:version>{build}</sparkle:version>" not in s, "build already in the appcast"
+anchor = "<language>en</language>\n"
+assert s.count(anchor) == 1
+s = s.replace(anchor, anchor + item)
+io.open("appcast.xml", "w", encoding="utf-8").write(s)
+EOF
+xmllint --noout appcast.xml && git diff appcast.xml
+```
+
+Show the user the diff. Do not set `sparkle:minimumAutoupdateVersion`,
+`sparkle:criticalUpdate` or `sparkle:informationalUpdate` without a reason
+discussed with them: each turns the silent installation into a window that
+waits for someone (see **Updates** in `CLAUDE.md`).
+
+**d. Commit and push the appcast, then check what GitHub serves.** This push
+is what releases the update to everyone — get an explicit yes for it, as for
+step 7.
+
+```bash
+git add appcast.xml
+git commit   # "Offer X.Y.Z to installed copies", body saying why
+git push
+# raw.githubusercontent.com caches for up to five minutes.
+curl -fsS "https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml" \
+  | grep -c "<sparkle:version>$BUILD</sparkle:version>"   # expect 1
+```
+
+**e. Verify the signature against the published file**, not the local one:
+
+```bash
+curl -fsSL -o /tmp/bc-published.zip "$ZIP_URL"
+ED="$(printf '%s' "$SIGNATURE" | sed -E 's/.*edSignature="([^"]+)".*/\1/')"
+"$SIGN_UPDATE" --verify /tmp/bc-published.zip "$ED" && echo "signature OK"
+```
+
+If anything here fails after the push, revert the appcast commit and push
+again at once: copies that have not checked yet will then never see the item.
+
+## 9. Tell the people who already installed it
+
+From 1.2.0 on, Sparkle installs the update by itself within a day (step 8).
+**1.1.1 and older have no updater**: their users must download 1.2.0 by hand
+once, and learn nothing on their own.
 
 The announcement channel in the admin backend reaches them — but **only from
 1.1.0 onwards**, the version that added the client that asks for announcements.
 An older install has nothing polling the backend and will never see one, so
 check what the oldest version in the wild is before assuming an announcement
-covers anybody. It never reaches people who have not updated yet, which is the
-audience an update announcement is aimed at; it works for everything after
-their next update.
+covers anybody. For anything after 1.2.0, an announcement is for what release
+notes cannot carry — a firmware to avoid, a version to skip — since the update
+itself arrives on its own.
 
 Ask the user whether to post one; it is their voice, not yours.
 

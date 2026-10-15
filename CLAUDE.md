@@ -19,7 +19,8 @@ Opening the app registers the agent with launchd and **exits**; the resident
 copy is the one launchd starts, with `--watch`. Keeping the double-clicked
 process alive instead makes launchd's copy find it, exit, and be restarted by
 KeepAlive forever. The resident copy owns the single piece of UI: a menu bar
-item (state, open in Finder, open at login, report a problem, uninstall).
+item (state, open in Finder, open at login, report a problem, check for
+updates, uninstall).
 
 That same KeepAlive is why **terminating is not quitting**: a process that exits
 on its own is back ten seconds later, and the menu bar item with it. *Quit*
@@ -42,6 +43,15 @@ get wrong:
   found them by hand.
 - `pluginkit -r` takes one path at a time, so the registrations are listed
   first and removed individually.
+
+Sparkle adds little to the list: its downloads, installations and URL cache
+all live under `~/Library/Caches/<bundle id>/` (already there — the agent's
+lock sits in the same folder), its `SU*` settings and the handover keys go
+with the preferences domain, and its URLSession, which uses the default
+configuration, writes `~/Library/HTTPStorages/<bundle id>` (both spellings are
+listed). Its installer and progress agent are one-shot launchd jobs that
+remove themselves. Whether anything else appears after a real update is on
+the list of things to measure (see **Updates**).
 
 ## Language conventions
 
@@ -67,14 +77,17 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 62 tests
+swift test                    # 78 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
 `Vendor/libmtp.9.dylib`, so builds must run from the repository root.
 
 The Xcode project is **committed**: cloning the repository is enough to open it
-and build. Nothing to install, nothing to generate.
+and build. Nothing to install, nothing to generate. Its one dependency,
+Sparkle, is a Swift Package pinned to an **exact** version (2.10.0), and
+`project.xcworkspace/xcshareddata/swiftpm/Package.resolved` — committed too —
+records the commit of that tag; Xcode fetches it on the first build.
 
 ```bash
 xcodebuild -project App/BrailliantConnect.xcodeproj -scheme BrailliantConnect \
@@ -121,11 +134,20 @@ as Apple's own sample does. Re-signing the extension as it is embedded replaces
 its entitlements with the host app's, and it then refuses to load. Same cause as
 the `codesign --deep` trap below, at a different moment.
 
-**The agent compiles two files out of `BrailliantKit`**, not the whole of it:
-`FinderLocation.swift` and `Localization.swift`. It shares the location paths
-and the translation table with the extension and nothing else — which is what
-keeps libmtp out of the process that is not sandboxed (see **Security
+**The agent compiles three files out of `BrailliantKit`**, not the whole of it:
+`FinderLocation.swift`, `Localization.swift` and `UpdateHandover.swift`. It
+shares the location paths and the translation table with the extension, and
+the update handover's decisions with the tests, and nothing else — which is
+what keeps libmtp out of the process that is not sandboxed (see **Security
 properties**).
+
+**The agent, and only the agent, links Sparkle** (the package product is in
+the app target's Frameworks phase; Xcode embeds `Sparkle.framework` in
+`Contents/Frameworks` on its own). Its Info.plist is still generated, and
+`INFOPLIST_FILE = BrailliantConnect/Info.plist` adds the `SU*` keys the
+generator has no setting for — Xcode merges the two. Lose that setting and the
+app builds, starts, and has no feed and no key; `make-dist.sh` checks the
+bundle for both.
 
 **The extension:**
 
@@ -147,7 +169,13 @@ properties**).
 **The app target** runs a build phase ("Embed libmtp and libusb", `set -eu`)
 that copies `libmtp.9.dylib` and `libusb-1.0.0.dylib` into the **app's**
 `Contents/Frameworks` and signs each one **separately**, never the bundle as a
-whole; the same phase copies `AppBackendSecret.plist` when it exists. The
+whole; the same phase copies `AppBackendSecret.plist` when it exists. It also
+re-signs Sparkle's nested executables (XPC services, `Autoupdate`,
+`Updater.app`, then the framework) with the build's identity: they arrive
+signed ad hoc and Xcode only re-signs the framework around them, and Sparkle's
+installer swaps the bundle atomically only when `Autoupdate` carries the
+update's team (see **Updates**). `make-dist.sh` does the same for a release,
+with the timestamp. The
 extension target used to run a copy of it into its own `Contents/Frameworks`,
 which nothing loaded — its only rpath points at the app's — and was removed on
 15 Oct 2026.
@@ -307,6 +335,12 @@ Worth preserving deliberately, since a change elsewhere can quietly undo them:
   now check the symlink target.
 - `make-dist.sh` refuses to package a bundle carrying `get-task-allow`: a debug
   build would ship an agent any process could attach to.
+- **Updates are code from the network, run unsandboxed.** Sparkle lives in the
+  agent only — `make-dist.sh` refuses an extension that links it — reads its
+  feed over HTTPS, and installs nothing that lacks a valid EdDSA signature
+  from the author's key *and* a valid Apple code signature. The public key in
+  `Info.plist` is the whole trust anchor: `make-dist.sh` refuses the
+  placeholder, and a release with a wrong key could never be updated again.
 
 ## macOS 13
 
@@ -353,8 +387,8 @@ after a user's report; every statement here comes with its control.
 The app talks to `app-backend` (the Go service behind `mathieumartin.ovh`),
 registered there as `brailliantconnect`. Two things come from it: the feedback
 routes behind *Report a Problem…*, and an announcement checked once per agent
-start — the only channel back to people who installed this, since there is no
-update mechanism and no account.
+start — the only channel back to people still on 1.1.1 or older, which have no
+updater, and for anything release notes cannot carry (see **Updates**).
 
 The Bearer key is **not in this repository**, which is public:
 `App/BrailliantConnect/AppBackendSecret.plist` is git-ignored and copied into
@@ -406,6 +440,164 @@ before anything is sent. Three of the four states a plugged display can be in
 have a remedy the agent can already name, so it says so. It never blocks the
 send — a Mantis reading as "reachable" while the Finder shows nothing is
 exactly the report worth receiving.
+
+## Updates
+
+Sparkle 2, from 1.2.0. **1.1.1 and older have no updater**: their users must
+download 1.2.0 once by hand (the announcement channel and the AppleVis thread
+are how they hear of it); everything after arrives on its own.
+
+- **Sparkle 2.10.0, exact.** The latest release when this was added (published
+  13 Sep 2026, tag commit `eef1a539`), the first to require macOS 12 —
+  exactly this project's floor since Xcode 27 — and it carries the 2.9.6
+  security fixes to the installer. `Package.resolved` pins the commit and
+  SwiftPM checks the binary's checksum. Moving to a newer one is a deliberate
+  edit of the pin, read with its changelog.
+- **Feed:** `appcast.xml` at the repository root, served from
+  `raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml`; the
+  zips are the GitHub release assets. Items are added by the release skill
+  (step 8), only once the asset exists.
+- **Key:** the author's existing EdDSA key, the one his other apps use — the
+  keychain item under Sparkle's **default** account, so no `--account`
+  anywhere. `SUPublicEDKey` in `App/BrailliantConnect/Info.plist` is a marked
+  placeholder until the public half is pasted there (`generate_keys -p`).
+  With the placeholder Sparkle refuses to start, the agent logs
+  "updates disabled", and *Check for Updates…* is absent; `make-dist.sh`
+  refuses to package.
+- **Scheduled checks** about once a day (`SUScheduledCheckInterval`), on from
+  the start (`SUEnableAutomaticChecks`, so no permission prompt), and
+  **refused while a transfer runs** (`updater(_:mayPerform:)` — the
+  non-deprecated form of `updaterMayCheckForUpdates`). A refused check waits
+  for the next interval.
+- **Scheduled updates install themselves** (`SUAutomaticallyUpdate`). Sparkle
+  downloads, prepares, then offers to install "on quit" — never, for an agent.
+  `willInstallUpdateOnQuit` returns true and runs the immediate installation
+  as soon as `transfers.isIdle`, polling every 5 s only while one waits.
+- **Manual path:** *Check for Updates…* opens Sparkle's standard window
+  (release notes, Install / Later). Its "Install" goes through
+  `shouldPostponeRelaunchForUpdate`, held there while a transfer runs.
+- **Never mid-transfer, even at the last moment:** a transfer can start
+  between Sparkle's go-ahead and its quit event; `applicationShouldTerminate`
+  then answers `.terminateCancel` (Sparkle sends a quit *event* precisely so it
+  can be refused) and asks again when idle, with the handler kept from
+  `shouldPostponeRelaunch` — Sparkle allows invoking it again.
+- **Saying it:** at the first start of a new build (compared with
+  `LastRunBuild`, so an update installed at logout counts too) the agent logs
+  it, posts "BrailliantConnect X installed" once the notification permission
+  is known, and the menu carries "Updated to X on <date>" until it has been
+  opened once (`menuWillOpen`, not `menuNeedsUpdate`, which AppKit also calls
+  for key equivalents). A scheduled update that needs someone — an app the
+  user cannot write to, a major or informational update — opens Sparkle's
+  window and posts "BrailliantConnect X is available": gentle reminders are on,
+  because a window appearing by itself is not announced by VoiceOver. Do not
+  set `sparkle:minimumAutoupdateVersion`, `criticalUpdate` or
+  `informationalUpdate` casually: each turns the silent install into a wait.
+
+### The handover — launchd and Sparkle
+
+What Sparkle's installer does, read in its source (2.10.0): it asks the app to
+quit with an Apple **quit event** sent to every `NSRunningApplication` of the
+bundle; waits for **that one process** to terminate (KVO on `isTerminated`);
+swaps the bundle **atomically** (`renamex_np` swap) — but only when
+`Autoupdate` is signed by the update's team, otherwise it moves the old app
+away and the new one in, with a moment where the path is empty; then relaunches
+with `NSWorkspace openURL` on the bundle, **only if the installation
+succeeded**. Its docs say plainly that an instance launched meanwhile is not
+handled.
+
+The resident agent is a `KeepAlive` job. An agent that has run longer than ten
+seconds is restarted by launchd **at once** when it exits — before the swap,
+most of the time: the old binary, starting from a bundle about to be replaced.
+Sparkle's relaunch would then find an instance running and only activate it.
+
+The approaches considered, and why not:
+
+- **Let Sparkle's relaunch start the agent** — a plain launch is `--install`,
+  i.e. `register()`: bootout and bootstrap. It converges, but only if the
+  relaunch is a *new* process (not if the respawned old agent is already
+  registered with LaunchServices), and `register()` rewrites the plist, which
+  turns *Open at Login* back on for someone who had turned it off.
+- **Quit by `bootout`** (what *Quit* does) — no respawn race, but Sparkle does
+  not relaunch after a **failed** installation, so a failure would leave no
+  agent until the next login; and the relaunch still rewrites the plist.
+- **`updaterShouldRelaunchApplication` → false** — Sparkle then aborts the
+  installation altogether (`mayUpdateAndRestart`).
+- **`KeepAlive = {SuccessfulExit = false}`** — would end "terminating is not
+  quitting" for every exit, not just this one.
+
+What it does instead — **launchd stays the only thing that starts the resident
+agent**:
+
+1. `willInstallUpdate` writes a handover marker (`UpdateHandover` in the
+   defaults: build that is quitting, version coming, date).
+2. The quit event arrives; `AgentApplicationDelegate` unpublishes the location
+   (as *Quit* does, 5 s cap — no folder left pointing at an extension about
+   to be replaced) and lets the process exit 0. No bootout.
+3. launchd restarts the job. `--watch` calls
+   `AgentHandover.awaitNewVersionIfInstalling()` **before the lock**: with a
+   fresh marker it compares the **inode of the file it was started from** —
+   the kernel keeps it mapped, `proc_pidinfo(PROC_PIDREGIONPATHINFO)` on the
+   main image names it — with what `stat` finds at the path now, and reads
+   `CFBundleVersion` from disk (never `Bundle.main`, which after the swap
+   describes the new bundle whichever binary asks). Old binary, swap pending:
+   wait (≤ 90 s, no menu, no location). Old binary, swap done: `execv` the new
+   executable with `--watch` — same process, same job, no ten-second
+   throttle. New binary: carry on. Timeout: log, clear the marker, carry on as
+   the old version — the only recovery from a failed install.
+   `UpdateHandover.step` is the pure decision, tested.
+4. Sparkle's relaunch is a launch without arguments; `--install` sees the
+   fresh marker and **exits without touching launchd**. The marker is left to
+   expire (10 min) rather than cleared, since the relaunch may come after the
+   new agent has started.
+5. The new agent sees a new build (`UpdateNotice.recordStart`), runs
+   `Installer.registerExtension()` (`pluginkit -a` the new appex, `-e use`)
+   **before** its first reconciliation, then publishes the location as usual —
+   which is what makes `fileproviderd` start the extension from the new
+   bundle.
+
+Not covered: an agent that **crashes** while an update waits for a transfer.
+Sparkle installs on any termination, launchd restarts the old binary first,
+and no marker was written: the old code keeps running from the replaced bundle
+until the agent next starts, when the update is noticed and announced.
+
+### On the device, before the first release
+
+Nothing above has run against a real installation yet. To measure, with a
+local feed (the test plan is in the report that introduced this; in short:
+two Debug builds with the real key, the higher one zipped and signed, served by
+`python3 -m http.server`, the feed redirected with
+`defaults write com.mathieumartin.BrailliantConnect SUFeedURL http://127.0.0.1:8000/appcast.xml`
+— Sparkle reads a `SUFeedURL` from the defaults before the Info.plist):
+
+- that launchd's restart comes before the swap (the log line "waiting for
+  version X") or after it — both must end with one agent, the new build, its
+  pid in `launchctl print gui/$UID/com.mathieumartin.BrailliantConnect.agent`;
+- that `proc_pidinfo` gives the old inode in the stale process, and `execv`
+  keeps the job's pid;
+- that Sparkle's relaunch lands in `--install` and exits (no second agent, no
+  bootout in the log, the plist untouched — try with *Open at Login* off);
+- that the extension serving the location is the new one (`pluginkit -m -v -i
+  com.mathieumartin.BrailliantConnect.FileProvider` shows the new version; the
+  snapshot in its container is rewritten), and whether `killall
+  fileproviderd` is ever needed — the `/extension` loop sometimes needs it;
+- the quit refused while a transfer starts at the last moment, then the
+  install once it ends;
+- with notifications refused: the menu line alone;
+- what Sparkle writes under `~/Library` (compare before and after; extend
+  `ownedPaths`);
+- the update notification and the menu line, read by VoiceOver.
+
+A Debug build in `/Applications` carrying the real key checks the real feed:
+it will update itself to the latest release. Use the `SUFeedURL` override, or
+`defaults write … SUEnableAutomaticChecks -bool false`, while testing.
+
+**VoiceOver, manual path:** Sparkle's window is its own AppKit UI. Check that
+it takes the focus when *Check for Updates…* is chosen from the menu bar (the
+agent activates itself first), that the release notes — Markdown, rendered
+by Sparkle — are reachable and read in the user's language, that *Install*,
+*Later* and *Skip This Version* are buttons VoiceOver names, and what
+"Up to date" sounds like. Report what is wrong upstream rather than
+re-implementing the window.
 
 ## Accessibility
 

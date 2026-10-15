@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Sparkle's update feed for BrailliantConnect, read about once a day by every
+installed copy from
+https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml
+
+Items are added by the release skill (.claude/skills/release/SKILL.md), newest
+first, and only once the archive they point at is attached to its GitHub
+release: an item committed before its asset exists sends every installed copy
+to a 404. Each item's enclosure carries the EdDSA signature of that exact zip.
+-->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>BrailliantConnect</title>
+    <link>https://github.com/math65/brailliantconnect</link>
+    <description>Updates to BrailliantConnect</description>
+    <language>en</language>
+  </channel>
+</rss>
