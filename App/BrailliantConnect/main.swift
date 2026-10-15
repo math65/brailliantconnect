@@ -666,7 +666,7 @@ case "--watch":
     let application = NSApplication.shared
     // .accessory: an item in the menu bar, no Dock icon and no window.
     application.setActivationPolicy(.accessory)
-    application.mainMenu = KeyboardMenu.make()
+    // No main menu yet: see `KeyboardMenu.installIfNeeded()`.
     // NSApplication holds its delegate weakly.
     application.delegate = agentDelegate
     menuBar = MenuBarController(onChange: { syncWithHardware() })

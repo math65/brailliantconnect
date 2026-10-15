@@ -116,6 +116,7 @@ final class Feedback: NSObject, NSWindowDelegate, NSTextViewDelegate {
     static var isAvailable: Bool { AppBackendClient.isConfigured }
 
     static func show() {
+        KeyboardMenu.installIfNeeded()
         // Held for as long as it is on screen: NSWindow does not retain its
         // delegate, and a released controller would take the window with it.
         if let current {

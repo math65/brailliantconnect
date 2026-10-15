@@ -434,9 +434,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 /// No Quit item, deliberately: ⌘Q would terminate the agent without booting it
 /// out, and KeepAlive would bring it back ten seconds later. Quitting is the
 /// menu bar item's business.
+///
+/// Installed when one of our windows first opens, not at launch. Measured
+/// 15 Oct 2026 on macOS 27: the first menu items a process creates make AppKit
+/// load the system's symbol catalog, and the memory it takes is never given
+/// back — an accessory app went from 25 MB to 50 MB for a handful of items,
+/// and the agent from 29 MB (1.1.1) to 54 MB, for a menu nobody sees and only
+/// the report and welcome windows use. The status menu, built when it opens,
+/// pays the same price only once someone opens it.
 enum KeyboardMenu {
 
-    static func make() -> NSMenu {
+    static func installIfNeeded() {
+        guard NSApp.mainMenu == nil else { return }
+        NSApp.mainMenu = make()
+    }
+
+    private static func make() -> NSMenu {
         let main = NSMenu()
 
         // The first item is always taken as the application menu, whatever it

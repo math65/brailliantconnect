@@ -40,6 +40,7 @@ final class Welcome: NSObject, NSWindowDelegate {
     }
 
     static func show(shortcut: URL?) {
+        KeyboardMenu.installIfNeeded()
         // Held for as long as it is on screen: NSWindow does not retain its
         // delegate, and a released controller would take the window with it.
         current?.window?.makeKeyAndOrderFront(nil)
