@@ -1,5 +1,21 @@
 # Release notes
 
+## v1.2.2 — 17/10/2026
+
+When the app cannot start, it now says why.
+
+### A failed installation explains itself
+- Opened for the first time, the app sets itself up to start in the
+  background at every login. When macOS refused, the app said "Make sure the
+  app is in the Applications folder" — even when it was there, which it had
+  already checked. It now shows what macOS actually answered, and keeps it in
+  its log.
+- If macOS had switched the app's background agent off, the app could not
+  start at all, and nothing said so. Opening it now switches the agent back
+  on: opening the app is asking for it to run. If macOS still refuses, the
+  message says where the setting is — in System Settings, search for
+  "App Background Activity" and turn BrailliantConnect on.
+
 ## v1.2.1 — 15/10/2026
 
 Pages documents now reach the display.

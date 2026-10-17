@@ -1,5 +1,22 @@
 # Notes de version
 
+## v1.2.2 — 17/10/2026
+
+Quand l'app ne peut pas démarrer, elle dit maintenant pourquoi.
+
+### Une installation qui échoue s'explique
+- À sa première ouverture, l'app s'installe pour démarrer en arrière-plan à
+  chaque ouverture de session. Quand macOS refusait, elle disait « Vérifiez
+  que l'app se trouve dans le dossier Applications » — même quand elle y
+  était, ce qu'elle venait de vérifier. Elle affiche maintenant ce que macOS
+  a vraiment répondu, et le garde dans son journal.
+- Si macOS avait désactivé l'agent en arrière-plan de l'app, celle-ci ne
+  pouvait plus démarrer du tout, sans que rien ne le dise. L'ouvrir réactive
+  maintenant l'agent : ouvrir l'app, c'est demander qu'elle fonctionne. Si
+  macOS refuse encore, le message dit où se trouve le réglage — dans Réglages
+  Système, cherchez « Activité des apps en arrière-plan » et activez
+  BrailliantConnect.
+
 ## v1.2.1 — 15/10/2026
 
 Les documents Pages arrivent maintenant sur la plage.
