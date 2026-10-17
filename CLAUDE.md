@@ -238,6 +238,12 @@ Each of these produces an error that points somewhere other than its cause.
   what turning *Open at Login* back on used to do, so the menu passes
   `loadNow: false` — the agent is already running, and writing the registration
   is the whole of what it needs.
+- `launchctl bootstrap` refuses a job launchd holds as **disabled** with
+  "5: Input/output error", which says nothing of the cause (measured 17 Oct
+  2026 with a throwaway label; a world-writable plist gives the same code).
+  `register()` therefore reads `print-disabled` first and runs `enable`, and
+  `--install` shows and logs launchctl's answer — 1.2.1 and older showed
+  "make sure the app is in Applications", a check that had already passed.
 
 ## Hardware behaviour
 

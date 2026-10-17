@@ -558,8 +558,12 @@ case "--install":
     //
     // Only worth reporting when it fails, and worth reporting visibly: whoever
     // just double-clicked an app has no terminal to read.
+    //
+    // Logged as well: no agent has run yet, so without this line the log a
+    // report carries would be empty, and the reason with it.
     func refuse(_ title: String, _ message: String) -> Never {
         FileHandle.standardError.write(Data((message + "\n").utf8))
+        Installer.appendToLog(message)
         let reporter = NSApplication.shared
         reporter.setActivationPolicy(.accessory)
         let alert = NSAlert()
@@ -584,13 +588,17 @@ case "--install":
                 "BrailliantConnect only works from the Applications folder. "
                     + "Drag it there with the Finder, then open it again from there."))
     }
-    if Installer.register() { exit(0) }
-
-    refuse(
-        L.t("Installation failed"),
-        L.t(
-            "BrailliantConnect could not register itself to start automatically. "
-                + "Make sure the app is in the Applications folder, then open it again."))
+    do {
+        try Installer.register()
+        exit(0)
+    } catch {
+        refuse(
+            L.t("Installation failed"),
+            L.t("BrailliantConnect could not register itself to start automatically.")
+                + "\n\n"
+                + ((error as? Installer.RegistrationFailure)?.explanation
+                    ?? error.localizedDescription))
+    }
 
 case "--watch":
     // Before anything else, the lock included: during an update launchd may

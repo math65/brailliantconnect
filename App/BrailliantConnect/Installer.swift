@@ -99,6 +99,43 @@ enum Installer {
         return allowed.contains(parent)
     }
 
+    /// Why registering failed, in words a person can act on.
+    ///
+    /// The reason used to be dropped, and the message shown in its place told
+    /// people to check the Applications folder — which had already been checked
+    /// by then. Someone on macOS 27 could not start 1.1.0, 1.1.1 or 1.2.0,
+    /// with no log to read, until running the app from Terminal showed which
+    /// step failed (16 Oct 2026).
+    enum RegistrationFailure: Error {
+        case executableMissing(path: String)
+        case plistNotWritten(path: String, reason: String)
+        case bootstrapRefused(code: Int32, output: String)
+
+        var explanation: String {
+            switch self {
+            case .executableMissing(let path):
+                return L.t("The app's executable was not found at %@.", path)
+            case .plistNotWritten(let path, let reason):
+                return L.t(
+                    "The file that starts BrailliantConnect at login could not be "
+                        + "written (%@): %@", path, reason)
+            case .bootstrapRefused(let code, let output):
+                // Error 5 is what launchd answers for a job it holds as
+                // disabled, and for much else: the hint is a condition, not a
+                // diagnosis. "App Background Activity" is the section's title
+                // in System Settings on macOS 27, and searchable by that name
+                // whatever the pane around it is called.
+                return L.t("macOS refused to start the background agent.") + "\n"
+                    + "launchctl: \(code)"
+                    + (output.isEmpty ? "" : " — " + output) + "\n\n"
+                    + L.t(
+                        "If BrailliantConnect is turned off in System Settings "
+                            + "(search for “App Background Activity”), turn it on, "
+                            + "then open the app again.")
+            }
+        }
+    }
+
     /// Registers the agent so it starts again at every login.
     ///
     /// Called on first launch, which is what makes a double-click the whole
@@ -112,11 +149,12 @@ enum Installer {
     ///   happen, and turning "Open at Login" back on would take the menu bar
     ///   item away until the next login. Writing the registration is all the
     ///   agent needs there anyway, since it is already running.
-    @discardableResult
-    static func register(loadNow: Bool = true) -> Bool {
+    static func register(loadNow: Bool = true) throws {
         let executable = Bundle.main.bundleURL
             .appendingPathComponent("Contents/MacOS/BrailliantConnect").path
-        guard FileManager.default.isExecutableFile(atPath: executable) else { return false }
+        guard FileManager.default.isExecutableFile(atPath: executable) else {
+            throw RegistrationFailure.executableMissing(path: executable)
+        }
 
         try? FileManager.default.createDirectory(
             at: agentPlist.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -130,18 +168,76 @@ enum Installer {
             "StandardErrorPath": logFile.path,
             "ProcessType": "Background",
         ]
-        guard
-            let data = try? PropertyListSerialization.data(
-                fromPropertyList: plist, format: .xml, options: 0),
-            (try? data.write(to: agentPlist)) != nil
-        else { return false }
+        do {
+            let data = try PropertyListSerialization.data(
+                fromPropertyList: plist, format: .xml, options: 0)
+            try data.write(to: agentPlist)
+        } catch {
+            throw RegistrationFailure.plistNotWritten(
+                path: agentPlist.path, reason: error.localizedDescription)
+        }
 
-        guard loadNow else { return true }
+        guard loadNow else { return }
+
+        // A job launchd holds as disabled is refused by `bootstrap`, with an
+        // error that does not say so. Opening the app is asking for it to
+        // run, so the override is lifted — and said, since it was someone's
+        // setting.
+        if isDisabled {
+            let enabled = run("/bin/launchctl", ["enable", jobTarget]).code == 0
+            appendToLog(
+                enabled
+                    ? L.t("the background agent was disabled in launchd — enabled again")
+                    : L.t("the background agent is disabled in launchd and could not be enabled"))
+        }
 
         // "bootout" before "bootstrap": bootstrapping over an existing
         // registration fails, which would leave a stale copy in charge.
         _ = run("/bin/launchctl", ["bootout", jobTarget])
-        return run("/bin/launchctl", ["bootstrap", domainTarget, agentPlist.path]).code == 0
+        let bootstrap = run("/bin/launchctl", ["bootstrap", domainTarget, agentPlist.path])
+        guard bootstrap.code == 0 else {
+            // The first line only: the second is launchctl's advice to
+            // re-run as root, which would send whoever reads the alert the
+            // wrong way.
+            let firstLine = bootstrap.output.split(separator: "\n").first.map(String.init) ?? ""
+            throw RegistrationFailure.bootstrapRefused(
+                code: bootstrap.code,
+                output: firstLine.trimmingCharacters(in: .whitespaces))
+        }
+    }
+
+    /// Whether launchd holds an override that keeps the agent from loading.
+    ///
+    /// `print-disabled` lists every label with an override, one per line, as
+    /// `"label" => disabled` (older systems wrote `=> true`).
+    private static var isDisabled: Bool {
+        run("/bin/launchctl", ["print-disabled", domainTarget]).output
+            .split(separator: "\n")
+            .contains { line in
+                let sides = line.components(separatedBy: "=>")
+                guard sides.count == 2 else { return false }
+                let label = sides[0].trimmingCharacters(
+                    in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "\"")))
+                let state = sides[1].trimmingCharacters(in: .whitespaces)
+                return label == agentLabel && (state == "disabled" || state == "true")
+            }
+    }
+
+    /// Adds a line to the agent's log from a process launchd did not start.
+    ///
+    /// The agent's own lines reach the file through launchd's redirection of
+    /// its standard output. A launch that fails before there is an agent has
+    /// no such redirection, and that is precisely the case where the log is
+    /// the only thing a report can carry.
+    static func appendToLog(_ message: String) {
+        let line = "[\(ISO8601DateFormatter().string(from: Date()))] \(message)\n"
+        if !FileManager.default.fileExists(atPath: logFile.path) {
+            FileManager.default.createFile(atPath: logFile.path, contents: nil)
+        }
+        guard let handle = try? FileHandle(forWritingTo: logFile) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: Data(line.utf8))
     }
 
     /// Stops the agent from coming back at login, without touching anything else.

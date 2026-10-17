@@ -280,7 +280,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             // Written, not loaded: loading boots the job out first, and the
             // process that dies of it is this one. The agent is already
             // running — the registration is the only thing missing.
-            Installer.register(loadNow: false)
+            try? Installer.register(loadNow: false)
         }
         onChange()
     }

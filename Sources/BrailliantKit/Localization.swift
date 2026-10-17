@@ -236,11 +236,26 @@ public enum L {
             "BrailliantConnect ne fonctionne que depuis le dossier Applications. "
             + "Glissez-la dedans avec le Finder, puis ouvrez-la à nouveau depuis là.",
         "Installation failed": "Échec de l'installation",
-        "BrailliantConnect could not register itself to start automatically. "
-            + "Make sure the app is in the Applications folder, then open it again.":
-            "BrailliantConnect n'a pas pu s'installer pour démarrer automatiquement. "
-            + "Vérifiez que l'app se trouve dans le dossier Applications, "
-            + "puis ouvrez-la à nouveau.",
+        "BrailliantConnect could not register itself to start automatically.":
+            "BrailliantConnect n'a pas pu s'installer pour démarrer automatiquement.",
+        "The app's executable was not found at %@.":
+            "L'exécutable de l'app est introuvable à cet emplacement : %@.",
+        "The file that starts BrailliantConnect at login could not be "
+            + "written (%@): %@":
+            "Le fichier qui démarre BrailliantConnect à l'ouverture de session "
+            + "n'a pas pu être écrit (%@) : %@",
+        "macOS refused to start the background agent.":
+            "macOS a refusé de démarrer l'agent en arrière-plan.",
+        "If BrailliantConnect is turned off in System Settings "
+            + "(search for “App Background Activity”), turn it on, "
+            + "then open the app again.":
+            "Si BrailliantConnect est désactivé dans Réglages Système "
+            + "(cherchez « Activité des apps en arrière-plan »), activez-le, "
+            + "puis ouvrez à nouveau l'app.",
+        "the background agent was disabled in launchd — enabled again":
+            "l'agent en arrière-plan était désactivé dans launchd — réactivé",
+        "the background agent is disabled in launchd and could not be enabled":
+            "l'agent en arrière-plan est désactivé dans launchd et n'a pas pu être réactivé",
 
         "BrailliantConnect has been removed. The app is in the Trash.":
             "BrailliantConnect a été supprimé. L'app est dans la Corbeille.",
