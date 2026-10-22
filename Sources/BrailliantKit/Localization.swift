@@ -256,6 +256,30 @@ public enum L {
             "l'agent en arrière-plan était désactivé dans launchd — réactivé",
         "the background agent is disabled in launchd and could not be enabled":
             "l'agent en arrière-plan est désactivé dans launchd et n'a pas pu être réactivé",
+        "The LaunchAgents folder in your Library belongs to “%@”, not to "
+            + "you, so nothing can register itself to start at login. "
+            + "Another app's installer probably created it that way.":
+            "Le dossier LaunchAgents de votre Bibliothèque appartient à « %@ » et "
+            + "non à vous : rien ne peut s'y inscrire pour démarrer à l'ouverture "
+            + "de session. L'installateur d'une autre app l'a sans doute créé ainsi.",
+        "Repairing it takes an administrator's password. To repair it "
+            + "in Terminal instead, type these two commands, then open "
+            + "BrailliantConnect again:":
+            "Le réparer demande le mot de passe d'un administrateur. Pour le "
+            + "réparer plutôt dans le Terminal, tapez ces deux commandes, puis "
+            + "ouvrez à nouveau BrailliantConnect :",
+        "BrailliantConnect needs to give the LaunchAgents folder in your Library "
+            + "back to your account, so that it can start at login. Another "
+            + "installer left it belonging to the system.":
+            "BrailliantConnect doit rendre à votre compte le dossier LaunchAgents "
+            + "de votre Bibliothèque pour pouvoir démarrer à l'ouverture de session. "
+            + "Un autre installateur l'a laissé appartenir au système.",
+        "the LaunchAgents folder belonged to “%@” — given back to “%@” "
+            + "with an administrator's password":
+            "le dossier LaunchAgents appartenait à « %@ » — rendu à « %@ » "
+            + "avec le mot de passe administrateur",
+        "the administrator's password was not given":
+            "le mot de passe administrateur n'a pas été donné",
 
         "BrailliantConnect has been removed. The app is in the Trash.":
             "BrailliantConnect a été supprimé. L'app est dans la Corbeille.",

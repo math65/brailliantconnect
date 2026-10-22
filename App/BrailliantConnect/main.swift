@@ -561,17 +561,20 @@ case "--install":
     //
     // Logged as well: no agent has run yet, so without this line the log a
     // report carries would be empty, and the reason with it.
+    //
+    // Drawn by the system (`CFUserNotification`), not by an `NSAlert`. This
+    // process is a menu bar app with no window, and since macOS 14 it cannot
+    // take the focus for itself: the NSAlert used here was on screen, never
+    // focused, and VoiceOver never reached it — the user heard nothing while
+    // the process waited on it (measured 22 Oct 2026, macOS 27, after
+    // cancelling the password prompt). The system's alert takes the focus.
     func refuse(_ title: String, _ message: String) -> Never {
         FileHandle.standardError.write(Data((message + "\n").utf8))
         Installer.appendToLog(message)
-        let reporter = NSApplication.shared
-        reporter.setActivationPolicy(.accessory)
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        reporter.activate(ignoringOtherApps: true)
-        alert.runModal()
+        var response: CFOptionFlags = 0
+        _ = CFUserNotificationDisplayAlert(
+            0, kCFUserNotificationCautionAlertLevel, nil, nil, nil,
+            title as CFString, message as CFString, nil, nil, nil, &response)
         exit(1)
     }
 

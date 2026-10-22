@@ -244,6 +244,28 @@ Each of these produces an error that points somewhere other than its cause.
   `register()` therefore reads `print-disabled` first and runs `enable`, and
   `--install` shows and logs launchctl's answer — 1.2.1 and older showed
   "make sure the app is in Applications", a check that had already passed.
+- `~/Library/LaunchAgents` can **belong to root**, and then the plist cannot
+  be written: "You don't have permission to save the file". HumanWare's Mac
+  transfer package (0.1.3, `Mac-Mass-transfer-software.zip` on its support
+  pages, read 22 Oct 2026 without running it) creates the folder with
+  `mkdir -p` from a postinstall script running as root, so any Mac where the
+  folder did not exist yet ends up that way — a user's new Mac did, and no
+  version of the app could start there. `register()` therefore checks the
+  folder first (`prepareAgentFolder`): owned by someone else, it asks for an
+  administrator's password through `do shell script … with administrator
+  privileges` and gives back **the folder alone** (`chown`, `chmod u+rwx`),
+  never its contents. Declined or failed, the alert gives the two Terminal
+  commands with the real path. Measured 22 Oct 2026 on the author's Mac
+  (folder set to `root:wheel` by hand): declined, the alert and the log line;
+  accepted, the folder back to the user, the five other plists untouched, the
+  agent running.
+- **An `NSAlert` from a process with no window never gets the focus** on
+  macOS 14 and later: `activate(ignoringOtherApps:)` is ignored. `--install`
+  showed its failures that way — the alert was on screen, VoiceOver never
+  reached it, and the process waited on it forever (measured 22 Oct 2026).
+  `refuse()` therefore uses `CFUserNotificationDisplayAlert`, drawn by the
+  system, which takes the focus. Alerts opened from the menu are not
+  affected: the click has already made the agent active.
 
 ## Hardware behaviour
 

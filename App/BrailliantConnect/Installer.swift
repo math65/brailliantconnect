@@ -108,6 +108,7 @@ enum Installer {
     /// step failed (16 Oct 2026).
     enum RegistrationFailure: Error {
         case executableMissing(path: String)
+        case agentFolderNotOwned(path: String, owner: String, detail: String?)
         case plistNotWritten(path: String, reason: String)
         case bootstrapRefused(code: Int32, output: String)
 
@@ -115,6 +116,24 @@ enum Installer {
             switch self {
             case .executableMissing(let path):
                 return L.t("The app's executable was not found at %@.", path)
+            case .agentFolderNotOwned(let path, let owner, let detail):
+                // The commands are spelled out with the real path and names:
+                // whoever reads this declined a password prompt, or saw it
+                // fail, and the Terminal is what is left.
+                let user = NSUserName()
+                let group =
+                    getgrgid(getgid()).flatMap { String(cString: $0.pointee.gr_name) }
+                    ?? "staff"
+                return L.t(
+                    "The LaunchAgents folder in your Library belongs to “%@”, not to "
+                        + "you, so nothing can register itself to start at login. "
+                        + "Another app's installer probably created it that way.", owner)
+                    + (detail.map { "\n\n" + $0 } ?? "") + "\n\n"
+                    + L.t(
+                        "Repairing it takes an administrator's password. To repair it "
+                            + "in Terminal instead, type these two commands, then open "
+                            + "BrailliantConnect again:")
+                    + "\n\nsudo chown \(user):\(group) '\(path)'\nchmod u+rwx '\(path)'"
             case .plistNotWritten(let path, let reason):
                 return L.t(
                     "The file that starts BrailliantConnect at login could not be "
@@ -156,8 +175,7 @@ enum Installer {
             throw RegistrationFailure.executableMissing(path: executable)
         }
 
-        try? FileManager.default.createDirectory(
-            at: agentPlist.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try prepareAgentFolder()
 
         let plist: [String: Any] = [
             "Label": agentLabel,
@@ -204,6 +222,105 @@ enum Installer {
                 code: bootstrap.code,
                 output: firstLine.trimmingCharacters(in: .whitespaces))
         }
+    }
+
+    /// Makes sure the registration can be written, giving `~/Library/LaunchAgents`
+    /// back to the user when another installer left it belonging to root.
+    ///
+    /// HumanWare's own Mac transfer package (0.1.3, the one on its support
+    /// pages) creates that folder with `mkdir -p` from a postinstall script
+    /// that runs as root. On a Mac where it did not exist yet — any new one —
+    /// root then owns it, and no app can register to start at login any more.
+    /// Found on a user's Mac on 21 Oct 2026, where two commands in Terminal
+    /// fixed it; this runs the same two with an administrator's password.
+    ///
+    /// Only the folder changes hands, never what is inside: the other
+    /// installer's file stays exactly as it was. And only a real folder: a
+    /// link in its place is somebody's deliberate arrangement, and the write
+    /// below reports it if it fails.
+    private static func prepareAgentFolder() throws {
+        let folder = agentPlist.deletingLastPathComponent()
+        let manager = FileManager.default
+        guard let attributes = try? manager.attributesOfItem(atPath: folder.path) else {
+            try? manager.createDirectory(at: folder, withIntermediateDirectories: true)
+            return
+        }
+        guard !manager.isWritableFile(atPath: folder.path),
+            attributes[.type] as? FileAttributeType == .typeDirectory,
+            let ownerID = (attributes[.ownerAccountID] as? NSNumber)?.uint32Value
+        else { return }
+
+        if ownerID == getuid() {
+            // Ours, with the write bit missing: the mode alone, no password.
+            let mode = (attributes[.posixPermissions] as? NSNumber)?.intValue ?? 0o755
+            try? manager.setAttributes(
+                [.posixPermissions: mode | 0o700], ofItemAtPath: folder.path)
+            return
+        }
+
+        let owner =
+            getpwuid(ownerID).flatMap { String(cString: $0.pointee.pw_name) }
+            ?? String(ownerID)
+        let detail: String?
+        switch takeOwnership(of: folder) {
+        case .done where manager.isWritableFile(atPath: folder.path):
+            appendToLog(
+                L.t(
+                    "the LaunchAgents folder belonged to “%@” — given back to “%@” "
+                        + "with an administrator's password", owner, NSUserName()))
+            return
+        case .done:
+            detail = nil
+        case .declined:
+            appendToLog(L.t("the administrator's password was not given"))
+            detail = nil
+        case .failed(let reason):
+            detail = reason
+        }
+        throw RegistrationFailure.agentFolderNotOwned(
+            path: folder.path, owner: owner, detail: detail)
+    }
+
+    private enum OwnershipRepair {
+        case done
+        case declined
+        case failed(String)
+    }
+
+    /// Gives a folder back to the current user, after the system has asked for
+    /// an administrator's password.
+    ///
+    /// `do shell script … with administrator privileges` rather than anything
+    /// lower: the password dialog is the system's own, which VoiceOver reads,
+    /// and it names this app as the one asking. The privileged part is two
+    /// commands and nothing else, the path passed through `quoted form of`.
+    private static func takeOwnership(of folder: URL) -> OwnershipRepair {
+        func literal(_ text: String) -> String {
+            "\""
+                + text.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        }
+        let path = literal(folder.path)
+        let prompt = L.t(
+            "BrailliantConnect needs to give the LaunchAgents folder in your Library "
+                + "back to your account, so that it can start at login. Another "
+                + "installer left it belonging to the system.")
+        let source =
+            "do shell script \"/usr/sbin/chown \(getuid()):\(getgid()) \" & quoted form of "
+            + path + " & \" && /bin/chmod u+rwx \" & quoted form of " + path
+            + " with prompt " + literal(prompt) + " with administrator privileges"
+
+        guard let script = NSAppleScript(source: source) else {
+            return .failed("NSAppleScript")
+        }
+        var error: NSDictionary?
+        script.executeAndReturnError(&error)
+        guard let error else { return .done }
+        // -128 is "User canceled", whatever the language of the dialog.
+        if (error[NSAppleScript.errorNumber] as? Int) == -128 { return .declined }
+        return .failed(
+            (error[NSAppleScript.errorMessage] as? String)
+                ?? "AppleScript \(error[NSAppleScript.errorNumber] ?? "?")")
     }
 
     /// Whether launchd holds an override that keeps the agent from loading.
