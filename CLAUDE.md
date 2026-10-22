@@ -265,7 +265,12 @@ Each of these produces an error that points somewhere other than its cause.
   reached it, and the process waited on it forever (measured 22 Oct 2026).
   `refuse()` therefore uses `CFUserNotificationDisplayAlert`, drawn by the
   system, which takes the focus. Alerts opened from the menu are not
-  affected: the click has already made the agent active.
+  affected: the click has already made the agent active. Neither is the
+  resident agent's own launch announcement, although nobody clicked:
+  measured the same day with a local server serving a test announcement, the
+  agent came to the front and VoiceOver read the alert at once. The agent is
+  a running application by then; `--install` had created `NSApplication` a
+  moment earlier and never ran it.
 
 ## Hardware behaviour
 
