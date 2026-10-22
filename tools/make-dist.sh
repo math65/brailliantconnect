@@ -47,7 +47,7 @@ TEAM_ID="633EG76YX5"
 PROFILE="$ROOT/App/BrailliantConnect/BrailliantConnect.provisionprofile"
 BACKEND_KEY="$ROOT/App/BrailliantConnect/AppBackendSecret.plist"
 APP_INFO="$ROOT/App/BrailliantConnect/Info.plist"
-FEED_URL="https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml"
+FEED_URL="https://math65.github.io/brailliantconnect/appcast.xml"
 # A certificate closer than this to its end gets a warning, so that renewing
 # it and regenerating the profile is planned rather than discovered.
 CERT_WARNING_DAYS=60

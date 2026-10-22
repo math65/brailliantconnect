@@ -116,14 +116,31 @@ final class UpdateHandoverTests: XCTestCase {
             try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
     }
 
+    /// From 1.2.2 the app reads docs/appcast.xml through GitHub Pages; 1.2.0
+    /// and 1.2.1 still read appcast.xml at the root, through
+    /// raw.githubusercontent.com. Both files must exist, or one generation of
+    /// installed copies never hears of an update again.
     func testFeedIsTheCommittedAppcastOverHTTPS() throws {
         let feed = try XCTUnwrap(appInfo()["SUFeedURL"] as? String)
-        XCTAssertEqual(
-            feed, "https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml")
-        XCTAssertTrue(
-            FileManager.default.fileExists(
-                atPath: repository.appendingPathComponent("appcast.xml").path),
-            "the feed points at appcast.xml, which must be committed at the repository root")
+        XCTAssertEqual(feed, "https://math65.github.io/brailliantconnect/appcast.xml")
+        for path in ["docs/appcast.xml", "appcast.xml"] {
+            XCTAssertTrue(
+                FileManager.default.fileExists(
+                    atPath: repository.appendingPathComponent(path).path),
+                "\(path) must be committed: a generation of installed copies reads it")
+        }
+    }
+
+    /// Every item goes into both feeds: an old copy reaches the new feed only
+    /// by installing a version that names it.
+    func testBothFeedsOfferTheSameBuilds() throws {
+        func builds(_ path: String) throws -> [String] {
+            let document = try XMLDocument(
+                contentsOf: repository.appendingPathComponent(path), options: [])
+            return try document.nodes(forXPath: "//item/*[local-name()='version']")
+                .compactMap { $0.stringValue }
+        }
+        XCTAssertEqual(try builds("docs/appcast.xml"), try builds("appcast.xml"))
     }
 
     /// The key is either the marked placeholder — which `make-dist.sh` refuses
@@ -142,8 +159,10 @@ final class UpdateHandoverTests: XCTestCase {
     }
 
     func testAppcastIsWellFormed() throws {
-        let url = repository.appendingPathComponent("appcast.xml")
-        XCTAssertNoThrow(try XMLDocument(contentsOf: url, options: []))
+        for path in ["docs/appcast.xml", "appcast.xml"] {
+            let url = repository.appendingPathComponent(path)
+            XCTAssertNoThrow(try XMLDocument(contentsOf: url, options: []), path)
+        }
     }
 
     func testUpdateMessagesAreTranslated() {

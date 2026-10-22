@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-Sparkle's update feed for BrailliantConnect, read about once a day by every
-installed copy from
+The FIRST update feed, read about once a day by copies of 1.2.0 and 1.2.1 from
 https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml
+
+From 1.2.2 on, the app reads docs/appcast.xml, served by GitHub Pages. This
+file stays, and every new item goes into both: an old copy only moves to the
+new feed by installing a version that names it, and it can only find that
+version here. Do not delete it while 1.2.0 or 1.2.1 may still be running.
 
 Items are added by the release skill (.claude/skills/release/SKILL.md), newest
 first, and only once the archive they point at is attached to its GitHub

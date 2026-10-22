@@ -1,10 +1,25 @@
 # Notes de version
 
-## v1.2.2 — 17/10/2026
+## v1.2.2 — 22/10/2026
 
-Quand l'app ne peut pas démarrer, elle dit maintenant pourquoi.
+Quand l'app ne peut pas démarrer, elle dit maintenant pourquoi — et répare
+elle-même la cause la plus courante.
+
+### Un dossier laissé au système vous est rendu
+- L'installateur d'une autre app peut laisser l'un de vos dossiers —
+  LaunchAgents, dans votre Bibliothèque — appartenir au système plutôt qu'à
+  vous. BrailliantConnect ne pouvait alors plus s'installer pour démarrer à
+  l'ouverture de session, quelle que soit sa version, et ne démarrait pas du
+  tout. Elle s'en aperçoit maintenant, demande le mot de passe d'un
+  administrateur et rend le dossier à votre compte, sans toucher à ce qu'il
+  contient. Si vous préférez ne pas donner le mot de passe, le message
+  indique les deux commandes à taper dans le Terminal pour faire la même chose.
 
 ### Une installation qui échoue s'explique
+- Le message affiché quand l'installation échouait ne prenait jamais le
+  focus : VoiceOver ne pouvait pas l'atteindre, et l'app semblait ne pas
+  répondre. C'est maintenant une alerte dessinée par macOS, qui passe au
+  premier plan et se lit tout de suite.
 - À sa première ouverture, l'app s'installe pour démarrer en arrière-plan à
   chaque ouverture de session. Quand macOS refusait, elle disait « Vérifiez
   que l'app se trouve dans le dossier Applications » — même quand elle y

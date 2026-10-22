@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Sparkle's update feed for BrailliantConnect, read about once a day by every
+installed copy from 1.2.2 on, served by GitHub Pages from
+https://math65.github.io/brailliantconnect/appcast.xml
+
+Items are added by the release skill (.claude/skills/release/SKILL.md), newest
+first, and only once the archive they point at is attached to its GitHub
+release: an item committed before its asset exists sends every installed copy
+to a 404. Each item's enclosure carries the EdDSA signature of that exact zip.
+
+../appcast.xml, at the repository root, is the feed 1.2.0 and 1.2.1 read.
+Every item goes into both files for as long as those versions may still run:
+it is the only way they ever reach a version that reads this one.
+-->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>BrailliantConnect</title>
+    <link>https://github.com/math65/brailliantconnect</link>
+    <description>Updates to BrailliantConnect</description>
+    <language>en</language>
+    <item>
+      <title>BrailliantConnect 1.2.1</title>
+      <pubDate>Thu, 15 Oct 2026 17:25:42 GMT</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<div lang="en">
+<p>Pages documents now reach the display.</p>
+<h2>Pages, Keynote and Numbers documents are copied</h2>
+<ul><li>A Pages document copied to the display never arrived: the Finder kept trying to send it, and never managed. The same went for every document macOS keeps as a package — Keynote and Numbers files, TextEdit documents with pictures (.rtfd), and others.</li><li>They are now sent whole, and come back to the Mac intact: copied back from the display, a Pages document is exactly the one that was sent. Editing it on the Mac updates the copy on the display.</li><li>The display's own apps do not open these documents. To read one in braille, export it from Pages as a Word or text file first.</li></ul>
+<h2>An item that cannot be sent is no longer tried again and again</h2>
+<ul><li>When an item cannot go to the display at all — a symbolic link, which the display has no way to store — the Finder no longer keeps retrying it every few seconds.</li></ul>
+<h2>Clearer reports</h2>
+<ul><li>When a copy fails, Report a Problem now says what kind of item it was, never its name.</li></ul>
+</div>
+]]></description>
+      <description xml:lang="fr"><![CDATA[
+<div lang="fr">
+<p>Les documents Pages arrivent maintenant sur la plage.</p>
+<h2>Les documents Pages, Keynote et Numbers sont copiés</h2>
+<ul><li>Un document Pages copié sur la plage n'y arrivait jamais : le Finder essayait de l'envoyer, encore et encore, sans y parvenir. Même chose pour tous les documents que macOS range sous forme de paquet — fichiers Keynote et Numbers, documents TextEdit avec images (.rtfd), et d'autres.</li><li>Ils sont maintenant envoyés en entier, et reviennent intacts sur le Mac : recopié depuis la plage, un document Pages est exactement celui qui était parti. Le modifier sur le Mac met à jour sa copie sur la plage.</li><li>Les applications de la plage n'ouvrent pas ces documents. Pour en lire un en braille, exportez-le d'abord depuis Pages en Word ou en texte.</li></ul>
+<h2>Un élément impossible à envoyer n'est plus retenté sans fin</h2>
+<ul><li>Quand un élément ne peut pas aller sur la plage — un lien symbolique, que la plage n'a aucun moyen de conserver —, le Finder ne réessaie plus de l'envoyer toutes les quelques secondes.</li></ul>
+<h2>Des rapports plus clairs</h2>
+<ul><li>Quand une copie échoue, Signaler un problème indique maintenant de quel genre d'élément il s'agissait, jamais son nom.</li></ul>
+</div>
+]]></description>
+      <enclosure url="https://github.com/math65/brailliantconnect/releases/download/v1.2.1/BrailliantConnect.zip" sparkle:edSignature="1xw4BsclFA8UUyUDWTpyMoBQPxNgyVuhFRmoOXR9ONxDKqB6qh6e/gNuQQHMD5cNZGbO0DaRfJXxgmMt3v7sDA==" length="2501907" type="application/octet-stream"/>
+    </item>
+    <item>
+      <title>BrailliantConnect 1.2.0</title>
+      <pubDate>Thu, 15 Oct 2026 10:07:08 GMT</pubDate>
+      <sparkle:version>7</sparkle:version>
+      <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<div lang="en">
+<p>BrailliantConnect now updates itself. This is the last version you will have to download by hand.</p>
+<p>It also comes out of a report titled "file not copied". The file had been copied; what the Finder showed said otherwise. Following that thread through the whole app turned up more of the same: things that worked and said they had failed, things that failed and said nothing.</p>
+<h2>Updates install themselves</h2>
+<ul><li>About once a day, BrailliantConnect checks for a new version and installs it by itself, then tells you with a notification. It never checks or restarts while a file is on its way to the display.</li><li>"Check for Updates…" in the menu bar shows what a new version brings and lets you choose when to install it. The notes read as a web page, with headings and lists.</li><li>If notifications are switched off, the menu says which version was installed, until you have opened it once.</li></ul>
+<h2>No more error on a folder that received a file</h2>
+<ul><li>After a copy, the Finder showed an Error button beside the storage folder, saying the file did not exist — although the file had arrived. The system then tried again every few minutes, reading the whole display each time. It no longer happens.</li></ul>
+<h2>Every transfer is announced, small files included</h2>
+<ul><li>"Transfer complete — you can unplug the display" used to come for large files only: a small document arrived without a word. Every file is now announced, and several files copied together give a single notification.</li><li>When a file does not reach the display, a notification says so, with how many did not arrive.</li><li>If the display is unplugged during a transfer, the app no longer says you can unplug it.</li></ul>
+<h2>Dates are right</h2>
+<ul><li>Files on the display showed a time two hours early in summer, one hour in winter. They now show the Mac's time. A copied file shows when it reached the display, not its date on the Mac: the display records that itself.</li></ul>
+<h2>Your files are safer</h2>
+<ul><li>Moving an item into the folder it was already in could delete it.</li><li>Copying a file onto one of the same name added on the display since the folder was last shown replaced it without asking.</li><li>Deleting a folder that looked empty on the Mac also deleted what had been put into it on the display.</li><li>Renaming a folder and then saving into it could recreate the old folder.</li><li>Moving a folder from a USB stick to the internal memory failed, and was tried again forever.</li><li>All of these are fixed. The hidden files macOS leaves everywhere, such as .DS_Store, are no longer sent to the display.</li></ul>
+<h2>Switched-off notifications are no longer silent</h2>
+<ul><li>When notifications are refused for BrailliantConnect, nothing told you, and every message the app has for you went nowhere. The menu now says so, with an item that opens the settings.</li></ul>
+<h2>The Report a Problem window</h2>
+<ul><li>Copy, Paste, Select All and Undo work in its fields; they did nothing before.</li><li>Tab moves on from the message instead of typing a tab.</li><li>The window opens on the subject, VoiceOver says what changes when you pick one, and says "Sending…" once you have pressed Send.</li><li>The report now carries the last error the Finder extension met and whether notifications are on.</li></ul>
+<h2>News from the developer reaches you</h2>
+<ul><li>The channel meant for announcements never showed a single one, in any version. It now does.</li></ul>
+<h2>Uninstalling</h2>
+<ul><li>When the app cannot be moved to the Trash, it now says so instead of vanishing from the menu bar. Its settings no longer come back after a reinstall.</li></ul>
+<p>Nothing on the braille display itself is touched.</p>
+</div>
+]]></description>
+      <description xml:lang="fr"><![CDATA[
+<div lang="fr">
+<p>BrailliantConnect se met maintenant à jour tout seul. C'est la dernière version que vous aurez à télécharger à la main.</p>
+<p>Elle part aussi d'un signalement intitulé « fichier non copié ». Le fichier avait bien été copié ; c'est ce que montrait le Finder qui disait le contraire. En suivant ce fil à travers toute l'application, on a trouvé d'autres cas du même genre : des choses qui marchaient et se disaient en échec, des choses qui échouaient sans rien dire.</p>
+<h2>Les mises à jour s'installent toutes seules</h2>
+<ul><li>Environ une fois par jour, BrailliantConnect cherche une nouvelle version, l'installe de lui-même, puis vous prévient par une notification. Il ne cherche ni ne redémarre jamais pendant qu'un fichier part vers la plage.</li><li>« Rechercher les mises à jour… », dans la barre des menus, montre ce qu'apporte une nouvelle version et vous laisse choisir quand l'installer. Les notes se lisent comme une page web, avec des titres et des listes.</li><li>Si les notifications sont désactivées, le menu indique quelle version a été installée, jusqu'à ce que vous l'ayez ouvert une fois.</li></ul>
+<h2>Plus d'erreur sur un dossier qui a reçu un fichier</h2>
+<ul><li>Après une copie, le Finder affichait un bouton Erreur à côté du dossier du stockage, disant que le fichier n'existait pas — alors qu'il était bien arrivé. Le système réessayait ensuite toutes les quelques minutes, en relisant à chaque fois toute la plage. Ça n'arrive plus.</li></ul>
+<h2>Chaque transfert est annoncé, petits fichiers compris</h2>
+<ul><li>« Transfert terminé — vous pouvez débrancher la plage » ne venait que pour les gros fichiers : un petit document arrivait sans un mot. Chaque fichier est maintenant annoncé, et plusieurs fichiers copiés ensemble ne donnent qu'une seule notification.</li><li>Quand un fichier n'arrive pas sur la plage, une notification le dit, avec le nombre de fichiers qui manquent.</li><li>Si la plage est débranchée pendant un transfert, l'application ne vous dit plus que vous pouvez la débrancher.</li></ul>
+<h2>Les dates sont justes</h2>
+<ul><li>Les fichiers de la plage affichaient une heure en avance de deux heures en été, d'une heure en hiver. Ils affichent maintenant l'heure du Mac. Un fichier copié indique quand il est arrivé sur la plage, pas sa date sur le Mac : c'est la plage elle-même qui la note.</li></ul>
+<h2>Vos fichiers sont mieux protégés</h2>
+<ul><li>Déplacer un élément dans le dossier où il se trouvait déjà pouvait l'effacer.</li><li>Copier un fichier par-dessus un fichier du même nom, ajouté sur la plage depuis le dernier affichage du dossier, le remplaçait sans rien demander.</li><li>Supprimer un dossier qui semblait vide sur le Mac effaçait aussi ce qu'on y avait mis depuis la plage.</li><li>Renommer un dossier puis enregistrer dedans pouvait recréer l'ancien dossier.</li><li>Déplacer un dossier d'une clé USB vers la mémoire interne échouait, et était retenté sans fin.</li><li>Tout cela est corrigé. Les fichiers cachés que macOS laisse partout, comme .DS_Store, ne sont plus envoyés à la plage.</li></ul>
+<h2>Des notifications désactivées ne passent plus inaperçues</h2>
+<ul><li>Quand les notifications étaient refusées pour BrailliantConnect, rien ne vous le disait, et tous les messages que l'application a pour vous se perdaient. Le menu le signale maintenant, avec un élément qui ouvre les réglages.</li></ul>
+<h2>La fenêtre Signaler un problème</h2>
+<ul><li>Copier, Coller, Tout sélectionner et Annuler fonctionnent dans ses champs ; ils ne faisaient rien.</li><li>Tab passe à la suite au lieu d'insérer une tabulation dans le message.</li><li>La fenêtre s'ouvre sur le sujet, VoiceOver annonce ce qui change quand vous en choisissez un, et dit « Envoi… » une fois que vous avez appuyé sur Envoyer.</li><li>Le signalement contient maintenant la dernière erreur rencontrée par l'extension du Finder, et dit si les notifications sont activées.</li></ul>
+<h2>Les nouvelles du développeur vous parviennent</h2>
+<ul><li>Le canal prévu pour les annonces n'en a jamais affiché une seule, dans aucune version. C'est réparé.</li></ul>
+<h2>La désinstallation</h2>
+<ul><li>Quand l'application ne peut pas être mise à la corbeille, elle le dit au lieu de disparaître de la barre des menus. Ses réglages ne reviennent plus après une réinstallation.</li></ul>
+<p>Rien n'est modifié sur la plage braille elle-même.</p>
+</div>
+]]></description>
+      <enclosure url="https://github.com/math65/brailliantconnect/releases/download/v1.2.0/BrailliantConnect.zip" sparkle:edSignature="GHcYXhPByoNq3AnYrL/FooP1GZMJ6WKHL8zd/vkYs8y76djDH7EqYZcJKeaI9beCrWCQ/AcpKJLYNbZ3iOIMBg==" length="2467085" type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>

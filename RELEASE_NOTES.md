@@ -1,10 +1,23 @@
 # Release notes
 
-## v1.2.2 — 17/10/2026
+## v1.2.2 — 22/10/2026
 
-When the app cannot start, it now says why.
+When the app cannot start, it now says why — and repairs the most common
+cause by itself.
+
+### A folder left to the system is given back
+- Another app's installer can leave one of your folders — LaunchAgents, in
+  your Library — belonging to the system instead of to you. BrailliantConnect
+  then could not set itself up to start at login, whatever its version, and
+  never started at all. It now notices, asks for an administrator's password,
+  and gives the folder back to your account, without touching anything inside
+  it. If you would rather not give the password, the message shows the two
+  Terminal commands that do the same.
 
 ### A failed installation explains itself
+- The message shown when the installation failed never took the focus:
+  VoiceOver could not reach it, and the app seemed not to respond. It is now
+  an alert drawn by macOS, which comes to the front and is read at once.
 - Opened for the first time, the app sets itself up to start in the
   background at every login. When macOS refused, the app said "Make sure the
   app is in the Applications folder" — even when it was there, which it had

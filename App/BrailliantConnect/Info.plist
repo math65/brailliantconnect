@@ -7,9 +7,9 @@ this file only adds what the generator has no setting for, and Xcode merges the
 two. Everything here is read by Sparkle. See "Updates" in CLAUDE.md.
 -->
 <dict>
-	<!-- Committed at the repository root, served by GitHub over HTTPS. -->
+	<!-- docs/appcast.xml, served by GitHub Pages over HTTPS (from 1.2.2; 1.2.0 and 1.2.1 read the root appcast.xml). -->
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml</string>
+	<string>https://math65.github.io/brailliantconnect/appcast.xml</string>
 	<!--
 	The Ed25519 public key matching the private key in the author's keychain
 	(Sparkle's default account, shared with the author's other apps). Print it with

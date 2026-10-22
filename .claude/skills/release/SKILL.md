@@ -167,9 +167,19 @@ side effect of "make a release".
 
 ## 8. Put it in the appcast
 
-Every copy from 1.2.0 on reads
-`https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml`
-about once a day and installs what it finds there **without asking anyone**.
+There are **two feeds**, and every item goes into both:
+
+- `docs/appcast.xml`, served by GitHub Pages at
+  `https://math65.github.io/brailliantconnect/appcast.xml` — what every copy
+  from 1.2.2 on reads;
+- `appcast.xml` at the repository root, served at
+  `https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml`
+  — what 1.2.0 and 1.2.1 read. An old copy moves to the new feed only by
+  installing a version that names it, and it can only find that version here.
+  Keep writing to it while 1.2.0 or 1.2.1 may still be running.
+
+Every installed copy reads its feed about once a day and installs what it
+finds there **without asking anyone**.
 That makes this the step with no undo: an item that points at a broken zip, or
 carries a wrong signature, reaches every user within a day. Do it only after
 step 7, and in this order.
@@ -231,14 +241,15 @@ item = f"""    <item>
       <enclosure url="{url}" {signature} type="application/octet-stream"/>
     </item>
 """
-s = io.open("appcast.xml", encoding="utf-8").read()
-assert f"<sparkle:version>{build}</sparkle:version>" not in s, "build already in the appcast"
-anchor = "<language>en</language>\n"
-assert s.count(anchor) == 1
-s = s.replace(anchor, anchor + item)
-io.open("appcast.xml", "w", encoding="utf-8").write(s)
+for feed in ("docs/appcast.xml", "appcast.xml"):
+    s = io.open(feed, encoding="utf-8").read()
+    assert f"<sparkle:version>{build}</sparkle:version>" not in s, f"build already in {feed}"
+    anchor = "<language>en</language>\n"
+    assert s.count(anchor) == 1
+    s = s.replace(anchor, anchor + item)
+    io.open(feed, "w", encoding="utf-8").write(s)
 EOF
-xmllint --noout appcast.xml && git diff appcast.xml
+xmllint --noout docs/appcast.xml appcast.xml && git diff docs/appcast.xml appcast.xml
 ```
 
 Show the user the diff. Do not set `sparkle:minimumAutoupdateVersion`,
@@ -251,12 +262,15 @@ is what releases the update to everyone — get an explicit yes for it, as for
 step 7.
 
 ```bash
-git add appcast.xml
+git add docs/appcast.xml appcast.xml
 git commit   # "Offer X.Y.Z to installed copies", body saying why
 git push
-# raw.githubusercontent.com caches for up to five minutes.
-curl -fsS "https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml" \
-  | grep -c "<sparkle:version>$BUILD</sparkle:version>"   # expect 1
+# Pages rebuilds in a minute or two; raw.githubusercontent.com caches for up
+# to five. Both must answer 1.
+for FEED in https://math65.github.io/brailliantconnect/appcast.xml \
+            https://raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml; do
+  echo "$FEED: $(curl -fsS "$FEED" | grep -c "<sparkle:version>$BUILD</sparkle:version>")"
+done
 ```
 
 **e. Verify the signature against the published file**, not the local one:

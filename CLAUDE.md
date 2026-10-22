@@ -77,7 +77,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 86 tests
+swift test                    # 87 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -545,10 +545,15 @@ are how they hear of it); everything after arrives on its own.
   security fixes to the installer. `Package.resolved` pins the commit and
   SwiftPM checks the binary's checksum. Moving to a newer one is a deliberate
   edit of the pin, read with its changelog.
-- **Feed:** `appcast.xml` at the repository root, served from
-  `raw.githubusercontent.com/math65/brailliantconnect/main/appcast.xml`; the
-  zips are the GitHub release assets. Items are added by the release skill
-  (step 8), only once the asset exists.
+- **Feed:** `docs/appcast.xml`, served by GitHub Pages (branch `main`,
+  folder `/docs`) at `math65.github.io/brailliantconnect/appcast.xml` — the
+  same arrangement as the author's other apps, and the address in
+  `Info.plist` and `make-dist.sh` from 1.2.2 on. 1.2.0 and 1.2.1 read
+  `appcast.xml` at the repository root through `raw.githubusercontent.com`,
+  so that file stays and every item goes into **both**: an old copy reaches
+  the new feed only by installing a version that names it. The zips are the
+  GitHub release assets. Items are added by the release skill (step 8), only
+  once the asset exists.
 - **Key:** the author's existing EdDSA key, the one the author's other apps use — the
   keychain item under Sparkle's **default** account, so no `--account`
   anywhere. Its public half is `SUPublicEDKey` in
