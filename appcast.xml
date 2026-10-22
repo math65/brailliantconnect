@@ -20,6 +20,32 @@ to a 404. Each item's enclosure carries the EdDSA signature of that exact zip.
     <description>Updates to BrailliantConnect</description>
     <language>en</language>
     <item>
+      <title>BrailliantConnect 1.2.2</title>
+      <pubDate>Thu, 22 Oct 2026 11:11:43 GMT</pubDate>
+      <sparkle:version>10</sparkle:version>
+      <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<div lang="en">
+<p>When the app cannot start, it now says why — and repairs the most common cause by itself.</p>
+<h2>A folder left to the system is given back</h2>
+<ul><li>Another app's installer can leave one of your folders — LaunchAgents, in your Library — belonging to the system instead of to you. BrailliantConnect then could not set itself up to start at login, whatever its version, and never started at all. It now notices, asks for an administrator's password, and gives the folder back to your account, without touching anything inside it. If you would rather not give the password, the message shows the two Terminal commands that do the same.</li></ul>
+<h2>A failed installation explains itself</h2>
+<ul><li>The message shown when the installation failed never took the focus: VoiceOver could not reach it, and the app seemed not to respond. It is now an alert drawn by macOS, which comes to the front and is read at once.</li><li>Opened for the first time, the app sets itself up to start in the background at every login. When macOS refused, the app said "Make sure the app is in the Applications folder" — even when it was there, which it had already checked. It now shows what macOS actually answered, and keeps it in its log.</li><li>If macOS had switched the app's background agent off, the app could not start at all, and nothing said so. Opening it now switches the agent back on: opening the app is asking for it to run. If macOS still refuses, the message says where the setting is — in System Settings, search for "App Background Activity" and turn BrailliantConnect on.</li></ul>
+</div>
+]]></description>
+      <description xml:lang="fr"><![CDATA[
+<div lang="fr">
+<p>Quand l'app ne peut pas démarrer, elle dit maintenant pourquoi — et répare elle-même la cause la plus courante.</p>
+<h2>Un dossier laissé au système vous est rendu</h2>
+<ul><li>L'installateur d'une autre app peut laisser l'un de vos dossiers — LaunchAgents, dans votre Bibliothèque — appartenir au système plutôt qu'à vous. BrailliantConnect ne pouvait alors plus s'installer pour démarrer à l'ouverture de session, quelle que soit sa version, et ne démarrait pas du tout. Elle s'en aperçoit maintenant, demande le mot de passe d'un administrateur et rend le dossier à votre compte, sans toucher à ce qu'il contient. Si vous préférez ne pas donner le mot de passe, le message indique les deux commandes à taper dans le Terminal pour faire la même chose.</li></ul>
+<h2>Une installation qui échoue s'explique</h2>
+<ul><li>Le message affiché quand l'installation échouait ne prenait jamais le focus : VoiceOver ne pouvait pas l'atteindre, et l'app semblait ne pas répondre. C'est maintenant une alerte dessinée par macOS, qui passe au premier plan et se lit tout de suite.</li><li>À sa première ouverture, l'app s'installe pour démarrer en arrière-plan à chaque ouverture de session. Quand macOS refusait, elle disait « Vérifiez que l'app se trouve dans le dossier Applications » — même quand elle y était, ce qu'elle venait de vérifier. Elle affiche maintenant ce que macOS a vraiment répondu, et le garde dans son journal.</li><li>Si macOS avait désactivé l'agent en arrière-plan de l'app, celle-ci ne pouvait plus démarrer du tout, sans que rien ne le dise. L'ouvrir réactive maintenant l'agent : ouvrir l'app, c'est demander qu'elle fonctionne. Si macOS refuse encore, le message dit où se trouve le réglage — dans Réglages Système, cherchez « Activité des apps en arrière-plan » et activez BrailliantConnect.</li></ul>
+</div>
+]]></description>
+      <enclosure url="https://github.com/math65/brailliantconnect/releases/download/v1.2.2/BrailliantConnect.zip" sparkle:edSignature="Jqx03HiJ7EQnAsSy+cs0h4VykSUVRtPSzj1slPUIrlwz6t5BHMNZ5GKBg3rqGJIq/6uqZYA7Vn+e6RLhOzjMDg==" length="2527375" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>BrailliantConnect 1.2.1</title>
       <pubDate>Thu, 15 Oct 2026 17:25:42 GMT</pubDate>
       <sparkle:version>8</sparkle:version>
