@@ -75,6 +75,11 @@ enum Commands {
                 L.t(
                     "Storage %@ \"%@\"",
                     String(index + 1), storage.description.sanitizedForDisplay) + active)
+            if storage.isEmptySlot {
+                // Its figures are a placeholder, not a size worth printing.
+                say(L.t("  empty: nothing is plugged into this slot"))
+                continue
+            }
             say(L.t("  capacity: %@", humanSize(storage.capacity)))
             say(
                 L.t(

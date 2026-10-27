@@ -261,12 +261,17 @@ final class DisplayAccess {
     /// The storages, cached as briefly as a folder listing: plugging a stick in
     /// changes this list and nothing signals it.
     ///
+    /// Empty slots are left out (see `Storage.isEmptySlot`): listing one fails,
+    /// that failure resets the connection, and rebuilding the index walks
+    /// every storage returned here — so one empty USB port made the whole
+    /// location reconnect over and over.
+    ///
     /// Callers must already hold `queue`.
     private func storages() throws -> [Storage] {
         if let cache = storageList, Date().timeIntervalSince(cache.read) < Self.freshness {
             return cache.storages
         }
-        let found = try target(nil).storages(refresh: true)
+        let found = try target(nil).storages(refresh: true).filter { !$0.isEmptySlot }
         storageList = (found, Date())
         return found
     }

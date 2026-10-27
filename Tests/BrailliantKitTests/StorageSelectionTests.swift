@@ -87,4 +87,35 @@ final class StorageSelectionTests: XCTestCase {
     func testListeVideRejetee() {
         XCTAssertThrowsError(try StorageSelection.resolve(selector: "1", among: []))
     }
+
+    // MARK: Empty slots
+
+    /// The figures an APH Chameleon 20 gave for its USB port with nothing in
+    /// it: 2^63 − 1 bytes, 2^62 free.
+    func testChameleonEmptyUSBPortIsAnEmptySlot() {
+        let port = Storage(
+            id: 0x0003_0001, description: "3- usb",
+            capacity: UInt64(Int64.max), free: 1 << 62)
+        XCTAssertTrue(port.isEmptySlot)
+    }
+
+    func testAllOnesCapacityIsAnEmptySlot() {
+        let port = Storage(id: 3, description: "usb", capacity: .max, free: .max)
+        XCTAssertTrue(port.isEmptySlot)
+    }
+
+    /// The other storages of the same Chameleon, a BI 40X's internal memory
+    /// and a large disk must all stay visible.
+    func testRealMediaAreNotEmptySlots() {
+        let media: [UInt64] = [
+            511_600_000,  // Chameleon SD card
+            14_800_000_000,  // Chameleon internal memory
+            30_390_000_000,  // BI 40X internal memory
+            20_000_000_000_000,  // a 20 TB disk
+        ]
+        for capacity in media {
+            let storage = Storage(id: 1, description: "m", capacity: capacity, free: 0)
+            XCTAssertFalse(storage.isEmptySlot, "\(capacity) bytes is a real medium")
+        }
+    }
 }

@@ -39,6 +39,18 @@ public struct Storage: Sendable, Equatable {
         guard capacity > 0 else { return 0 }
         return Int((Double(used) / Double(capacity) * 100).rounded())
     }
+
+    /// True for a slot the device declares with nothing in it.
+    ///
+    /// An APH Chameleon 20 announces its USB port with no stick plugged in,
+    /// at a capacity of 2^63 − 1 bytes and 2^62 free, and every listing of it
+    /// fails with PTP error 02fe (measured on a tester's device, 27 Oct 2026).
+    /// The Finder extension took that failure for a lost connection and
+    /// reconnected each time the Finder looked. No real medium comes anywhere
+    /// near 2^60 bytes (an exbibyte), so anything above is no medium at all;
+    /// the threshold rather than the exact value also covers a device writing
+    /// 2^64 − 1 for the same purpose.
+    public var isEmptySlot: Bool { capacity >= 1 << 60 }
 }
 
 /// Resolution of a storage from whatever the user typed.

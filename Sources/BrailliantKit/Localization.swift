@@ -553,6 +553,8 @@ public enum L {
         "  capacity: %@": "  capacité   : %@",
         "  used:     %@ (%@%%)": "  utilisé    : %@ (%@ %%)",
         "  free:     %@": "  disponible : %@",
+        "  empty: nothing is plugged into this slot":
+            "  vide : rien n'est branché à cet emplacement",
         "To work on another storage: brailliant -s <number or name> …":
             "Pour travailler sur un autre stockage : brailliant -s <numéro ou nom> …",
 

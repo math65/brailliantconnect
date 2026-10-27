@@ -77,7 +77,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 87 tests
+swift test                    # 90 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -319,6 +319,14 @@ plugged into the display invisible with no way to reach it. Consequences:
 - rebuilding the index after the extension is recycled walks **every** storage,
   or an item on the stick becomes unreachable for having been listed by a
   previous process.
+- **a declared storage may hold nothing.** An APH Chameleon 20 announces its
+  USB port with no stick in it, at 2^63 − 1 bytes (2^62 free), and listing
+  it fails with PTP error 02fe (measured 27 Oct 2026 on a tester's device,
+  twice). `listingFailed` resets the connection, and rebuilding the index
+  walks every storage, so the whole location reconnected each time the
+  Finder looked. `Storage.isEmptySlot` (capacity ≥ 2^60) marks such a slot;
+  the extension leaves it out, `info` prints it as empty. Whether a stick
+  plugged in later then reports a real capacity is not measured.
 - MTP cannot move across storages: that case downloads and re-uploads, and only
   deletes the original once the copy has landed.
 - **nothing is created at the root.** Refusing an import means calling the
