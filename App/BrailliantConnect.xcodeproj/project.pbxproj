@@ -35,6 +35,8 @@
 		5A11E0C0B2D74F1E8C3A9D01 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5A11E0C0B2D74F1E8C3A9D02 /* Sparkle */; };
 		5A11E0C0B2D74F1E8C3A9D07 /* Updates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11E0C0B2D74F1E8C3A9D06 /* Updates.swift */; };
 		5A11E0C0B2D74F1E8C3A9D09 /* UpdateHandover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11E0C0B2D74F1E8C3A9D08 /* UpdateHandover.swift */; };
+		5A11E0C0B2D74F1E8C3A9D0B /* KnownDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11E0C0B2D74F1E8C3A9D0A /* KnownDevices.swift */; };
+		5A11E0C0B2D74F1E8C3A9D0C /* KnownDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11E0C0B2D74F1E8C3A9D0A /* KnownDevices.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +107,7 @@
 		5A11E0C0B2D74F1E8C3A9D05 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5A11E0C0B2D74F1E8C3A9D06 /* Updates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updates.swift; sourceTree = "<group>"; };
 		5A11E0C0B2D74F1E8C3A9D08 /* UpdateHandover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateHandover.swift; sourceTree = "<group>"; };
+		5A11E0C0B2D74F1E8C3A9D0A /* KnownDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownDevices.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -113,6 +116,7 @@
 			children = (
 				6C353C1D57722E64D2A82BD8 /* Brailliant.swift */,
 				0F12EA780A28B5605D9AA41D /* FinderLocation.swift */,
+				5A11E0C0B2D74F1E8C3A9D0A /* KnownDevices.swift */,
 				AD7754FB3857056D3AF2839F /* Localization.swift */,
 				4C69B578B5DB6A5FFB284E63 /* LocalPath.swift */,
 				C1B71AE26C3A5EE40C47C8C4 /* Models.swift */,
@@ -325,6 +329,7 @@
 				DC5CC0A458EA627140DE53F6 /* DisplayAccess.swift in Sources */,
 				8AE79B52CE3D194BC4D3BDFF /* FileProviderExtension.swift in Sources */,
 				29874F23F0E19AEDEB9FF212 /* FinderLocation.swift in Sources */,
+				5A11E0C0B2D74F1E8C3A9D0C /* KnownDevices.swift in Sources */,
 				36DA4F5D6750673F9D111D20 /* LocalPath.swift in Sources */,
 				6EE8D0E2559E71A44787AD34 /* Localization.swift in Sources */,
 				CE6063B7CD2F7461FB40DE24 /* MTPError.swift in Sources */,
@@ -345,6 +350,7 @@
 				ED9533F701818C03CB1A1BEA /* Feedback.swift in Sources */,
 				69D6FB8CB1B597F4C3C4DD46 /* FinderLocation.swift in Sources */,
 				E84735362E67F2FCC8E4B58C /* Installer.swift in Sources */,
+				5A11E0C0B2D74F1E8C3A9D0B /* KnownDevices.swift in Sources */,
 				403B5737419633BCE25D4A06 /* Localization.swift in Sources */,
 				69312D26B11E702E2BFB3925 /* main.swift in Sources */,
 				B1965EB159D521F618C7696B /* MenuBarController.swift in Sources */,

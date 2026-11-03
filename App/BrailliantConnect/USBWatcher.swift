@@ -9,9 +9,6 @@ import IOKit.usb
 /// nothing moves.
 final class USBWatcher {
 
-    /// USB vendor identifier for HumanWare.
-    static let humanwareVendorID = 0x1C71
-
     /// IOKit class of USB devices.
     ///
     /// The modern macOS stack publishes devices under "IOUSBHostDevice".
@@ -72,8 +69,8 @@ final class USBWatcher {
 
     /// State of the first HumanWare display found on the bus.
     ///
-    /// Devices are enumerated and then filtered by reading their "idVendor"
-    /// property. Filtering directly in the matching dictionary would be more
+    /// Devices are enumerated and then filtered by reading their properties
+    /// (`isKnownDevice`). Filtering directly in the matching dictionary would be more
     /// concise, but it depends on the encoding IOKit expects and turns out to
     /// silently do nothing at the slightest deviation.
     static func availability() -> Availability {
@@ -85,7 +82,7 @@ final class USBWatcher {
 
         var best = Availability.absent
         while case let service = IOIteratorNext(iterator), service != 0 {
-            if vendorID(of: service) == humanwareVendorID {
+            if isKnownDevice(service) {
                 let state = availability(of: service)
                 // Best case wins: someone with two displays plugged in should
                 // get the one that works, not the first one enumerated.
@@ -119,7 +116,7 @@ final class USBWatcher {
 
         var total = 0
         while case let service = IOIteratorNext(iterator), service != 0 {
-            if vendorID(of: service) == humanwareVendorID { total += 1 }
+            if isKnownDevice(service) { total += 1 }
             IOObjectRelease(service)
         }
         return total
@@ -174,14 +171,24 @@ final class USBWatcher {
         return String(cString: name).uppercased().contains("MTP")
     }
 
-    /// Reads the vendor identifier of an IOKit service.
-    private static func vendorID(of service: io_service_t) -> Int? {
+    /// True for a device `KnownDevices` accepts, judged from its USB
+    /// descriptor: vendor ID, manufacturer and serial number, all of which
+    /// IOKit publishes as properties of the device (`kUSBVendorString`,
+    /// `kUSBSerialNumberString`) — no MTP involved.
+    private static func isKnownDevice(_ service: io_service_t) -> Bool {
         guard
-            let value = IORegistryEntryCreateCFProperty(
-                service, "idVendor" as CFString, kCFAllocatorDefault, 0
-            )?.takeRetainedValue() as? NSNumber
-        else { return nil }
-        return value.intValue
+            let vendor = (property("idVendor", of: service) as? NSNumber)?.intValue,
+            let vendorID = UInt16(exactly: vendor)
+        else { return false }
+        return KnownDevices.recognizes(
+            vendorID: vendorID,
+            manufacturer: property("kUSBVendorString", of: service) as? String,
+            serialNumber: property("kUSBSerialNumberString", of: service) as? String)
+    }
+
+    private static func property(_ key: String, of service: io_service_t) -> Any? {
+        IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?
+            .takeRetainedValue()
     }
 
     func start() {
@@ -210,8 +217,9 @@ final class USBWatcher {
         }
 
         // We listen to every USB device rather than filtering by vendor: the
-        // sorting is done afterwards by reading idVendor, the only method that
-        // does not depend on the encoding IOKit expects.
+        // sorting is done afterwards by reading the device's properties, the
+        // only method that does not depend on the encoding IOKit expects — and
+        // two HumanWare devices carry another vendor's ID anyway.
         //
         // Interfaces are watched as well as devices. Falling asleep does not
         // unplug the display — it drops its interfaces while staying
@@ -260,7 +268,7 @@ final class USBWatcher {
     private func drain(_ iterator: io_iterator_t) -> Bool {
         var matched = false
         while case let service = IOIteratorNext(iterator), service != 0 {
-            if Self.vendorID(of: service) == Self.humanwareVendorID { matched = true }
+            if Self.isKnownDevice(service) { matched = true }
             IOObjectRelease(service)
         }
         return matched

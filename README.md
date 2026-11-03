@@ -235,8 +235,10 @@ constraint on file names, and a device can return whatever it likes.
   only once the transfer completes, then the temporary is renamed. Free space is
   checked beforehand.
 - **Vendor filtering.** An Android phone is an MTP device like any other, so
-  only HumanWare devices (`0x1C71`) are considered by default. `--any-device`
-  lifts the restriction.
+  only HumanWare devices are considered by default: those carrying HumanWare's
+  vendor ID (`0x1C71`), plus the StellarTrek and the BrailleNote Touch Plus,
+  which borrow Google's and Qualcomm's and are recognised by their USB
+  manufacturer and serial number. `--any-device` lifts the restriction.
 - **The code that reads the device is confined.** libmtp, which parses
   whatever the USB device sends, runs inside the Finder extension, which is
   sandboxed with USB access and nothing more: no network, no files outside its

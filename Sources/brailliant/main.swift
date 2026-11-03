@@ -187,10 +187,10 @@ func run() -> Int32 {
     }
 
     do {
-        // Filter on HumanWare by default: an Android phone is an MTP device
-        // like any other, and a destructive command would apply to it with
-        // nothing to warn about it.
-        let display = try Brailliant(vendorID: options.anyDevice ? nil : humanwareVendorID)
+        // Known devices only by default (`KnownDevices`): an Android phone is
+        // an MTP device like any other, and a destructive command would apply
+        // to it with nothing to warn about it.
+        let display = try Brailliant(knownDevicesOnly: !options.anyDevice)
         defer { display.close() }
 
         if let selector = options.storage {

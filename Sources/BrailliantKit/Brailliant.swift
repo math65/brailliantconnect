@@ -4,9 +4,6 @@ import Foundation
 /// Progress of a transfer: (bytes transferred, total).
 public typealias ProgressHandler = (UInt64, UInt64) -> Void
 
-/// USB vendor ID of HumanWare.
-public let humanwareVendorID: UInt16 = 0x1C71
-
 /// Virtual parent designating the root of a storage.
 private let filesAndFoldersRoot: UInt32 = 0xFFFF_FFFF
 
@@ -50,9 +47,10 @@ public final class Brailliant {
 
     /// Opens the first display detected.
     /// - Parameters:
-    ///   - vendorID: restricts the search to one vendor (nil = all of them).
+    ///   - knownDevicesOnly: restricts the search to the devices
+    ///     `KnownDevices` accepts; false takes any MTP device.
     ///   - index: which device to pick when several are plugged in.
-    public init(vendorID filter: UInt16? = nil, index: Int = 0) throws {
+    public init(knownDevicesOnly: Bool, index: Int = 0) throws {
         try Brailliant.forceUTF8Locale()
         LIBMTP_Init()
 
@@ -75,37 +73,78 @@ public final class Brailliant {
             throw MTPError.noHumanwareDevice(otherMTPDevices: [])
         }
 
-        var candidates: [Int] = Array(0..<Int(count))
-        if let filter {
-            let rejected =
-                candidates
-                .filter { rawDevices[$0].device_entry.vendor_id != filter }
-                .map {
-                    (
-                        vendor: rawDevices[$0].device_entry.vendor_id,
-                        product: rawDevices[$0].device_entry.product_id
-                    )
-                }
-            candidates = candidates.filter { rawDevices[$0].device_entry.vendor_id == filter }
-            // An Android phone is an MTP device like any other: without this
-            // filter, a destructive command would end up applying to it.
-            if candidates.isEmpty {
-                throw MTPError.noHumanwareDevice(otherMTPDevices: rejected)
+        let slots = Array(0..<Int(count))
+        func ids(_ slot: Int) -> (vendor: UInt16, product: UInt16) {
+            (rawDevices[slot].device_entry.vendor_id, rawDevices[slot].device_entry.product_id)
+        }
+
+        guard knownDevicesOnly else {
+            guard index < slots.count else {
+                throw MTPError.deviceIndexOutOfRange(requested: index, found: slots.count)
             }
-        }
-        guard index < candidates.count else {
-            throw MTPError.deviceIndexOutOfRange(requested: index, found: candidates.count)
+            guard let opened = LIBMTP_Open_Raw_Device_Uncached(rawDevices.advanced(by: index))
+            else { throw MTPError.connectionFailed }
+            adopt(opened, ids: ids(index))
+            return
         }
 
-        let slot = candidates[index]
-        vendorID = rawDevices[slot].device_entry.vendor_id
-        productID = rawDevices[slot].device_entry.product_id
+        // An Android phone is an MTP device like any other: without this
+        // filter, a destructive command would end up applying to it.
+        //
+        // HumanWare's own vendor ID settles it; a lookalike (see
+        // `KnownDevices`) has to be opened and asked. Those come last, so that
+        // a phone plugged in beside a display is opened only when nothing
+        // better is there.
+        let candidates = slots.filter { KnownDevices.mayBeKnown(vendorID: ids($0).vendor) }
+        let ordered =
+            candidates.filter { KnownDevices.needsNoConfirmation(vendorID: ids($0).vendor) }
+            + candidates.filter { !KnownDevices.needsNoConfirmation(vendorID: ids($0).vendor) }
+        var rejected = slots.filter { !candidates.contains($0) }.map(ids)
+        var accepted = 0
+        var unopened = false
 
-        guard let opened = LIBMTP_Open_Raw_Device_Uncached(rawDevices.advanced(by: slot)) else {
-            throw MTPError.connectionFailed
+        for slot in ordered {
+            let device = ids(slot)
+            if KnownDevices.needsNoConfirmation(vendorID: device.vendor) {
+                guard accepted == index else { accepted += 1; continue }
+                guard let opened = LIBMTP_Open_Raw_Device_Uncached(rawDevices.advanced(by: slot))
+                else { throw MTPError.connectionFailed }
+                adopt(opened, ids: device)
+                return
+            }
+            guard let opened = LIBMTP_Open_Raw_Device_Uncached(rawDevices.advanced(by: slot))
+            else {
+                // Held by another program, perhaps: it may still be ours.
+                unopened = true
+                continue
+            }
+            let confirmed = KnownDevices.confirms(
+                vendorID: device.vendor,
+                model: Brailliant.takeCString(LIBMTP_Get_Modelname(opened)),
+                serialNumber: Brailliant.takeCString(LIBMTP_Get_Serialnumber(opened)))
+            if confirmed && accepted == index {
+                adopt(opened, ids: device)
+                return
+            }
+            LIBMTP_Release_Device(opened)
+            if confirmed { accepted += 1 } else { rejected.append(device) }
         }
+
+        if accepted > 0 {
+            throw MTPError.deviceIndexOutOfRange(requested: index, found: accepted)
+        }
+        if unopened { throw MTPError.connectionFailed }
+        throw MTPError.noHumanwareDevice(otherMTPDevices: rejected)
+    }
+
+    /// Keeps an opened device and reads what it says of itself.
+    private func adopt(
+        _ opened: UnsafeMutablePointer<LIBMTP_mtpdevice_t>,
+        ids: (vendor: UInt16, product: UInt16)
+    ) {
         device = opened
-
+        vendorID = ids.vendor
+        productID = ids.product
         model = Brailliant.takeCString(LIBMTP_Get_Modelname(opened))
         serialNumber = Brailliant.takeCString(LIBMTP_Get_Serialnumber(opened))
         friendlyName = Brailliant.takeCString(LIBMTP_Get_Friendlyname(opened))

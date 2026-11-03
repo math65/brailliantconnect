@@ -77,7 +77,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 90 tests
+swift test                    # 99 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -134,10 +134,11 @@ as Apple's own sample does. Re-signing the extension as it is embedded replaces
 its entitlements with the host app's, and it then refuses to load. Same cause as
 the `codesign --deep` trap below, at a different moment.
 
-**The agent compiles three files out of `BrailliantKit`**, not the whole of it:
-`FinderLocation.swift`, `Localization.swift` and `UpdateHandover.swift`. It
-shares the location paths and the translation table with the extension, and
-the update handover's decisions with the tests, and nothing else — which is
+**The agent compiles four files out of `BrailliantKit`**, not the whole of it:
+`FinderLocation.swift`, `KnownDevices.swift`, `Localization.swift` and
+`UpdateHandover.swift`. It shares the location paths, the translation table
+and which devices are served with the extension, and the update handover's
+decisions with the tests, and nothing else — which is
 what keeps libmtp out of the process that is not sandboxed (see **Security
 properties**).
 
@@ -219,8 +220,9 @@ Each of these produces an error that points somewhere other than its cause.
 - The extension's App Group is deliberately an **empty array**, matching
   Apple's sample. Forcing a value makes the system discard the extension.
 - USB detection must match `IOUSBHostDevice` (not `kIOUSBDeviceClassName`,
-  which is the old stack) and filter by **reading each device's `idVendor`
-  property** — filtering through the matching dictionary fails silently.
+  which is the old stack) and filter by **reading each device's properties**
+  (`idVendor`, `kUSBVendorString`, `kUSBSerialNumberString`) — filtering
+  through the matching dictionary fails silently.
 - A `main.swift`, even empty, is required in the extension target as its entry
   point.
 - `UNUserNotificationCenter.requestAuthorization` called **before**
@@ -273,6 +275,19 @@ Each of these produces an error that points somewhere other than its cause.
   moment earlier and never ran it.
 
 ## Hardware behaviour
+
+- **Not every HumanWare device carries HumanWare's vendor ID** (`0x1C71`).
+  Measured on a tester's devices, 27 Oct 2026: the StellarTrek announces
+  Google's generic `18d1:4ee1` with "Humanware" as its USB manufacturer; the
+  BrailleNote Touch Plus announces Qualcomm's `05c6:f003`, "Android" as
+  manufacturer and product, and only its serial number (`65040000XXXX` or
+  `65050000XXXX`, the tester says; `650500000132` measured) tells it apart.
+  `KnownDevices` holds the rule, in two halves: the agent judges the USB
+  descriptor through IOKit, with no MTP; the extension and the CLI, which get
+  only IDs from libmtp before opening, open a lookalike and check its MTP
+  model or serial — HumanWare's own devices first, so that a phone beside a
+  display is opened only when nothing better is there. Neither device has
+  been served through the Finder yet: the author owns neither.
 
 - **MTP allows one session at a time.** While the extension holds the
   connection, the CLI fails with `libusb_claim_interface = -3`, and vice versa.

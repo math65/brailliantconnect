@@ -78,12 +78,12 @@ final class DisplayAccess {
 
     private func connection() throws -> Brailliant {
         if let display { return display }
-        // Filter on HumanWare: a connected Android phone is an MTP device like
-        // any other.
+        // Only the devices `KnownDevices` accepts: a connected Android phone
+        // is an MTP device like any other.
         Self.log.info("opening an MTP session")
         let opened: Brailliant
         do {
-            opened = try Brailliant(vendorID: humanwareVendorID)
+            opened = try Brailliant(knownDevicesOnly: true)
         } catch {
             // Its own line in the ledger: the operation that needed the
             // connection logs its failure too, but only this one says the
