@@ -341,7 +341,21 @@ plugged into the display invisible with no way to reach it. Consequences:
   walks every storage, so the whole location reconnected each time the
   Finder looked. `Storage.isEmptySlot` (capacity ≥ 2^60) marks such a slot;
   the extension leaves it out, `info` prints it as empty. Whether a stick
-  plugged in later then reports a real capacity is not measured.
+  plugged in later then reports a real capacity is not measured on the
+  Chameleon.
+
+  The BI 40X fills an empty slot differently, with plausible figures
+  (measured 13 Nov 2026 on the author's display, no stick plugged): storage
+  `0xffff0002`, "3- usb", 511 647 744 bytes, 20 258 816 free — "511,6 Mo,
+  96 %", the same rounded figures as the Chameleon's phantom SD card — and
+  it lists empty without error. Its type, file system and access fields
+  are those of the internal memory, so nothing but those figures tells it
+  apart, and `isEmptySlot` lets it through. Plugging a stick in afterwards
+  keeps the **same storage ID** with the stick's real capacity (30,8 GB),
+  and `~/Brailliant/usb/` listed the stick's files at once, with no
+  reconnection. That is the argument for leaving this phantom visible:
+  hidden, the folder would come back only when the Finder next enumerated
+  the root, and a stick would seem missing.
 - MTP cannot move across storages: that case downloads and re-uploads, and only
   deletes the original once the copy has landed.
 - **nothing is created at the root.** Refusing an import means calling the
