@@ -1,5 +1,23 @@
 # Release notes
 
+## v1.3.0 — 13/11/2026
+
+Two more HumanWare devices are recognised, and an empty port no longer makes
+the Brailliant folder reconnect.
+
+### The StellarTrek and the BrailleNote Touch Plus
+- These two devices do not introduce themselves on USB as HumanWare products,
+  but as generic Android devices, so BrailliantConnect ignored them. It now
+  recognises them: the StellarTrek by the manufacturer name it announces, the
+  BrailleNote Touch Plus by its serial number. A phone plugged in beside them
+  is still left alone.
+
+### An empty port stays quiet
+- Some devices, such as the APH Chameleon 20, announce their USB port even
+  with nothing plugged into it. Each time the Finder looked at that port, the
+  whole Brailliant folder reconnected, and froze for a moment. That empty port
+  is no longer shown.
+
 ## v1.2.2 — 22/10/2026
 
 When the app cannot start, it now says why — and repairs the most common

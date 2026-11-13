@@ -192,6 +192,26 @@ Adding a source file now means adding it in Xcode, which writes it into
 build, and the error says `cannot find '<Type>' in scope` for code that is
 plainly there.
 
+**Go through Xcode's MCP server, not around it.** Usable on this project
+since 13 Nov 2026 (checked that day: `XcodeOpenWorkspace` opens
+`App/BrailliantConnect.xcodeproj`, `XcodeListTargets` lists both targets,
+`GetTargetBuildSettings` reads the settings above). The author prefers the
+official route to a hand edit, which can leave the project file subtly
+wrong — so, in this order:
+
+- **adding, moving, removing files** (`XcodeWrite`, `XcodeMV`, `XcodeRM`),
+  **reading and changing build settings** (`GetTargetBuildSettings`,
+  `UpdateTargetBuildSetting`), **building** and **reading build errors**
+  (`BuildProject`, `GetBuildLog`): through the MCP. Open the project with
+  `XcodeOpenWorkspace` first; a path is not accepted as a workspace
+  identifier until it is open.
+- **only when the MCP cannot do it** — `xcodebuild` in scripts
+  (`make-dist.sh`, the `/extension` loop), project-level settings such as
+  `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` that the release skill
+  sets with `sed`, per-SDK conditions the MCP refuses: the terminal is fine,
+  and afterwards the project is opened in Xcode (or read back through
+  `GetTargetBuildSettings`) to check that it still accepts the file.
+
 ## Testing the Finder extension
 
 Use `/extension`. Every step is required — skipping one silently tests a stale
