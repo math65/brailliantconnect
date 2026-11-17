@@ -639,6 +639,29 @@ final class DisplayAccess {
             let (original, number) = try object(identifier)
             var current = original
 
+            // Each step is recorded the moment the display has carried it
+            // out. Recorded at the end, a move that succeeded followed by a
+            // rename that failed left the number on a path that no longer
+            // existed: the retry answered "no such item", the system dropped
+            // the file, and it came back under a new number at the next
+            // listing.
+            func record(_ step: Entry) {
+                let from = Self.location(of: current)
+                let to = Self.location(of: step)
+                if to != from {
+                    // The item keeps its number wherever it went, and so does
+                    // everything inside it: the system knows them all by
+                    // number.
+                    dropCaches(below: from)
+                    dropCaches(below: to)
+                    identities.move(from: from, to: to)
+                    invalidate(parentOf: from)
+                    invalidate(parentOf: to)
+                }
+                current = step
+                index[number] = step
+            }
+
             // The destination is settled before anything is written. A move to
             // the root is declined, and declining it after the new contents had
             // gone out would leave the display changed by a request the
@@ -669,11 +692,12 @@ final class DisplayAccess {
                     // A package edited on the Mac: the whole of it again.
                     let replaced = try display.replaceFolder(
                         current.path, with: localContents, progress: progress)
-                    current = replaced.entry
+                    record(replaced.entry)
                     uploaded = replaced.sent
                 } else {
-                    current = try display.upload(
-                        localContents.path, to: current.path, progress: progress)
+                    record(
+                        try display.upload(
+                            localContents.path, to: current.path, progress: progress))
                     uploaded = current.size
                 }
             }
@@ -681,8 +705,9 @@ final class DisplayAccess {
             if let destination {
                 if destination.storageID == current.storageID {
                     do {
-                        current = try target(current.storageID).move(
-                            current.path, toFolder: destination.path)
+                        record(
+                            try target(current.storageID).move(
+                                current.path, toFolder: destination.path))
                     } catch MTPError.moveIntoItself {
                         // A folder into its own subtree. The system never sends
                         // that for a change made on the Mac, so the index is
@@ -697,9 +722,10 @@ final class DisplayAccess {
                 } else {
                     // MTP cannot move across storages: dragging from the stick
                     // to the internal memory has to go through the Mac.
-                    current = try relocate(
-                        current, toFolder: destination.path, onStorage: destination.storageID,
-                        progress: progress)
+                    record(
+                        try relocate(
+                            current, toFolder: destination.path,
+                            onStorage: destination.storageID, progress: progress))
                 }
             }
             // A name the display cannot store — a slash, a backslash — is left
@@ -709,23 +735,15 @@ final class DisplayAccess {
             var refusedName = false
             if let newName, newName != current.name {
                 if RemotePath.isSafeComponent(newName) {
-                    current = try target(current.storageID).rename(current.path, to: newName)
+                    record(try target(current.storageID).rename(current.path, to: newName))
                 } else {
                     refusedName = true
                 }
             }
 
-            // The item keeps its number wherever it went, and so does
-            // everything inside it: the system knows them all by number.
-            let origin = Self.location(of: original)
-            let arrival = Self.location(of: current)
-            if arrival != origin {
-                dropCaches(below: origin)
-                dropCaches(below: arrival)
-                identities.move(from: origin, to: arrival)
-            }
-            invalidate(parentOf: origin)
-            invalidate(parentOf: arrival)
+            // New contents change the size the parent's listing shows.
+            invalidate(parentOf: Self.location(of: original))
+            invalidate(parentOf: Self.location(of: current))
             let item = displayItem(for: current)
             // Only possible if the table was lost mid-call; said rather than
             // hidden, since the system would otherwise hold a dead number.

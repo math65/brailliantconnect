@@ -420,7 +420,10 @@ tested without hardware). Each number is tied to a storage and a path:
   number is retired;
 - a rename or a move made through the extension keeps the number, for the
   item and everything below it — across storages too; something renamed on
-  the display itself gets a new one, since nothing says it is the same item;
+  the display itself gets a new one, since nothing says it is the same item.
+  A modification that moves *and* renames is recorded step by step, as each
+  one lands: a move that succeeds before a rename fails leaves the number on
+  the moved item, not on a path that is gone;
 - a new item gets a new number even where an old one was held for its path;
   a listing retires the numbers of what its folder no longer holds;
 - the table is kept in the extension's container, beside the ledger, as
@@ -436,8 +439,11 @@ Measured 17 Nov 2026 on the author's BI 40X with a stick: after a file was
 added and the extension killed between each step, files never opened before
 read through the Finder with the same MD5 as through the CLI, on both
 storages; a rename and then a deletion from the Terminal hit the test file
-and nothing else (`tree` of both storages identical before and after). Not
-measured on a BI 20X with an SD card.
+and nothing else (`tree` of both storages identical before and after). A
+move and rename in one `mv`, within the internal memory and then to the
+stick, kept the item's number (`fileproviderctl evaluate`) and its MD5; the
+case where the rename fails after the move was not reproduced on the
+device. Not measured on a BI 20X with an SD card.
 
 ## Packages
 
