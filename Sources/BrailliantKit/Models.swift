@@ -50,7 +50,11 @@ public struct Storage: Sendable, Equatable {
     /// near 2^60 bytes (an exbibyte), so anything above is no medium at all;
     /// the threshold rather than the exact value also covers a device writing
     /// 2^64 − 1 for the same purpose.
-    public var isEmptySlot: Bool { capacity >= 1 << 60 }
+    ///
+    /// A Brailliant BI 20X puts the placeholder in the free space instead: its
+    /// "3- usb" came in a user's report (14 Nov 2026) as 2^62 bytes free out of
+    /// a capacity under 1 MB. Either figure that high is no medium.
+    public var isEmptySlot: Bool { capacity >= 1 << 60 || free >= 1 << 60 }
 }
 
 /// Resolution of a storage from whatever the user typed.

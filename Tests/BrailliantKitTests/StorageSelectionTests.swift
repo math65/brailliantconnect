@@ -104,6 +104,15 @@ final class StorageSelectionTests: XCTestCase {
         XCTAssertTrue(port.isEmptySlot)
     }
 
+    /// The figures a BI 20X's report gave for its "3- usb": 2^62 bytes free
+    /// out of less than 1 MB. The exact capacity was not in the report.
+    func testBI20XEmptyUSBPortIsAnEmptySlot() {
+        for capacity: UInt64 in [0, 1, 999_999] {
+            let port = Storage(id: 0xFFFF_0002, description: "3- usb", capacity: capacity, free: 1 << 62)
+            XCTAssertTrue(port.isEmptySlot, "\(capacity) bytes with 2^62 free")
+        }
+    }
+
     /// The other storages of the same Chameleon, a BI 40X's internal memory
     /// and a large disk must all stay visible.
     func testRealMediaAreNotEmptySlots() {
