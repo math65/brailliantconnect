@@ -20,6 +20,32 @@ it is the only way they ever reach a version that reads this one.
     <description>Updates to BrailliantConnect</description>
     <language>en</language>
     <item>
+      <title>BrailliantConnect 1.3.0</title>
+      <pubDate>Tue, 17 Nov 2026 10:33:32 GMT</pubDate>
+      <sparkle:version>12</sparkle:version>
+      <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<div lang="en">
+<p>This update provides important bug fixes and adds support for two more HumanWare devices.</p>
+<h2>Devices</h2>
+<ul><li>Support for StellarTrek</li><li>Support for BrailleNote Touch Plus</li></ul>
+<p>This update also includes the following bug fixes:</p>
+<ul><li>Folders on the display may become unavailable after the display reconnects, especially on an SD card or a USB drive</li><li>In rare circumstances, renaming or deleting an item in the Finder after the display reconnects may affect a different item</li><li>An empty USB port may cause the Brailliant folder to reconnect repeatedly on APH Chameleon 20</li><li>An empty "usb" folder may appear on Brailliant BI 20X</li></ul>
+</div>
+]]></description>
+      <description xml:lang="fr"><![CDATA[
+<div lang="fr">
+<p>Cette mise à jour apporte des corrections de bugs importantes et prend en charge deux nouveaux appareils HumanWare.</p>
+<h2>Appareils</h2>
+<ul><li>Prise en charge du StellarTrek</li><li>Prise en charge de la BrailleNote Touch Plus</li></ul>
+<p>Cette mise à jour comprend également les corrections de bugs suivantes :</p>
+<ul><li>Les dossiers de la plage peuvent devenir inaccessibles après une reconnexion, en particulier sur une carte SD ou une clé USB</li><li>Dans de rares cas, renommer ou supprimer un élément dans le Finder après une reconnexion de la plage peut affecter un autre élément</li><li>Un port USB vide peut provoquer des reconnexions répétées du dossier Brailliant sur l'APH Chameleon 20</li><li>Un dossier « usb » vide peut apparaître sur la Brailliant BI 20X</li></ul>
+</div>
+]]></description>
+      <enclosure url="https://github.com/math65/brailliantconnect/releases/download/v1.3.0/BrailliantConnect.zip" sparkle:edSignature="5v/7KAgJ5u4bDtPeQzSzpeSjI9QMwbSRvUwhJF7txO7pgB/udxNhfFgKCdLuUSnocsis3si3+GGvOiBLIfjhDA==" length="2638781" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>BrailliantConnect 1.2.2</title>
       <pubDate>Thu, 22 Oct 2026 11:11:43 GMT</pubDate>
       <sparkle:version>10</sparkle:version>
