@@ -77,7 +77,7 @@ audience:
 
 ```bash
 swift build -c release        # CLI — run from the repo root
-swift test                    # 99 tests
+swift test                    # 111 tests
 ```
 
 `Package.swift` links libmtp through the **relative** path
@@ -311,6 +311,20 @@ Each of these produces an error that points somewhere other than its cause.
 
 - **MTP allows one session at a time.** While the extension holds the
   connection, the CLI fails with `libusb_claim_interface = -3`, and vice versa.
+- **Object handles last one session, and number what was listed, in the
+  order it was listed.** Measured 17 Nov 2026 on the author's BI 40X with
+  `brailliant ls|tree --ids`, after a BI 20X user's SD folders failed with
+  `notADirectory`: each new session numbers objects from a counter as their
+  folders are listed — the same file was object 16 after a `tree` and 9
+  when its folder was listed first; one file added shifts every number
+  after it; the internal memory and the USB stick hand out the same numbers
+  (11 to 17 on both). Same order, same numbers, which is why it looked
+  stable. Up to 1.3.0 beta 1 the extension used these handles as
+  `NSFileProviderItemIdentifier`, which the system keeps across sessions:
+  after any reconnection an identifier could designate another object — a
+  folder answered as a file, and by the same code path a deletion or rename
+  applied to the wrong item. Nothing persistent may be built on a handle;
+  see **Item identifiers**.
 - **A visible display is not a reachable one.** Three states are told apart by
   `USBWatcher.availability()`, by inspecting the device's child interfaces on
   the **IOService plane** (`ioreg -p IOUSB` shows a different tree and will not
@@ -346,20 +360,18 @@ The root of the domain holds **one folder per storage**, never files: the
 extension used to call `defaultStorage()` everywhere, which left a USB stick
 plugged into the display invisible with no way to reach it. Consequences:
 
-- storage folders carry a `storage:<id>` identifier. MTP object identifiers are
-  plain numbers, so the prefix is what keeps the two from being confused.
+- storage folders carry a `storage:<id>` identifier, items an `item:<n>` one
+  (see **Item identifiers**); the prefixes keep the two from being confused,
+  and keep a bare MTP handle from older versions from being read as either.
 - every path is relative to its own storage — `/documents` exists on both — so
   `DisplayAccess.target(_:)` points the connection at the right one before each
   operation. Nothing calls `connection()` directly any more.
-- rebuilding the index after the extension is recycled walks **every** storage,
-  or an item on the stick becomes unreachable for having been listed by a
-  previous process.
 - **a declared storage may hold nothing.** An APH Chameleon 20 announces its
   USB port with no stick in it, at 2^63 − 1 bytes (2^62 free), and listing
   it fails with PTP error 02fe (measured 27 Oct 2026 on a tester's device,
-  twice). `listingFailed` resets the connection, and rebuilding the index
-  walks every storage, so the whole location reconnected each time the
-  Finder looked. `Storage.isEmptySlot` (capacity ≥ 2^60) marks such a slot;
+  twice). `listingFailed` resets the connection, and items were then looked
+  up again by walking every storage, so the whole location reconnected each
+  time the Finder looked. `Storage.isEmptySlot` (capacity ≥ 2^60) marks such a slot;
   the extension leaves it out, `info` prints it as empty. Whether a stick
   plugged in later then reports a real capacity is not measured on the
   Chameleon.
@@ -395,6 +407,37 @@ Code shell, macOS's app-data protection answers "Operation not permitted",
 sandbox or not, and so does the Finder driven through `osascript` (measured
 15 Oct 2026). What reached the display is better read on the display itself:
 `brailliant finder off`, then `brailliant tree`.
+
+## Item identifiers
+
+The display renumbers its objects at every MTP session (see **Hardware
+behaviour**), so the identifier the system holds for an item is ours:
+`item:<n>`, from `ItemIdentities` (`Sources/BrailliantKit/ItemIdentities.swift`,
+tested without hardware). Each number is tied to a storage and a path:
+
+- looking an item up resolves that path **in the current session**, never a
+  handle from an earlier one; nothing there any more is "not found", and the
+  number is retired;
+- a rename or a move made through the extension keeps the number, for the
+  item and everything below it — across storages too; something renamed on
+  the display itself gets a new one, since nothing says it is the same item;
+- a new item gets a new number even where an old one was held for its path;
+  a listing retires the numbers of what its folder no longer holds;
+- the table is kept in the extension's container, beside the ledger, as
+  `identities.json`, and written only when it changes. The system keeps its
+  identifiers for as long as the location is published, while it recycles
+  the extension freely: without the file, a new process could not resolve
+  them. An unreadable file starts a new table, and old numbers are then "not
+  found" — never another item.
+- the session's own cache (`index`, `contents`) is keyed by these numbers and
+  goes with the connection.
+
+Measured 17 Nov 2026 on the author's BI 40X with a stick: after a file was
+added and the extension killed between each step, files never opened before
+read through the Finder with the same MD5 as through the CLI, on both
+storages; a rename and then a deletion from the Terminal hit the test file
+and nothing else (`tree` of both storages identical before and after). Not
+measured on a BI 20X with an SD card.
 
 ## Packages
 

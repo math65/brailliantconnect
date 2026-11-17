@@ -60,19 +60,31 @@ final class DisplayAccess {
     private let queue = DispatchQueue(label: "brailliant.acces", qos: .userInitiated)
     private var display: Brailliant?
 
-    /// Known entries, indexed by MTP identifier.
-    private var index: [UInt32: Entry] = [:]
+    /// Entries read during this session, under the numbers the Finder knows
+    /// them by. The MTP handles inside are this session's only: the display
+    /// renumbers everything at the next one, so all of this goes with the
+    /// connection (see `ItemIdentities`).
+    private var index: [UInt64: Entry] = [:]
     /// Contents of the folders already enumerated, with the date they were read.
-    private var contents: [UInt32: (entries: [Entry], read: Date)] = [:]
+    private var contents: [UInt64: (entries: [Entry], read: Date)] = [:]
+    /// The identifiers handed to the system, which outlive the session, the
+    /// connection and this process.
+    private var identities: ItemIdentities
+    /// What the file holds: written again only when the table differs. Asking
+    /// for a number already given changes nothing, and the Finder lists far
+    /// more often than anything new appears.
+    private var savedIdentities: ItemIdentities
+
+    init() {
+        identities = Self.loadIdentities()
+        savedIdentities = identities
+    }
     /// Top level of each storage, kept apart: a storage identifier and an
     /// object identifier are both plain numbers and would collide in one
     /// dictionary.
     private var storageContents: [UInt32: (entries: [Entry], read: Date)] = [:]
     /// The list of storages, which changes the moment a stick is plugged in.
     private var storageList: (storages: [Storage], read: Date)?
-
-    /// Conventional MTP identifier of the root.
-    private static let root: UInt32 = 0xFFFF_FFFF
 
     // MARK: - Connection
 
@@ -137,6 +149,7 @@ final class DisplayAccess {
 
     func close() {
         queue.sync {
+            saveIdentities()
             display?.close()
             display = nil
             index.removeAll()
@@ -161,8 +174,8 @@ final class DisplayAccess {
 
     /// True when an error casts doubt on the connection itself.
     ///
-    /// Resetting after every failure threw away the index and reopened the
-    /// session — ~130 ms and a full re-walk — for an answer as ordinary as "this
+    /// Resetting after every failure threw away the session's cache and
+    /// reopened it — ~130 ms and every path resolved again — for an answer as ordinary as "this
     /// file is no longer there". Only what the device or the transfer failed at
     /// warrants it. Unknown cases count as suspect: a reconnection too many
     /// costs a moment, one too few leaves a dead session in place.
@@ -191,6 +204,8 @@ final class DisplayAccess {
     /// Never call from code already on `queue`.
     private func serialized<T>(_ body: () throws -> T) throws -> T {
         try queue.sync {
+            // Whatever the outcome: a failed move may still have renamed.
+            defer { saveIdentities() }
             do {
                 return try body()
             } catch {
@@ -202,27 +217,115 @@ final class DisplayAccess {
 
     // MARK: - Reading
 
-    /// The MTP object an identifier designates, if it designates one at all.
-    ///
-    /// Only plain numbers do. This used to fall back to the root for anything
-    /// else, and the root then went looking for itself among the objects: a
-    /// storage folder's metadata push walked every storage and ended in "the
-    /// file does not exist". The working set, the trash and anything the
-    /// system invents later are not objects either, and saying so up front
-    /// costs nothing.
-    private func objectID(_ identifier: NSFileProviderItemIdentifier) -> UInt32? {
-        UInt32(identifier.rawValue)
+    // MARK: Identities
+
+    /// Where the identifiers are kept, beside the ledger: the system keeps
+    /// them for as long as the location is published, and recycles this
+    /// process freely meanwhile.
+    private static var identitiesFile: URL {
+        Ledger.directory.appendingPathComponent("identities.json")
     }
 
-    /// The entry behind an object identifier — anything else is not found,
-    /// without walking the display in search of it.
+    /// An unreadable file starts a new table: the numbers the system still
+    /// holds then designate nothing, and are answered "not found", never
+    /// another item.
+    private static func loadIdentities() -> ItemIdentities {
+        guard let data = try? Data(contentsOf: identitiesFile),
+            let table = try? JSONDecoder().decode(ItemIdentities.self, from: data)
+        else { return ItemIdentities() }
+        return table
+    }
+
+    /// Best effort, like the snapshot: failing to save must never turn into
+    /// failing to serve the Finder. Lost, the table costs the system a new
+    /// number for each item it asks about again, nothing worse.
     ///
     /// Callers must already hold `queue`.
-    private func object(_ identifier: NSFileProviderItemIdentifier) throws -> Entry {
-        guard let itemID = objectID(identifier) else {
+    private func saveIdentities() {
+        guard identities != savedIdentities,
+            let data = try? JSONEncoder().encode(identities)
+        else { return }
+        try? FileManager.default.createDirectory(
+            at: Ledger.directory, withIntermediateDirectories: true)
+        if (try? data.write(to: Self.identitiesFile, options: .atomic)) != nil {
+            savedIdentities = identities
+        }
+    }
+
+    private static func location(of entry: Entry) -> ItemLocation {
+        ItemLocation(storageID: entry.storageID, path: entry.path)
+    }
+
+    /// The identifier of the folder holding `location`: its storage's folder
+    /// at the top level, a numbered folder below.
+    ///
+    /// Callers must already hold `queue`.
+    private func parentIdentifier(of location: ItemLocation) -> NSFileProviderItemIdentifier {
+        let parent = location.parent
+        if parent.path == "/" { return StorageIdentifier.make(location.storageID) }
+        return ItemIdentifier.make(identities.number(for: parent))
+    }
+
+    /// The Finder item for an entry just read, numbered — and remembered for
+    /// the rest of the session under that number.
+    ///
+    /// Callers must already hold `queue`.
+    private func displayItem(for entry: Entry) -> DisplayItem {
+        let location = Self.location(of: entry)
+        let number = identities.number(for: location)
+        index[number] = entry
+        return DisplayItem(
+            entry: entry, number: number, parent: parentIdentifier(of: location))
+    }
+
+    /// The entry behind an identifier, read in this session.
+    ///
+    /// Anything that is not one of our numbers is not found, without asking
+    /// the display: the working set, the trash, a storage folder, and the
+    /// plain MTP handles that versions up to 1.3.0 beta 1 handed out — which
+    /// designate whatever the display numbered that way this time.
+    ///
+    /// Callers must already hold `queue`.
+    private func object(_ identifier: NSFileProviderItemIdentifier) throws -> (Entry, UInt64) {
+        guard let number = ItemIdentifier.parse(identifier) else {
             throw MTPError.notFound(path: identifier.rawValue)
         }
-        return try entry(withID: itemID, identifier: identifier.rawValue)
+        return (try entry(numbered: number), number)
+    }
+
+    /// Looks an entry up by its number, reading its path again in this session
+    /// if need be.
+    ///
+    /// The system stops and restarts the extension freely, and every connection
+    /// numbers the display's objects anew. The Finder still refers to items by
+    /// an identifier it obtained earlier, so the number leads to a path, and
+    /// the path is resolved now — never a handle from an earlier session.
+    /// Nothing at that path any more: the item is gone, and so is its number.
+    ///
+    /// Callers must already hold `queue`.
+    private func entry(numbered number: UInt64) throws -> Entry {
+        if let entry = index[number] { return entry }
+        guard let location = identities.location(of: number) else {
+            throw MTPError.notFound(path: "item \(number)")
+        }
+        guard let found = try target(location.storageID).resolve(location.path) else {
+            identities.forget(location)
+            throw MTPError.notFound(path: location.path)
+        }
+        index[number] = found
+        return found
+    }
+
+    /// Forgets what this session cached at and below a location that has just
+    /// moved, been renamed or gone. Its numbers are another matter, settled by
+    /// the caller.
+    ///
+    /// Callers must already hold `queue`.
+    private func dropCaches(below location: ItemLocation) {
+        for (number, entry) in index where location.contains(Self.location(of: entry)) {
+            index.removeValue(forKey: number)
+            contents.removeValue(forKey: number)
+        }
     }
 
     /// What an identifier designates.
@@ -234,15 +337,16 @@ final class DisplayAccess {
         case root
         /// The top level of a storage.
         case storage(UInt32)
-        /// A folder inside a storage.
-        case folder(Entry)
+        /// A folder inside a storage, and its number.
+        case folder(Entry, UInt64)
     }
 
     /// Callers must already hold `queue`.
     private func container(for identifier: NSFileProviderItemIdentifier) throws -> Container {
         if identifier == .rootContainer { return .root }
         if let storageID = StorageIdentifier.parse(identifier) { return .storage(storageID) }
-        return .folder(try object(identifier))
+        let (entry, number) = try object(identifier)
+        return .folder(entry, number)
     }
 
     /// Points the connection at a storage before acting on it.
@@ -262,9 +366,9 @@ final class DisplayAccess {
     /// changes this list and nothing signals it.
     ///
     /// Empty slots are left out (see `Storage.isEmptySlot`): listing one fails,
-    /// that failure resets the connection, and rebuilding the index walks
-    /// every storage returned here — so one empty USB port made the whole
-    /// location reconnect over and over.
+    /// and that failure resets the connection — when items were still looked
+    /// up by walking every storage returned here, one empty USB port made the
+    /// whole location reconnect over and over.
     ///
     /// Callers must already hold `queue`.
     private func storages() throws -> [Storage] {
@@ -290,14 +394,14 @@ final class DisplayAccess {
                     return try storages().map { DisplayItem(storage: $0) }
                 case .storage(let storageID):
                     return try list(
-                        "/", on: storageID,
+                        ItemLocation(storageID: storageID, path: "/"),
                         cached: storageContents[storageID],
                         store: { self.storageContents[storageID] = $0 })
-                case .folder(let entry):
+                case .folder(let entry, let number):
                     return try list(
-                        entry.path, on: entry.storageID,
-                        cached: contents[entry.itemID],
-                        store: { self.contents[entry.itemID] = $0 })
+                        Self.location(of: entry),
+                        cached: contents[number],
+                        store: { self.contents[number] = $0 })
                 }
             } catch {
                 Self.log.error("enumeration failed: \(String(describing: error))")
@@ -310,39 +414,22 @@ final class DisplayAccess {
     ///
     /// Callers must already hold `queue`.
     private func list(
-        _ path: String, on storageID: UInt32,
+        _ folder: ItemLocation,
         cached: (entries: [Entry], read: Date)?,
         store: ((entries: [Entry], read: Date)) -> Void
     ) throws -> [NSFileProviderItem] {
         if let cached, Date().timeIntervalSince(cached.read) < Self.freshness {
-            return cached.entries.map { DisplayItem(entry: $0) }
+            return cached.entries.map { displayItem(for: $0) }
         }
-        let entries = try target(storageID).listDirectory(path)
+        let entries = try target(folder.storageID).listDirectory(folder.path)
             .filter { !MacJunk.matches($0.name) }
-        for entry in entries { index[entry.itemID] = entry }
-        store((entries, Date()))
-        return entries.map { DisplayItem(entry: $0) }
-    }
-
-    /// Looks up an entry, re-reading the tree if the index does not know it.
-    ///
-    /// The system stops and restarts the extension freely, and every instance
-    /// starts with an empty index. The Finder still refers to items by an
-    /// identifier it obtained earlier, so any lookup has to be able to rebuild
-    /// what it needs — failing outright would make a file unreadable purely
-    /// because the process was recycled since it was listed.
-    ///
-    /// Callers must already hold `queue`.
-    private func entry(withID itemID: UInt32, identifier: String) throws -> Entry {
-        if let entry = index[itemID] { return entry }
-        // Every storage, not just the default one: an item on a plugged-in
-        // stick would otherwise be unreachable for no reason other than the
-        // process having been recycled since it was listed.
-        for storage in try storages() {
-            for entry in try target(storage.id).walk("/") { index[entry.itemID] = entry }
-            if let entry = index[itemID] { return entry }
+        // What the folder no longer holds was deleted on the display itself.
+        for number in identities.keepOnly(Set(entries.map(\.name)), in: folder) {
+            index.removeValue(forKey: number)
+            contents.removeValue(forKey: number)
         }
-        throw MTPError.notFound(path: identifier)
+        store((entries, Date()))
+        return entries.map { displayItem(for: $0) }
     }
 
     func item(for identifier: NSFileProviderItemIdentifier) throws -> NSFileProviderItem {
@@ -356,7 +443,7 @@ final class DisplayAccess {
                 }
                 return DisplayItem(storage: storage)
             }
-            return DisplayItem(entry: try object(identifier))
+            return displayItem(for: try object(identifier).0)
         }
     }
 
@@ -367,7 +454,7 @@ final class DisplayAccess {
         throws -> (URL, NSFileProviderItem)
     {
         try serialized {
-            let entry = try object(identifier)
+            let (entry, _) = try object(identifier)
             // The system expects a temporary file that it will copy itself.
             let destination = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
@@ -378,7 +465,7 @@ final class DisplayAccess {
             } else {
                 _ = try display.download(entry.path, to: destination.path, progress: progress)
             }
-            return (destination, DisplayItem(entry: entry))
+            return (destination, displayItem(for: entry))
         }
     }
 
@@ -404,7 +491,7 @@ final class DisplayAccess {
                 storages: (try? storages())?.map { StorageIdentifier.folderName(for: $0) } ?? [])
         case .storage(let storageID):
             return ("/", storageID)
-        case .folder(let entry):
+        case .folder(let entry, _):
             return (entry.path, entry.storageID)
         }
     }
@@ -412,8 +499,8 @@ final class DisplayAccess {
     /// Forgets what was cached about a folder, so the next listing is read again.
     ///
     /// Callers must already hold `queue`.
-    private func invalidate(folder itemID: UInt32) {
-        contents.removeValue(forKey: itemID)
+    private func invalidate(folder number: UInt64) {
+        contents.removeValue(forKey: number)
     }
 
     /// Same, for a container named by its identifier — which may be a storage.
@@ -426,29 +513,7 @@ final class DisplayAccess {
             storageList = nil
             return
         }
-        if let itemID = objectID(identifier) { invalidate(folder: itemID) }
-    }
-
-    /// Forgets everything known below a folder that has just moved, been
-    /// renamed or gone.
-    ///
-    /// Entries carry their full path, and a child's path names every folder
-    /// above it. Once one of those changes, what the index holds below it
-    /// points at nothing: a later download, rename or delete would resolve a
-    /// path that no longer exists and answer "not found" for a file that is
-    /// still there. Dropped, they are looked up again — by a walk if need be.
-    ///
-    /// Callers must already hold `queue`.
-    private func forget(subtreeOf entry: Entry) {
-        contents.removeValue(forKey: entry.itemID)
-        let prefix = entry.path.hasSuffix("/") ? entry.path : entry.path + "/"
-        let stale = index.values
-            .filter { $0.storageID == entry.storageID && $0.path.hasPrefix(prefix) }
-            .map(\.itemID)
-        for itemID in stale {
-            index.removeValue(forKey: itemID)
-            contents.removeValue(forKey: itemID)
-        }
+        if let number = ItemIdentifier.parse(identifier) { invalidate(folder: number) }
     }
 
     /// Creates a file or a folder.
@@ -460,7 +525,7 @@ final class DisplayAccess {
     ///   cannot know about a file created on the display since it last looked,
     ///   and overwriting it would destroy it without a word. Reported, the
     ///   collision makes the system rename the incoming item instead.
-    /// - Returns: the created entry and the bytes sent, if any; nil when a
+    /// - Returns: the created item and the bytes sent, if any; nil when a
     ///   replayed import matches nothing — which tells the system to drop its
     ///   copy.
     func create(
@@ -470,7 +535,7 @@ final class DisplayAccess {
         localContents: URL?,
         mayAlreadyExist: Bool,
         progress: @escaping (UInt64, UInt64) -> Void
-    ) throws -> (entry: Entry, sent: UInt64?)? {
+    ) throws -> (item: DisplayItem, sent: UInt64?)? {
         try serialized {
             guard RemotePath.isSafeComponent(name) else {
                 throw MTPError.unsafeRemoteName(name)
@@ -518,9 +583,13 @@ final class DisplayAccess {
             } else {
                 throw MTPError.localFileMissing(path: name)
             }
-            index[created.itemID] = created
+            // A new item gets a new number. One still held for this path
+            // belonged to something deleted on the display itself since the
+            // Finder last looked; that item is gone, and the number with it.
+            // A replay is the same item again, and keeps its own.
+            if !mayAlreadyExist { identities.forget(Self.location(of: created)) }
             invalidate(container: parent)
-            return (created, sent)
+            return (displayItem(for: created), sent)
         }
     }
 
@@ -557,17 +626,18 @@ final class DisplayAccess {
         return try serialized {
             // The same push, for an ordinary file or folder: dates, tags,
             // permissions — nothing MTP can store. Looking the item up would
-            // cost a walk of the whole display whenever the index is cold, for
-            // an answer that cannot differ from what the system already holds.
+            // cost a listing per folder of its path whenever the session's
+            // cache is cold, for an answer that cannot differ from what the
+            // system already holds.
             if newName == nil, newParent == nil, localContents == nil {
-                let known = objectID(identifier).flatMap { index[$0] }
+                let known = ItemIdentifier.parse(identifier).flatMap { index[$0] }
                 return Modification(
-                    item: known.map { DisplayItem(entry: $0) } ?? echo,
+                    item: known.map { displayItem(for: $0) } ?? echo,
                     refusedRoot: nil, refusedName: false, uploaded: nil)
             }
 
-            var current = try object(identifier)
-            let original = current
+            let (original, number) = try object(identifier)
+            var current = original
 
             // The destination is settled before anything is written. A move to
             // the root is declined, and declining it after the new contents had
@@ -578,7 +648,7 @@ final class DisplayAccess {
             // "Moved" into the folder it is already in — the system sends that.
             // The MTP layer treats it as a no-op too, but only after resolving
             // both paths on the display; known here, it costs nothing.
-            if let newParent, newParent != DisplayItem(entry: current).parentItemIdentifier {
+            if let newParent, newParent != parentIdentifier(of: Self.location(of: current)) {
                 do {
                     destination = try folder(for: newParent)
                 } catch let refusal as RootNotWritable {
@@ -645,19 +715,25 @@ final class DisplayAccess {
                 }
             }
 
-            if current.itemID != original.itemID {
-                index.removeValue(forKey: original.itemID)
+            // The item keeps its number wherever it went, and so does
+            // everything inside it: the system knows them all by number.
+            let origin = Self.location(of: original)
+            let arrival = Self.location(of: current)
+            if arrival != origin {
+                dropCaches(below: origin)
+                dropCaches(below: arrival)
+                identities.move(from: origin, to: arrival)
             }
-            if current.path != original.path || current.storageID != original.storageID
-                || current.itemID != original.itemID
-            {
-                forget(subtreeOf: original)
+            invalidate(parentOf: origin)
+            invalidate(parentOf: arrival)
+            let item = displayItem(for: current)
+            // Only possible if the table was lost mid-call; said rather than
+            // hidden, since the system would otherwise hold a dead number.
+            if item.number != number {
+                Self.log.error("item \(number) came back as \(item.number)")
             }
-            index[current.itemID] = current
-            invalidate(parent: original.parentID, on: original.storageID)
-            invalidate(parent: current.parentID, on: current.storageID)
             return Modification(
-                item: DisplayItem(entry: current), refusedRoot: refusedRoot,
+                item: item, refusedRoot: refusedRoot,
                 refusedName: refusedName, uploaded: uploaded, refusedMove: refusedMove)
         }
     }
@@ -683,8 +759,7 @@ final class DisplayAccess {
         let copied = try copyAcross(
             entry, toFolder: folder, onStorage: storageID, progress: progress)
         try target(entry.storageID).remove(entry.path, recursive: true)
-        forget(subtreeOf: entry)
-        index.removeValue(forKey: entry.itemID)
+        dropCaches(below: Self.location(of: entry))
         return copied
     }
 
@@ -732,12 +807,13 @@ final class DisplayAccess {
     /// top level of a storage.
     ///
     /// Callers must already hold `queue`.
-    private func invalidate(parent parentID: UInt32, on storageID: UInt32) {
-        if parentID == 0 || parentID == Self.root {
-            storageContents.removeValue(forKey: storageID)
+    private func invalidate(parentOf location: ItemLocation) {
+        let parent = location.parent
+        if parent.path == "/" {
+            storageContents.removeValue(forKey: location.storageID)
             storageList = nil
-        } else {
-            contents.removeValue(forKey: parentID)
+        } else if let number = identities.existingNumber(for: parent) {
+            contents.removeValue(forKey: number)
         }
     }
 
@@ -754,7 +830,7 @@ final class DisplayAccess {
             throw MTPError.cannotRemoveRoot
         }
         try serialized {
-            let doomed = try object(identifier)
+            let (doomed, _) = try object(identifier)
             let display = try target(doomed.storageID)
             var recursive = recursive
             if doomed.isDirectory && !recursive {
@@ -772,9 +848,10 @@ final class DisplayAccess {
             // The display has no trash: the Finder asking for a deletion means
             // the item goes for good.
             try display.remove(doomed.path, recursive: recursive)
-            index.removeValue(forKey: doomed.itemID)
-            forget(subtreeOf: doomed)
-            invalidate(parent: doomed.parentID, on: doomed.storageID)
+            let location = Self.location(of: doomed)
+            dropCaches(below: location)
+            identities.forget(location)
+            invalidate(parentOf: location)
         }
     }
 }

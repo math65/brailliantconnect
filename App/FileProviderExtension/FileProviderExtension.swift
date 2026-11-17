@@ -122,7 +122,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             // No field is left pending and nothing remains to upload: the
             // display holds the definitive copy already. No item at all is a
             // replayed import that matched nothing, and the system drops it.
-            completionHandler(created.map { DisplayItem(entry: $0.entry) }, [], false, nil)
+            completionHandler(created?.item, [], false, nil)
         } catch let refusal as RootNotWritable {
             // No item and no error: Apple's documented way of refusing an
             // import. The system then deletes what it wrote locally, instead of
@@ -407,16 +407,25 @@ final class DisplayItem: NSObject, NSFileProviderItem {
 
     private let entry: Entry?
     private let storage: Storage?
+    /// Our number for the entry — never its MTP handle, which the display
+    /// gives to another object at the next session (see `ItemIdentities`).
+    let number: UInt64
+    private let parent: NSFileProviderItemIdentifier
 
-    init(entry: Entry) {
+    /// Built by `DisplayAccess`, which alone holds the numbers.
+    init(entry: Entry, number: UInt64, parent: NSFileProviderItemIdentifier) {
         self.entry = entry
         self.storage = nil
+        self.number = number
+        self.parent = parent
         super.init()
     }
 
     init(root: Bool) {
         self.entry = nil
         self.storage = nil
+        self.number = 0
+        self.parent = .rootContainer
         super.init()
     }
 
@@ -428,25 +437,20 @@ final class DisplayItem: NSObject, NSFileProviderItem {
     init(storage: Storage) {
         self.entry = nil
         self.storage = storage
+        self.number = 0
+        self.parent = .rootContainer
         super.init()
     }
 
     var itemIdentifier: NSFileProviderItemIdentifier {
         if let storage { return StorageIdentifier.make(storage.id) }
-        guard let entry else { return .rootContainer }
-        return NSFileProviderItemIdentifier(String(entry.itemID))
+        guard entry != nil else { return .rootContainer }
+        return ItemIdentifier.make(number)
     }
 
-    var parentItemIdentifier: NSFileProviderItemIdentifier {
-        if storage != nil { return .rootContainer }
-        guard let entry else { return .rootContainer }
-        // At the top of a storage the parent is that storage's folder, not the
-        // root: the root holds storages and nothing else.
-        if entry.parentID == 0xFFFF_FFFF || entry.parentID == 0 {
-            return StorageIdentifier.make(entry.storageID)
-        }
-        return NSFileProviderItemIdentifier(String(entry.parentID))
-    }
+    /// At the top of a storage, that storage's folder, not the root: the root
+    /// holds storages and nothing else.
+    var parentItemIdentifier: NSFileProviderItemIdentifier { parent }
 
     var filename: String {
         if let storage { return StorageIdentifier.folderName(for: storage) }
@@ -457,7 +461,7 @@ final class DisplayItem: NSObject, NSFileProviderItem {
         // "a/b" exactly as the display sent them.
         return entry.hasSafeName
             ? entry.name
-            : RemotePath.safeComponent(entry.name, fallback: "item-\(entry.itemID)")
+            : RemotePath.safeComponent(entry.name, fallback: "item-\(number)")
     }
 
     var contentType: UTType {
@@ -528,6 +532,27 @@ final class DisplayItem: NSObject, NSFileProviderItem {
         return NSFileProviderItemVersion(
             contentVersion: Data(fingerprint.utf8),
             metadataVersion: Data(fingerprint.utf8))
+    }
+}
+
+// MARK: - Item identifiers
+
+/// Identifiers for the items on the display: our own numbers, from
+/// `ItemIdentities`.
+///
+/// Prefixed so that a plain number — the MTP handle every version up to
+/// 1.3.0 beta 1 used, which the display gives to another object at each
+/// session — can never be read as one of them.
+enum ItemIdentifier {
+    private static let prefix = "item:"
+
+    static func make(_ number: UInt64) -> NSFileProviderItemIdentifier {
+        NSFileProviderItemIdentifier(prefix + String(number))
+    }
+
+    static func parse(_ identifier: NSFileProviderItemIdentifier) -> UInt64? {
+        guard identifier.rawValue.hasPrefix(prefix) else { return nil }
+        return UInt64(identifier.rawValue.dropFirst(prefix.count))
     }
 }
 
