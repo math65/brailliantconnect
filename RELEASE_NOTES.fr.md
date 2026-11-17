@@ -1,22 +1,22 @@
 # Notes de version
 
-## v1.3.0 — 13/11/2026
+## v1.3.0 — 17/11/2026
 
-Deux appareils HumanWare de plus sont reconnus, et un port vide ne fait plus
-se reconnecter le dossier Brailliant.
+Cette mise à jour apporte des corrections de bugs importantes et prend en
+charge deux nouveaux appareils HumanWare.
 
-### Le StellarTrek et la BrailleNote Touch Plus
-- Ces deux appareils ne se présentent pas en USB comme des produits HumanWare,
-  mais comme des appareils Android ordinaires : BrailliantConnect les
-  ignorait. Il les reconnaît désormais, le StellarTrek au nom de fabricant
-  qu'il annonce, la BrailleNote Touch Plus à son numéro de série. Un
-  téléphone branché à côté reste ignoré.
+### Appareils
+- Prise en charge du StellarTrek
+- Prise en charge de la BrailleNote Touch Plus
 
-### Un port vide ne dérange plus
-- Certains appareils, comme l'APH Chameleon 20, annoncent leur port USB même
-  quand rien n'y est branché. Chaque fois que le Finder regardait ce port,
-  tout le dossier Brailliant se reconnectait et se figeait un instant. Ce port
-  vide n'est plus affiché.
+Cette mise à jour comprend également les corrections de bugs suivantes :
+- Les dossiers de la plage peuvent devenir inaccessibles après une
+  reconnexion, en particulier sur une carte SD ou une clé USB
+- Dans de rares cas, renommer ou supprimer un élément dans le Finder après une
+  reconnexion de la plage peut affecter un autre élément
+- Un port USB vide peut provoquer des reconnexions répétées du dossier
+  Brailliant sur l'APH Chameleon 20
+- Un dossier « usb » vide peut apparaître sur la Brailliant BI 20X
 
 ## v1.2.2 — 22/10/2026
 

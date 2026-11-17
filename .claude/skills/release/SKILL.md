@@ -65,9 +65,23 @@ the build number.
 ## 4. Write the notes, in both languages
 
 `RELEASE_NOTES.md` and `RELEASE_NOTES.fr.md`, newest section on top, dated
-`## vX.Y.Z — DD/MM/YYYY`. They are not a changelog: say what changed **for
-someone using the app**, and why it matters. A user who reads "refactored the
-diagnostics collector" learns nothing.
+`## vX.Y.Z — DD/MM/YYYY`. **Written like Apple's own update notes** — the
+author asked for it on 17 Nov 2026, after notes that explained too much
+(models: iOS 17.1, iOS 17.1.1, watchOS 10.1.1):
+
+- one opening sentence: "This update provides important bug fixes and adds
+  …" / « Cette mise à jour apporte des corrections de bugs importantes et … »;
+- new features under a short `###` heading named after the feature, one
+  noun phrase per bullet ("Support for StellarTrek");
+- then "This update also includes the following bug fixes:" / « Cette mise à
+  jour comprend également les corrections de bugs suivantes : », and one
+  bullet per bug, **stated as the symptom the user saw**, with "may" /
+  « peut » and no full stop ("Folders on the display may become unavailable
+  after the display reconnects");
+- no cause, no mechanism, no "why", no first person, nothing a user cannot
+  see. "In rare circumstances" / « Dans de rares cas » when it is rare.
+
+`RELEASE_NOTES.md` up to 1.2.2 predates this and is left as it is.
 
 The two files are written, not translated: French and English each read as if
 they were the original. Neither is allowed to carry a fact the other does not.
