@@ -549,6 +549,7 @@ public enum L {
         "Serial: %@": "Série    : %@",
         "USB:    %@": "USB      : %@",
         "Storage %@ \"%@\"": "Stockage %@ « %@ »",
+        "storage 0x%@, object %@, parent %@": "stockage 0x%@, objet %@, parent %@",
         "[active]": "[actif]",
         "  capacity: %@": "  capacité   : %@",
         "  used:     %@ (%@%%)": "  utilisé    : %@ (%@ %%)",
@@ -628,6 +629,7 @@ public enum L {
               --progress           force the progress display on
               --no-progress        hide the progress display
               --any-device         accept an MTP device from another manufacturer
+              --ids                show each item's MTP identifiers (ls, tree)
               --debug              show libmtp's internal messages
           -h, --help               show this help
           -v, --version            show the version
@@ -677,6 +679,7 @@ public enum L {
               --progress           force l'affichage de la progression
               --no-progress        masque la progression
               --any-device         accepte un appareil MTP d'un autre fabricant
+              --ids                affiche les identifiants MTP de chaque élément (ls, tree)
               --debug              affiche les messages internes de libmtp
           -h, --help               affiche cette aide
           -v, --version            affiche la version

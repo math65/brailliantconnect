@@ -4,6 +4,7 @@ import Foundation
 /// Options shared by every command.
 struct Options {
     var debug = false
+    var showIDs = false  // print MTP storage, object and parent identifiers
     var showProgress = Console.shared.isInteractive
     var showAll = false  // include the macOS junk files
     var long = false  // show sizes
@@ -41,8 +42,17 @@ func makeProgress(label: String, options: Options) -> ProgressHandler? {
 ///
 /// The name goes through `displayName`: coming from the braille display, it
 /// could contain escape sequences able to drive the terminal.
-func describe(_ entry: Entry, long: Bool) -> String {
+func describe(_ entry: Entry, long: Bool, ids: Bool = false) -> String {
     var name = entry.displayName + (entry.isDirectory ? "/" : "")
+    // What the Finder extension uses as an item's identity. Printed so that
+    // two sessions can be compared: whether a handle survives a reconnection,
+    // and whether two storages hand out the same one.
+    if ids {
+        name += "   "
+            + L.t(
+                "storage 0x%@, object %@, parent %@",
+                String(entry.storageID, radix: 16), String(entry.itemID), String(entry.parentID))
+    }
     // A name that cannot be used as a local path is flagged: the user has to
     // know that the item exists, and why it cannot be copied.
     if !entry.hasSafeName { name += "   " + L.t("[unusable name — cannot be copied]") }
@@ -103,7 +113,7 @@ enum Commands {
             say(L.t("(empty folder: %@)", RemotePath.normalize(path)))
             return
         }
-        for entry in entries { say(describe(entry, long: options.long)) }
+        for entry in entries { say(describe(entry, long: options.long, ids: options.showIDs)) }
 
         if options.long {
             let files = entries.filter { !$0.isDirectory }
@@ -146,7 +156,9 @@ enum Commands {
             if options.depth > 0 && level >= options.depth { return }
             for entry in try display.listDirectory(current) {
                 if !options.showAll && MacJunk.matches(entry.name) { continue }
-                say(String(repeating: "  ", count: level) + describe(entry, long: false))
+                say(
+                    String(repeating: "  ", count: level)
+                        + describe(entry, long: false, ids: options.showIDs))
                 if entry.isDirectory { try walk(entry.path, level + 1) }
             }
         }

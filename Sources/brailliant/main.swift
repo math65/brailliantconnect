@@ -40,6 +40,7 @@ let usage = L.t(
           --progress           force the progress display on
           --no-progress        hide the progress display
           --any-device         accept an MTP device from another manufacturer
+          --ids                show each item's MTP identifiers (ls, tree)
           --debug              show libmtp's internal messages
       -h, --help               show this help
       -v, --version            show the version
@@ -73,6 +74,7 @@ func run() -> Int32 {
             print("brailliant \(Version.current)")
             return 0
         case "--debug": options.debug = true
+        case "--ids": options.showIDs = true
         case "--progress": options.showProgress = true
         case "--no-progress": options.showProgress = false
         case "-a", "--all": options.showAll = true
